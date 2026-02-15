@@ -25,21 +25,21 @@ const AboutSection = () => {
   ];
 
   return (
-    <section id="sobre" className="section-padding bg-card">
+    <section id="sobre" className="section-padding bg-white text-black">
       <div className="container-custom">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Content */}
           <div>
-            <span className="text-gold text-sm font-semibold tracking-wider uppercase mb-4 block">
+            <span className="text-gold text-sm font-semibold tracking-wider uppercase mb-4 block drop-shadow-sm">
               Sobre o Escritório
             </span>
-            <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6 leading-tight">
+            <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-black mb-6 leading-tight">
               Advocacia Criminal de{" "}
               <span className="text-gradient-gold">Excelência</span>
             </h2>
-            <div className="space-y-4 text-muted-foreground leading-relaxed">
+            <div className="space-y-4 text-neutral-600 leading-relaxed">
               <p>
-                O escritório <strong className="text-foreground">Lindomberto Moraes – Advocacia Criminal</strong> é 
+                O escritório <strong className="text-black">Lindomberto Moraes – Advocacia Criminal</strong> é 
                 especializado exclusivamente em Direito Penal, oferecendo defesa técnica qualificada 
                 para clientes em todo o Brasil.
               </p>
@@ -61,15 +61,15 @@ const AboutSection = () => {
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="p-6 rounded-xl bg-background border border-border hover:border-gold/30 transition-all duration-300 hover-lift group"
+                className="p-6 rounded-xl bg-neutral-50 border border-neutral-200 hover:border-gold/40 transition-all duration-300 hover-lift group"
               >
-                <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center mb-4 group-hover:bg-gold/20 transition-colors">
+                <div className="w-12 h-12 rounded-lg bg-gold/15 flex items-center justify-center mb-4 group-hover:bg-gold/25 transition-colors">
                   <feature.icon className="w-6 h-6 text-gold" />
                 </div>
-                <h3 className="font-serif text-lg font-semibold text-foreground mb-2">
+                <h3 className="font-serif text-lg font-semibold text-black mb-2">
                   {feature.title}
                 </h3>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-neutral-500 text-sm">
                   {feature.description}
                 </p>
               </div>

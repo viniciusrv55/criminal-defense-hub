@@ -66,7 +66,7 @@ const PracticeAreasSection = () => {
               key={index}
               className="group p-8 rounded-2xl bg-card border border-border hover:border-gold/30 transition-all duration-300 hover-lift"
             >
-              <div className="w-14 h-14 rounded-xl bg-primary/20 flex items-center justify-center mb-6 group-hover:bg-gold/20 transition-colors">
+              <div className="w-14 h-14 rounded-xl bg-gold/15 flex items-center justify-center mb-6 group-hover:bg-gold/25 transition-colors">
                 <area.icon className="w-7 h-7 text-gold" />
               </div>
               <h3 className="font-serif text-xl font-semibold text-foreground mb-3">
