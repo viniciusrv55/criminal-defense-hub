@@ -8,18 +8,18 @@ const BlogPreviewSection = () => {
   const recentPosts = blogPosts.slice(0, 3);
 
   return (
-    <section className="py-20 bg-muted/30">
+    <section className="py-20 bg-white">
       <div className="container-custom">
         {/* Section Header */}
         <div className="text-center mb-12">
           <span className="text-gold text-sm font-semibold tracking-wider uppercase mb-4 block">
             Blog Jurídico
           </span>
-          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-4">
+          <h2 className="font-serif text-3xl md:text-4xl font-bold text-black mb-4">
             Artigos sobre{" "}
             <span className="text-gradient-gold">Direito Criminal</span>
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="text-neutral-500 text-lg max-w-2xl mx-auto">
             Conteúdo informativo para você entender seus direitos e o funcionamento do sistema de justiça criminal.
           </p>
         </div>
@@ -29,7 +29,7 @@ const BlogPreviewSection = () => {
           {recentPosts.map((post) => (
             <article
               key={post.slug}
-              className="group p-6 rounded-2xl bg-card border border-border hover:border-gold/30 transition-all duration-300 hover-lift"
+              className="group p-6 rounded-2xl bg-neutral-50 border border-neutral-200 hover:border-gold/40 transition-all duration-300 hover-lift"
             >
               <div className="mb-4">
                 <span className="inline-block px-3 py-1 text-xs font-medium text-gold bg-gold/10 rounded-full">
@@ -38,17 +38,17 @@ const BlogPreviewSection = () => {
               </div>
 
               <Link to={`/blog/${post.slug}`}>
-                <h3 className="font-serif text-lg font-semibold text-foreground mb-3 group-hover:text-gold transition-colors line-clamp-2">
+                <h3 className="font-serif text-lg font-semibold text-black mb-3 group-hover:text-gold transition-colors line-clamp-2">
                   {post.title}
                 </h3>
               </Link>
 
-              <p className="text-muted-foreground text-sm mb-4 line-clamp-3 leading-relaxed">
+              <p className="text-neutral-500 text-sm mb-4 line-clamp-3 leading-relaxed">
                 {post.excerpt}
               </p>
 
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex items-center gap-3 text-xs text-neutral-400">
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
                     {post.date}
