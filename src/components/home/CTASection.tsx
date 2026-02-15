@@ -7,7 +7,7 @@ const CTASection = () => {
   return (
     <section id="contato" className="section-padding relative overflow-hidden">
       {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-navy" />
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-black/90 to-secondary" />
       
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden">

@@ -10,20 +10,20 @@ const HeroSection = () => {
       <div 
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `linear-gradient(135deg, hsla(217, 91%, 8%, 0.95) 0%, hsla(217, 50%, 15%, 0.9) 50%, hsla(215, 30%, 12%, 0.95) 100%)`,
+          backgroundImage: `linear-gradient(135deg, hsla(0, 0%, 0%, 0.95) 0%, hsla(0, 0%, 8%, 0.9) 50%, hsla(0, 0%, 4%, 0.95) 100%)`,
         }}
       />
       
       {/* Decorative elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gold/10 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gold/5 rounded-full blur-3xl" />
       </div>
 
       <div className="relative z-10 container-custom text-center py-32">
         <div className="max-w-4xl mx-auto">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/20 border border-primary/30 mb-8 animate-fade-up">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gold/10 border border-gold/20 mb-8 animate-fade-up">
             <Shield className="w-4 h-4 text-gold" />
             <span className="text-sm font-medium text-foreground/80">
               Advocacia Criminal Especializada
