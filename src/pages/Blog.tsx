@@ -25,7 +25,7 @@ const Blog = () => {
 
       <Header />
       
-      <main className="pt-28 pb-16">
+      <main className="pt-28 pb-16 bg-white">
         <div className="container-custom">
           <Breadcrumbs items={[{ label: "Blog" }]} />
 
@@ -34,11 +34,11 @@ const Blog = () => {
             <span className="text-gold text-sm font-semibold tracking-wider uppercase mb-4 block">
               Blog Jurídico
             </span>
-            <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">
+            <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-black mb-4">
               Artigos sobre{" "}
               <span className="text-gradient-gold">Direito Criminal</span>
             </h1>
-            <p className="text-muted-foreground text-lg max-w-2xl">
+            <p className="text-neutral-600 text-lg max-w-2xl">
               Conteúdo informativo sobre seus direitos, processos criminais e 
               orientações jurídicas para você entender melhor o sistema de justiça.
             </p>
