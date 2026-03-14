@@ -1,16 +1,27 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Calendar, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { blogPosts } from "@/data/blogPosts";
+import { useBlogPosts } from "@/hooks/useBlogPosts";
+import { blogPosts as staticPosts } from "@/data/blogPosts";
 
 const BlogPreviewSection = () => {
-  // Pega os 3 artigos mais recentes
-  const recentPosts = blogPosts.slice(0, 3);
+  const { posts: dbPosts, loading } = useBlogPosts();
+
+  // Use DB posts if available, fallback to static
+  const posts = dbPosts.length > 0
+    ? dbPosts.slice(0, 3).map((p) => ({
+        slug: p.slug,
+        title: p.title,
+        excerpt: p.excerpt ?? '',
+        date: new Date(p.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' }),
+        readTime: '5 min de leitura',
+        category: p.category ?? 'Artigo',
+      }))
+    : staticPosts.slice(0, 3);
 
   return (
     <section className="py-20 bg-white">
       <div className="container-custom">
-        {/* Section Header */}
         <div className="text-center mb-12">
           <span className="text-gold text-sm font-semibold tracking-wider uppercase mb-4 block">
             Blog Jurídico
@@ -24,54 +35,58 @@ const BlogPreviewSection = () => {
           </p>
         </div>
 
-        {/* Articles Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-          {recentPosts.map((post) => (
-            <article
-              key={post.slug}
-              className="group p-6 rounded-2xl bg-neutral-50 border border-neutral-200 hover:border-gold/40 transition-all duration-300 hover-lift"
-            >
-              <div className="mb-4">
-                <span className="inline-block px-3 py-1 text-xs font-medium text-gold bg-gold/10 rounded-full">
-                  {post.category}
-                </span>
-              </div>
-
-              <Link to={`/blog/${post.slug}`}>
-                <h3 className="font-serif text-lg font-semibold text-black mb-3 group-hover:text-gold transition-colors line-clamp-2">
-                  {post.title}
-                </h3>
-              </Link>
-
-              <p className="text-neutral-500 text-sm mb-4 line-clamp-3 leading-relaxed">
-                {post.excerpt}
-              </p>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 text-xs text-neutral-400">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {post.date}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {post.readTime}
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gold" />
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+            {posts.map((post) => (
+              <article
+                key={post.slug}
+                className="group p-6 rounded-2xl bg-neutral-50 border border-neutral-200 hover:border-gold/40 transition-all duration-300 hover-lift"
+              >
+                <div className="mb-4">
+                  <span className="inline-block px-3 py-1 text-xs font-medium text-gold bg-gold/10 rounded-full">
+                    {post.category}
                   </span>
                 </div>
 
-                <Link
-                  to={`/blog/${post.slug}`}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-gold hover:text-gold-hover transition-colors"
-                >
-                  Ler
-                  <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                <Link to={`/blog/${post.slug}`}>
+                  <h3 className="font-serif text-lg font-semibold text-black mb-3 group-hover:text-gold transition-colors line-clamp-2">
+                    {post.title}
+                  </h3>
                 </Link>
-              </div>
-            </article>
-          ))}
-        </div>
 
-        {/* CTA to Blog */}
+                <p className="text-neutral-500 text-sm mb-4 line-clamp-3 leading-relaxed">
+                  {post.excerpt}
+                </p>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 text-xs text-neutral-400">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {post.date}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {post.readTime}
+                    </span>
+                  </div>
+
+                  <Link
+                    to={`/blog/${post.slug}`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-gold hover:text-gold-hover transition-colors"
+                  >
+                    Ler
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
         <div className="text-center">
           <Button asChild variant="outline-gold" size="lg">
             <Link to="/blog" className="inline-flex items-center gap-2">
