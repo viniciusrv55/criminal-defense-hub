@@ -208,7 +208,7 @@ const BlogPost = () => {
       </main>
 
       <Footer />
-      <WhatsAppButton />
+      <LeadFormPopup />
     </>
   );
 };
