@@ -192,10 +192,10 @@ const BlogPost = () => {
                   entre em contato conosco. Atendimento sigiloso e humanizado.
                 </p>
                 <Button variant="whatsapp" size="lg" asChild>
-                  <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                  <Link to="/contato">
                     <Phone className="w-4 h-4" />
-                    Falar com um Advogado
-                  </a>
+                    Solicitar Atendimento
+                  </Link>
                 </Button>
               </div>
             </article>
