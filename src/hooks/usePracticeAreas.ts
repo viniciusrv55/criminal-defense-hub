@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/supabase-helpers';
 import type { PracticeArea } from '@/types/database';
 
 export function usePracticeAreas() {
@@ -8,11 +8,7 @@ export function usePracticeAreas() {
 
   useEffect(() => {
     const fetchAreas = async () => {
-      const { data } = await supabase
-        .from('practice_areas')
-        .select('*')
-        .eq('active', true)
-        .order('sort_order');
+      const { data } = await db.from('practice_areas').select('*').eq('active', true).order('sort_order');
       setAreas(data ?? []);
       setLoading(false);
     };

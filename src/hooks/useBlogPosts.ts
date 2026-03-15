@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/supabase-helpers';
 import type { BlogPostDB } from '@/types/database';
 
 export function useBlogPosts() {
@@ -8,11 +8,7 @@ export function useBlogPosts() {
 
   useEffect(() => {
     const fetchPosts = async () => {
-      const { data } = await supabase
-        .from('blog_posts')
-        .select('*')
-        .eq('published', true)
-        .order('created_at', { ascending: false });
+      const { data } = await db.from('blog_posts').select('*').eq('published', true).order('created_at', { ascending: false });
       setPosts(data ?? []);
       setLoading(false);
     };
@@ -28,14 +24,8 @@ export function useBlogPost(slug: string | undefined) {
 
   useEffect(() => {
     if (!slug) { setLoading(false); return; }
-
     const fetchPost = async () => {
-      const { data } = await supabase
-        .from('blog_posts')
-        .select('*')
-        .eq('slug', slug)
-        .eq('published', true)
-        .single();
+      const { data } = await db.from('blog_posts').select('*').eq('slug', slug).eq('published', true).single();
       setPost(data ?? null);
       setLoading(false);
     };
@@ -50,12 +40,8 @@ export function useBlogGallery(postId: string | undefined) {
 
   useEffect(() => {
     if (!postId) return;
-    supabase
-      .from('blog_images')
-      .select('id, image_url, caption')
-      .eq('post_id', postId)
-      .order('sort_order')
-      .then(({ data }) => setImages(data ?? []));
+    db.from('blog_images').select('id, image_url, caption').eq('post_id', postId).order('sort_order')
+      .then(({ data }: { data: any }) => setImages(data ?? []));
   }, [postId]);
 
   return images;
