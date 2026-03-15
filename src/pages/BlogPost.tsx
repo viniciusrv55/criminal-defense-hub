@@ -46,7 +46,7 @@ const BlogPost = () => {
     return <Navigate to="/blog" replace />;
   }
 
-  const whatsappLink = "https://wa.me/5500000000000?text=Olá, gostaria de falar com um advogado criminalista.";
+  
 
   return (
     <>
