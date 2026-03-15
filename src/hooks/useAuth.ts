@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { db } from '@/lib/supabase-helpers';
 import type { User, Session } from '@supabase/supabase-js';
 import type { AppRole } from '@/types/database';
 
@@ -11,19 +12,12 @@ export function useAuth() {
   const [profileName, setProfileName] = useState<string | null>(null);
 
   const fetchRoles = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId);
-    setRoles(data?.map(r => r.role as AppRole) ?? []);
+    const { data } = await db.from('user_roles').select('role').eq('user_id', userId);
+    setRoles(data?.map((r: { role: AppRole }) => r.role) ?? []);
   }, []);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('user_id', userId)
-      .single();
+    const { data } = await db.from('profiles').select('full_name').eq('user_id', userId).single();
     setProfileName(data?.full_name ?? null);
   }, []);
 
@@ -33,10 +27,7 @@ export function useAuth() {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await Promise.all([
-            fetchRoles(session.user.id),
-            fetchProfile(session.user.id),
-          ]);
+          await Promise.all([fetchRoles(session.user.id), fetchProfile(session.user.id)]);
         } else {
           setRoles([]);
           setProfileName(null);
@@ -49,10 +40,7 @@ export function useAuth() {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        Promise.all([
-          fetchRoles(session.user.id),
-          fetchProfile(session.user.id),
-        ]).then(() => setLoading(false));
+        Promise.all([fetchRoles(session.user.id), fetchProfile(session.user.id)]).then(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -73,16 +61,5 @@ export function useAuth() {
     return supabase.auth.signOut();
   };
 
-  return {
-    user,
-    session,
-    roles,
-    loading,
-    profileName,
-    hasRole,
-    isAdmin,
-    isSuperAdmin,
-    signIn,
-    signOut,
-  };
+  return { user, session, roles, loading, profileName, hasRole, isAdmin, isSuperAdmin, signIn, signOut };
 }

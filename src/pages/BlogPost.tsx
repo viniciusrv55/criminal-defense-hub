@@ -1,8 +1,8 @@
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, Navigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import WhatsAppButton from "@/components/WhatsAppButton";
+import LeadFormPopup from "@/components/LeadFormPopup";
 import BlogSidebar from "@/components/blog/BlogSidebar";
 import Breadcrumbs from "@/components/blog/Breadcrumbs";
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ const BlogPost = () => {
     return <Navigate to="/blog" replace />;
   }
 
-  const whatsappLink = "https://wa.me/5500000000000?text=Olá, gostaria de falar com um advogado criminalista.";
+  
 
   return (
     <>
@@ -192,10 +192,10 @@ const BlogPost = () => {
                   entre em contato conosco. Atendimento sigiloso e humanizado.
                 </p>
                 <Button variant="whatsapp" size="lg" asChild>
-                  <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                  <Link to="/contato">
                     <Phone className="w-4 h-4" />
-                    Falar com um Advogado
-                  </a>
+                    Solicitar Atendimento
+                  </Link>
                 </Button>
               </div>
             </article>
@@ -208,7 +208,7 @@ const BlogPost = () => {
       </main>
 
       <Footer />
-      <WhatsAppButton />
+      <LeadFormPopup />
     </>
   );
 };
