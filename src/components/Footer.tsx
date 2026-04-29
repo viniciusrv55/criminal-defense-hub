@@ -20,7 +20,7 @@ const Footer = () => {
               </div>
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Defesa criminal especializada com ética, sigilo e dedicação. Atuamos em todo o Brasil com atendimento humanizado.
+              {settings.footer_description || 'Defesa criminal especializada com ética, sigilo e dedicação. Atuamos em todo o Brasil com atendimento humanizado.'}
             </p>
           </div>
 
@@ -73,7 +73,7 @@ const Footer = () => {
 
         <div className="mt-16 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-muted-foreground text-sm text-center md:text-left">© {new Date().getFullYear()} Lindomberto Moraes Advocacia Criminal. Todos os direitos reservados.</p>
-          <p className="text-muted-foreground text-sm">OAB/SP 000.000</p>
+          <p className="text-muted-foreground text-sm">{settings.footer_oab || 'OAB/SP 000.000'}</p>
         </div>
       </div>
     </footer>
