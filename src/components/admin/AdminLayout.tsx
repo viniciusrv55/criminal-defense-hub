@@ -20,7 +20,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/admin/blog', label: 'Blog Posts', icon: FileText },
-    { href: '/admin/areas', label: 'Áreas de Atuação', icon: Briefcase },
+    { href: '/admin/areas', label: 'Área de Atuação', icon: Briefcase },
     { href: '/admin/leads', label: 'Leads', icon: Users },
     ...(isSuperAdmin() ? [{ href: '/admin/attorneys', label: 'Advogados', icon: UserCheck }] : []),
     { href: '/admin/settings', label: 'Configurações', icon: Settings },

@@ -30,7 +30,7 @@ const Footer = () => {
               {[
                 { href: "/", label: "Início" },
                 { href: "/#sobre", label: "Sobre o Escritório" },
-                { href: "/#atuacao", label: "Áreas de Atuação" },
+                { href: "/#atuacao", label: "Área de Atuação" },
                 { href: "/blog", label: "Blog Jurídico" },
                 { href: "/contato", label: "Contato" },
               ].map(link => (

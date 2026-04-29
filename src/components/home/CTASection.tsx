@@ -1,8 +1,22 @@
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Phone, Shield, Clock } from "lucide-react";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { buildWhatsappLink } from "@/lib/whatsapp";
 
 const CTASection = () => {
+  const { settings } = useSiteSettings();
+  const whatsappLink = buildWhatsappLink(settings.whatsapp_number, settings.whatsapp_message);
+
+  const title = settings.cta_title || "Precisa de um Advogado Criminalista?";
+  const highlight = settings.cta_title_highlight || "Advogado Criminalista?";
+  const renderTitle = () => {
+    if (highlight && title.includes(highlight)) {
+      const [before, ...rest] = title.split(highlight);
+      return (<>{before}<span className="text-gradient-gold">{highlight}</span>{rest.join(highlight)}</>);
+    }
+    return title;
+  };
+
   return (
     <section id="contato" className="section-padding relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-to-br from-black via-black/90 to-secondary" />
@@ -14,19 +28,19 @@ const CTASection = () => {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-foreground/10 border border-foreground/20 mb-8">
             <Shield className="w-4 h-4 text-gold" />
-            <span className="text-sm font-medium text-foreground/80">Atendimento Sigiloso e Imediato</span>
+            <span className="text-sm font-medium text-foreground/80">{settings.cta_badge || "Atendimento Sigiloso e Imediato"}</span>
           </div>
 
           <h2 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-6 leading-tight">
-            Precisa de um <span className="text-gradient-gold">Advogado Criminalista?</span>
+            {renderTitle()}
           </h2>
 
           <p className="text-lg md:text-xl text-foreground/80 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Não enfrente essa situação sozinho. Entre em contato agora mesmo e receba orientação jurídica especializada com total sigilo e agilidade.
+            {settings.cta_subtitle || "Não enfrente essa situação sozinho."}
           </p>
 
           <Button variant="whatsapp" size="xl" className="mb-12" asChild>
-            <Link to="/contato"><Phone className="w-5 h-5" />Solicitar Atendimento</Link>
+            <a href={whatsappLink} target="_blank" rel="noopener noreferrer"><Phone className="w-5 h-5" />{settings.cta_button || "Solicitar Atendimento via WhatsApp"}</a>
           </Button>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
