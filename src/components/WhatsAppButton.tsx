@@ -1,7 +1,10 @@
 import { MessageCircle } from "lucide-react";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { buildWhatsappLink } from "@/lib/whatsapp";
 
 const WhatsAppButton = () => {
-  const whatsappLink = "https://wa.me/5500000000000?text=Olá, gostaria de falar com um advogado criminalista.";
+  const { settings } = useSiteSettings();
+  const whatsappLink = buildWhatsappLink(settings.whatsapp_number, settings.whatsapp_message);
 
   return (
     <a
