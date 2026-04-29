@@ -1,7 +1,6 @@
 import { Helmet } from "react-helmet-async";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import LeadFormPopup from "@/components/LeadFormPopup";
 import BlogCard from "@/components/blog/BlogCard";
 import BlogSidebar from "@/components/blog/BlogSidebar";
 import Breadcrumbs from "@/components/blog/Breadcrumbs";
@@ -54,7 +53,6 @@ const Blog = () => {
         </div>
       </main>
       <Footer />
-      <LeadFormPopup />
     </>
   );
 };
