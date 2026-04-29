@@ -1,6 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import WhatsAppButton from '@/components/WhatsAppButton';
 import { Button } from '@/components/ui/button';
 import { MapPin, Phone, Mail, Clock, MessageCircle, Facebook, Instagram, ExternalLink } from 'lucide-react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
