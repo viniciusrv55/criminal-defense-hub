@@ -10,17 +10,82 @@ import { db } from '@/lib/supabase-helpers';
 import { supabase } from '@/integrations/supabase/client';
 import type { SiteSetting } from '@/types/database';
 
-const SETTINGS_KEYS = [
-  { key: 'logo_url', label: 'Logo', type: 'image', bucket: 'site-assets' },
-  { key: 'team_image_url', label: 'Imagem da Equipe', type: 'image', bucket: 'site-assets' },
-  { key: 'address', label: 'Endereço', type: 'text' },
-  { key: 'phone', label: 'Telefone', type: 'text' },
-  { key: 'email', label: 'E-mail', type: 'text' },
-  { key: 'google_maps_embed', label: 'Google Maps (código embed)', type: 'textarea' },
-  { key: 'google_my_business_url', label: 'Google Meu Negócio (URL)', type: 'text' },
-  { key: 'facebook_url', label: 'Facebook (URL)', type: 'text' },
-  { key: 'instagram_url', label: 'Instagram (URL)', type: 'text' },
+type SettingDef = { key: string; label: string; type: 'text' | 'textarea' | 'image' };
+type SettingGroup = { group: string; items: SettingDef[] };
+
+const SETTINGS_GROUPS: SettingGroup[] = [
+  {
+    group: 'Identidade & Contato',
+    items: [
+      { key: 'logo_url', label: 'Logo', type: 'image' },
+      { key: 'team_image_url', label: 'Imagem da Equipe', type: 'image' },
+      { key: 'address', label: 'Endereço', type: 'text' },
+      { key: 'phone', label: 'Telefone', type: 'text' },
+      { key: 'email', label: 'E-mail', type: 'text' },
+      { key: 'contact_hours', label: 'Horário de Atendimento', type: 'text' },
+      { key: 'whatsapp_number', label: 'WhatsApp (somente números, com DDI. Ex: 5511999999999)', type: 'text' },
+      { key: 'whatsapp_message', label: 'Mensagem padrão do WhatsApp', type: 'textarea' },
+    ],
+  },
+  {
+    group: 'Mapa & Redes Sociais',
+    items: [
+      { key: 'google_maps_embed', label: 'Google Maps (cole o código <iframe> incorporado)', type: 'textarea' },
+      { key: 'google_my_business_url', label: 'Google Meu Negócio (URL)', type: 'text' },
+      { key: 'facebook_url', label: 'Facebook (URL)', type: 'text' },
+      { key: 'instagram_url', label: 'Instagram (URL)', type: 'text' },
+    ],
+  },
+  {
+    group: 'Hero (Topo da Home)',
+    items: [
+      { key: 'hero_badge', label: 'Selo (badge)', type: 'text' },
+      { key: 'hero_title', label: 'Título principal', type: 'text' },
+      { key: 'hero_title_highlight', label: 'Trecho do título em destaque dourado', type: 'text' },
+      { key: 'hero_subtitle', label: 'Subtítulo', type: 'textarea' },
+      { key: 'hero_cta_primary', label: 'Botão principal (WhatsApp)', type: 'text' },
+      { key: 'hero_cta_secondary', label: 'Botão secundário', type: 'text' },
+      { key: 'hero_stat_1_number', label: 'Estatística 1 - Número', type: 'text' },
+      { key: 'hero_stat_1_label', label: 'Estatística 1 - Texto', type: 'text' },
+      { key: 'hero_stat_2_number', label: 'Estatística 2 - Número', type: 'text' },
+      { key: 'hero_stat_2_label', label: 'Estatística 2 - Texto', type: 'text' },
+      { key: 'hero_stat_3_number', label: 'Estatística 3 - Número', type: 'text' },
+      { key: 'hero_stat_3_label', label: 'Estatística 3 - Texto', type: 'text' },
+      { key: 'hero_stat_4_number', label: 'Estatística 4 - Número', type: 'text' },
+      { key: 'hero_stat_4_label', label: 'Estatística 4 - Texto', type: 'text' },
+    ],
+  },
+  {
+    group: 'Sobre o Escritório',
+    items: [
+      { key: 'about_eyebrow', label: 'Pré-título', type: 'text' },
+      { key: 'about_title', label: 'Título', type: 'text' },
+      { key: 'about_title_highlight', label: 'Trecho do título em destaque dourado', type: 'text' },
+      { key: 'about_paragraph_1', label: 'Parágrafo 1', type: 'textarea' },
+      { key: 'about_paragraph_2', label: 'Parágrafo 2', type: 'textarea' },
+      { key: 'about_paragraph_3', label: 'Parágrafo 3', type: 'textarea' },
+    ],
+  },
+  {
+    group: 'Chamada para Ação (CTA)',
+    items: [
+      { key: 'cta_badge', label: 'Selo (badge)', type: 'text' },
+      { key: 'cta_title', label: 'Título', type: 'text' },
+      { key: 'cta_title_highlight', label: 'Trecho do título em destaque dourado', type: 'text' },
+      { key: 'cta_subtitle', label: 'Subtítulo', type: 'textarea' },
+      { key: 'cta_button', label: 'Texto do botão WhatsApp', type: 'text' },
+    ],
+  },
+  {
+    group: 'Rodapé',
+    items: [
+      { key: 'footer_description', label: 'Descrição do escritório', type: 'textarea' },
+      { key: 'footer_oab', label: 'Número OAB', type: 'text' },
+    ],
+  },
 ];
+
+const ALL_KEYS = SETTINGS_GROUPS.flatMap(g => g.items);
 
 const Settings = () => {
   const [values, setValues] = useState<Record<string, string>>({});
