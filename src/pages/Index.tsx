@@ -48,7 +48,6 @@ const Index = () => {
         <CTASection />
       </main>
       <Footer />
-      <LeadFormPopup />
       <WhatsAppButton />
     </>
   );
