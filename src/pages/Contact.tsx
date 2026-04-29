@@ -118,6 +118,7 @@ const Contact = () => {
       </main>
 
       <Footer />
+      <WhatsAppButton />
     </>
   );
 };
