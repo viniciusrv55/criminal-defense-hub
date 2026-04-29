@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import LeadFormPopup from "@/components/LeadFormPopup";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import HeroSection from "@/components/home/HeroSection";
 import AboutSection from "@/components/home/AboutSection";
 import PracticeAreasSection from "@/components/home/PracticeAreasSection";
@@ -49,6 +49,7 @@ const Index = () => {
       </main>
       <Footer />
       <LeadFormPopup />
+      <WhatsAppButton />
     </>
   );
 };
