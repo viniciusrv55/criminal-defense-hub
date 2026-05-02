@@ -284,6 +284,19 @@ const Leads = () => {
                   })}
                 </div>
               </div>
+              {isAdmin() && (
+                <div className="pt-4 border-t border-border">
+                  <Button
+                    onClick={() => convertToContract(selectedLead)}
+                    disabled={converting}
+                    className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                  >
+                    <FileSignature className="w-4 h-4 mr-2" />
+                    {converting ? 'Convertendo...' : 'Converter em Contrato'}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground mt-2 text-center">Cria cliente e abre o contrato pré-preenchido.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
