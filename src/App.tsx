@@ -20,6 +20,9 @@ import Settings from "./pages/admin/Settings";
 import Attorneys from "./pages/admin/Attorneys";
 import Team from "./pages/admin/Team";
 import PracticeAreas from "./pages/PracticeAreas";
+import Contracts from "./pages/admin/Contracts";
+import ContractForm from "./pages/admin/ContractForm";
+import ClientPortal from "./pages/ClientPortal";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -38,6 +41,7 @@ const App = () => (
             <Route path="/contato" element={<Contact />} />
             <Route path="/areas-de-atuacao" element={<PracticeAreas />} />
             <Route path="/areas/:slug" element={<PracticeAreaDetail />} />
+            <Route path="/portal" element={<ClientPortal />} />
 
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
@@ -49,6 +53,8 @@ const App = () => (
             <Route path="/admin/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/admin/attorneys" element={<ProtectedRoute><Attorneys /></ProtectedRoute>} />
             <Route path="/admin/equipe" element={<ProtectedRoute><Team /></ProtectedRoute>} />
+            <Route path="/admin/contratos" element={<ProtectedRoute><Contracts /></ProtectedRoute>} />
+            <Route path="/admin/contratos/:id" element={<ProtectedRoute><ContractForm /></ProtectedRoute>} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
