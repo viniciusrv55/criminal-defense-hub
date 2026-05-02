@@ -18,6 +18,8 @@ import PracticeAreasAdmin from "./pages/admin/PracticeAreas";
 import Leads from "./pages/admin/Leads";
 import Settings from "./pages/admin/Settings";
 import Attorneys from "./pages/admin/Attorneys";
+import Team from "./pages/admin/Team";
+import PracticeAreas from "./pages/PracticeAreas";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,7 @@ const App = () => (
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/contato" element={<Contact />} />
+            <Route path="/areas-de-atuacao" element={<PracticeAreas />} />
             <Route path="/areas/:slug" element={<PracticeAreaDetail />} />
 
             {/* Admin Routes */}
@@ -45,6 +48,7 @@ const App = () => (
             <Route path="/admin/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             <Route path="/admin/attorneys" element={<ProtectedRoute><Attorneys /></ProtectedRoute>} />
+            <Route path="/admin/equipe" element={<ProtectedRoute><Team /></ProtectedRoute>} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
