@@ -127,6 +127,308 @@ export type Database = {
         }
         Relationships: []
       }
+      client_portal_access: {
+        Row: {
+          active: boolean
+          birthday_day: number | null
+          birthday_month: number | null
+          client_id: string
+          created_at: string
+          id: string
+          nickname: string | null
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          active?: boolean
+          birthday_day?: number | null
+          birthday_month?: number | null
+          client_id: string
+          created_at?: string
+          id?: string
+          nickname?: string | null
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          active?: boolean
+          birthday_day?: number | null
+          birthday_month?: number | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          nickname?: string | null
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_access_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          address: string | null
+          birth_date: string | null
+          cep: string | null
+          city: string | null
+          cnpj: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          cpf: string | null
+          created_at: string
+          created_by: string | null
+          education: string | null
+          emails: Json
+          father_name: string | null
+          full_name: string
+          group_name: string | null
+          id: string
+          lead_id: string | null
+          marital_status: string | null
+          mother_name: string | null
+          nationality: string | null
+          neighborhood: string | null
+          notes: string | null
+          person_type: string
+          phones: Json
+          pis: string | null
+          profession: string | null
+          profile_type: string | null
+          rg: string | null
+          social_name: string | null
+          state: string | null
+          state_registration: string | null
+          trade_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          birth_date?: string | null
+          cep?: string | null
+          city?: string | null
+          cnpj?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          education?: string | null
+          emails?: Json
+          father_name?: string | null
+          full_name: string
+          group_name?: string | null
+          id?: string
+          lead_id?: string | null
+          marital_status?: string | null
+          mother_name?: string | null
+          nationality?: string | null
+          neighborhood?: string | null
+          notes?: string | null
+          person_type?: string
+          phones?: Json
+          pis?: string | null
+          profession?: string | null
+          profile_type?: string | null
+          rg?: string | null
+          social_name?: string | null
+          state?: string | null
+          state_registration?: string | null
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          birth_date?: string | null
+          cep?: string | null
+          city?: string | null
+          cnpj?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          education?: string | null
+          emails?: Json
+          father_name?: string | null
+          full_name?: string
+          group_name?: string | null
+          id?: string
+          lead_id?: string | null
+          marital_status?: string | null
+          mother_name?: string | null
+          nationality?: string | null
+          neighborhood?: string | null
+          notes?: string | null
+          person_type?: string
+          phones?: Json
+          pis?: string | null
+          profession?: string | null
+          profile_type?: string | null
+          rg?: string | null
+          social_name?: string | null
+          state?: string | null
+          state_registration?: string | null
+          trade_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contract_documents: {
+        Row: {
+          contract_id: string
+          copies: number
+          created_at: string
+          document_type: string
+          file_name: string | null
+          file_url: string | null
+          generated_by: string | null
+          generated_html: string | null
+          id: string
+          template_name: string | null
+        }
+        Insert: {
+          contract_id: string
+          copies?: number
+          created_at?: string
+          document_type: string
+          file_name?: string | null
+          file_url?: string | null
+          generated_by?: string | null
+          generated_html?: string | null
+          id?: string
+          template_name?: string | null
+        }
+        Update: {
+          contract_id?: string
+          copies?: number
+          created_at?: string
+          document_type?: string
+          file_name?: string | null
+          file_url?: string | null
+          generated_by?: string | null
+          generated_html?: string | null
+          id?: string
+          template_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_documents_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_history: {
+        Row: {
+          action: string
+          contract_id: string
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          contract_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          contract_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_history_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          additional_data: Json
+          adverse_party: Json
+          attorney_id: string | null
+          client_id: string
+          contract_number: string | null
+          created_at: string
+          created_by: string | null
+          fees: Json
+          id: string
+          notes: string | null
+          practice_area_id: string | null
+          process_data: Json
+          process_type: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          additional_data?: Json
+          adverse_party?: Json
+          attorney_id?: string | null
+          client_id: string
+          contract_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          fees?: Json
+          id?: string
+          notes?: string | null
+          practice_area_id?: string | null
+          process_data?: Json
+          process_type?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          additional_data?: Json
+          adverse_party?: Json
+          attorney_id?: string | null
+          client_id?: string
+          contract_number?: string | null
+          created_at?: string
+          created_by?: string | null
+          fees?: Json
+          id?: string
+          notes?: string | null
+          practice_area_id?: string | null
+          process_data?: Json
+          process_type?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kanban_stage_permissions: {
         Row: {
           can_act: boolean
@@ -444,7 +746,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "attorney" | "team_member"
+      app_role: "super_admin" | "admin" | "attorney" | "team_member" | "client"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -572,7 +874,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "attorney", "team_member"],
+      app_role: ["super_admin", "admin", "attorney", "team_member", "client"],
     },
   },
 } as const
