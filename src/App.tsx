@@ -41,6 +41,7 @@ const App = () => (
             <Route path="/contato" element={<Contact />} />
             <Route path="/areas-de-atuacao" element={<PracticeAreas />} />
             <Route path="/areas/:slug" element={<PracticeAreaDetail />} />
+            <Route path="/portal" element={<ClientPortal />} />
 
             {/* Admin Routes */}
             <Route path="/admin/login" element={<AdminLogin />} />
