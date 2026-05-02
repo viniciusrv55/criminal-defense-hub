@@ -12,42 +12,58 @@ export function useAuth() {
   const [profileName, setProfileName] = useState<string | null>(null);
 
   const fetchRoles = useCallback(async (userId: string) => {
-    const { data } = await db.from('user_roles').select('role').eq('user_id', userId);
-    setRoles(data?.map((r: { role: AppRole }) => r.role) ?? []);
+    const { data, error } = await db.from('user_roles').select('role').eq('user_id', userId);
+    if (!error) setRoles(data?.map((r: { role: AppRole }) => r.role) ?? []);
   }, []);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await db.from('profiles').select('full_name').eq('user_id', userId).single();
-    setProfileName(data?.full_name ?? null);
+    const { data, error } = await db.from('profiles').select('full_name').eq('user_id', userId).maybeSingle();
+    if (!error) setProfileName(data?.full_name ?? null);
   }, []);
+
+  const loadUserContext = useCallback(async (currentSession: Session | null) => {
+    setSession(currentSession);
+    setUser(currentSession?.user ?? null);
+
+    if (!currentSession?.user) {
+      setRoles([]);
+      setProfileName(null);
+      setLoading(false);
+      return;
+    }
+
+    await Promise.allSettled([
+      fetchRoles(currentSession.user.id),
+      fetchProfile(currentSession.user.id),
+    ]);
+    setLoading(false);
+  }, [fetchRoles, fetchProfile]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) {
-          await Promise.all([fetchRoles(session.user.id), fetchProfile(session.user.id)]);
-        } else {
+        if (!session?.user) {
           setRoles([]);
           setProfileName(null);
         }
-        setLoading(false);
+        setTimeout(() => { void loadUserContext(session); }, 0);
       }
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        Promise.all([fetchRoles(session.user.id), fetchProfile(session.user.id)]).then(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
+      void loadUserContext(session);
+    }).catch(() => {
+      setSession(null);
+      setUser(null);
+      setRoles([]);
+      setProfileName(null);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchRoles, fetchProfile]);
+  }, [loadUserContext]);
 
   const hasRole = (role: AppRole) => roles.includes(role);
   const isAdmin = () => hasRole('super_admin') || hasRole('admin');
