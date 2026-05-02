@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, ChevronRight, Scale,
-  Users, Settings, UserCheck, FileSignature,
+  LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, Scale,
+  Users, Settings, UserCheck, FileSignature, ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -17,14 +17,34 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const { signOut, profileName, user, isSuperAdmin } = useAuth();
 
-  const navItems = [
-    { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/admin/blog', label: 'Blog Posts', icon: FileText },
-    { href: '/admin/areas', label: 'Área de Atuação', icon: Briefcase },
-    { href: '/admin/leads', label: 'Leads', icon: Users },
-    { href: '/admin/contratos', label: 'Gestão de Contratos', icon: FileSignature },
-    ...(isSuperAdmin() ? [{ href: '/admin/equipe', label: 'Equipe', icon: UserCheck }] : []),
-    { href: '/admin/settings', label: 'Configurações', icon: Settings },
+  const navGroups: { label: string; items: { href: string; label: string; icon: typeof LayoutDashboard }[] }[] = [
+    {
+      label: 'Geral',
+      items: [
+        { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+      ],
+    },
+    {
+      label: 'CRM',
+      items: [
+        { href: '/admin/leads', label: 'Leads', icon: Users },
+        { href: '/admin/contratos', label: 'Contratos', icon: FileSignature },
+      ],
+    },
+    {
+      label: 'Conteúdo',
+      items: [
+        { href: '/admin/blog', label: 'Blog', icon: FileText },
+        { href: '/admin/areas', label: 'Áreas de Atuação', icon: Briefcase },
+      ],
+    },
+    {
+      label: 'Administração',
+      items: [
+        ...(isSuperAdmin() ? [{ href: '/admin/equipe', label: 'Equipe', icon: UserCheck }] : []),
+        { href: '/admin/settings', label: 'Configurações', icon: Settings },
+      ],
+    },
   ];
 
   const handleLogout = async () => { await signOut(); navigate('/admin/login'); };
@@ -34,59 +54,114 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     return location.pathname.startsWith(href);
   };
 
+  const initials = (profileName ?? user?.email ?? '?')
+    .split(' ').slice(0, 2).map(s => s[0]?.toUpperCase()).join('');
+
   return (
-    <div className="min-h-screen bg-muted/30 light">
-      <div className="lg:hidden flex items-center justify-between p-4 bg-card border-b border-border">
-        <button onClick={() => setSidebarOpen(true)} className="p-2"><Menu className="w-5 h-5 text-foreground" /></button>
-        <span className="font-serif font-semibold text-foreground">Painel Admin</span>
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Mobile topbar */}
+      <div className="lg:hidden flex items-center justify-between px-4 h-14 bg-card border-b border-border sticky top-0 z-30">
+        <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-foreground/80 hover:text-accent">
+          <Menu className="w-5 h-5" />
+        </button>
+        <div className="flex items-center gap-2">
+          <Scale className="w-4 h-4 text-accent" />
+          <span className="font-serif text-sm tracking-wide">Lindomberto Moraes</span>
+        </div>
         <div className="w-9" />
       </div>
 
-      {sidebarOpen && <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
 
-      <aside className={`fixed top-0 left-0 h-full w-64 bg-card border-r border-border z-50 transform transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
-        <div className="flex flex-col h-full">
-          <div className="p-6 border-b border-border">
-            <div className="flex items-center justify-between">
-              <Link to="/admin" className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-accent/15"><Scale className="w-5 h-5 text-accent" /></div>
-                <div className="flex flex-col">
-                  <span className="font-serif font-semibold text-sm text-foreground">Admin</span>
-                  <span className="text-xs text-muted-foreground">Painel de Controle</span>
+      <aside
+        className={`fixed top-0 left-0 h-full w-72 z-50 transform transition-transform duration-300 ease-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0
+        bg-[hsl(0_0%_4%)] border-r border-[hsl(0_0%_12%)] text-[hsl(0_0%_92%)]
+        flex flex-col`}
+      >
+        {/* Brand */}
+        <div className="px-6 pt-6 pb-5 border-b border-[hsl(0_0%_12%)]">
+          <div className="flex items-start justify-between">
+            <Link to="/admin" className="flex items-center gap-3 group">
+              <div className="relative">
+                <div className="absolute inset-0 bg-accent/20 blur-md rounded-full" />
+                <div className="relative p-2.5 rounded-lg border border-accent/40 bg-gradient-to-br from-accent/15 to-transparent">
+                  <Scale className="w-5 h-5 text-accent" />
                 </div>
-              </Link>
-              <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 text-muted-foreground"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="flex flex-col leading-tight">
+                <span className="font-serif text-base tracking-wide text-[hsl(0_0%_98%)]">Lindomberto Moraes</span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-accent/80">Painel Jurídico</span>
+              </div>
+            </Link>
+            <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 text-[hsl(0_0%_60%)] hover:text-accent">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-6">
+          {navGroups.map(group => (
+            <div key={group.label}>
+              <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[hsl(0_0%_45%)]">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map(item => {
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      to={item.href}
+                      onClick={() => setSidebarOpen(false)}
+                      className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all
+                        ${active
+                          ? 'bg-gradient-to-r from-accent/15 to-transparent text-accent font-medium'
+                          : 'text-[hsl(0_0%_72%)] hover:text-[hsl(0_0%_98%)] hover:bg-[hsl(0_0%_8%)]'}`}
+                    >
+                      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-0.5 bg-accent rounded-r-full" />}
+                      <item.icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-accent' : ''}`} />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        {/* User */}
+        <div className="border-t border-[hsl(0_0%_12%)] p-4 space-y-3">
+          <Link to="/" target="_blank" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-[hsl(0_0%_60%)] hover:text-accent hover:bg-[hsl(0_0%_8%)] transition-colors">
+            <ExternalLink className="w-3.5 h-3.5" /> Ver site público
+          </Link>
+          <div className="flex items-center gap-3 px-3 py-2">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-[hsl(37_45%_45%)] flex items-center justify-center text-[hsl(0_0%_5%)] font-semibold text-sm">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-[hsl(0_0%_95%)] truncate">{profileName ?? user?.email}</p>
+              <p className="text-[11px] text-[hsl(0_0%_50%)] truncate">{user?.email}</p>
             </div>
           </div>
-
-          <nav className="flex-1 p-4 space-y-1">
-            {navItems.map(item => (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive(item.href) ? 'bg-accent/15 text-accent' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}`}
-              >
-                <item.icon className="w-4 h-4" />
-                {item.label}
-                {isActive(item.href) && <ChevronRight className="w-4 h-4 ml-auto" />}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="p-4 border-t border-border">
-            <div className="mb-3 px-3">
-              <p className="text-sm font-medium text-foreground truncate">{profileName ?? user?.email}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            </div>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive" onClick={handleLogout}>
-              <LogOut className="w-4 h-4" />Sair
-            </Button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm text-[hsl(0_0%_70%)] hover:text-destructive hover:bg-destructive/10 border border-[hsl(0_0%_15%)] hover:border-destructive/40 transition-colors"
+          >
+            <LogOut className="w-4 h-4" /> Sair
+          </button>
         </div>
       </aside>
 
-      <main className="lg:ml-64 min-h-screen"><div className="p-6 lg:p-8">{children}</div></main>
+      {/* Main */}
+      <main className="lg:ml-72 min-h-screen bg-[hsl(0_0%_98%)] text-[hsl(0_0%_8%)]">
+        <div className="admin-surface p-6 lg:p-10 max-w-[1400px] mx-auto">
+          {children}
+        </div>
+      </main>
     </div>
   );
 };
