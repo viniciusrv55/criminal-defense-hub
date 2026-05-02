@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import {
   LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, ChevronRight, Scale,
-  Users, Settings, UserCheck,
+  Users, Settings, UserCheck, FileSignature,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -22,6 +22,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { href: '/admin/blog', label: 'Blog Posts', icon: FileText },
     { href: '/admin/areas', label: 'Área de Atuação', icon: Briefcase },
     { href: '/admin/leads', label: 'Leads', icon: Users },
+    { href: '/admin/contratos', label: 'Gestão de Contratos', icon: FileSignature },
     ...(isSuperAdmin() ? [{ href: '/admin/equipe', label: 'Equipe', icon: UserCheck }] : []),
     { href: '/admin/settings', label: 'Configurações', icon: Settings },
   ];
