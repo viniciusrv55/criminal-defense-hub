@@ -215,39 +215,66 @@ export type Database = {
       practice_areas: {
         Row: {
           active: boolean | null
+          content: string | null
+          cover_image_url: string | null
           created_at: string | null
+          cta_button_text: string | null
           description: string | null
+          featured: boolean
+          gallery: Json
           icon_color: string | null
           icon_name: string | null
           icon_svg: string | null
           id: string
+          slug: string | null
           sort_order: number | null
+          subtitle: string | null
           title: string
           updated_at: string | null
+          whatsapp_message: string | null
+          youtube_url: string | null
         }
         Insert: {
           active?: boolean | null
+          content?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
+          cta_button_text?: string | null
           description?: string | null
+          featured?: boolean
+          gallery?: Json
           icon_color?: string | null
           icon_name?: string | null
           icon_svg?: string | null
           id?: string
+          slug?: string | null
           sort_order?: number | null
+          subtitle?: string | null
           title: string
           updated_at?: string | null
+          whatsapp_message?: string | null
+          youtube_url?: string | null
         }
         Update: {
           active?: boolean | null
+          content?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
+          cta_button_text?: string | null
           description?: string | null
+          featured?: boolean
+          gallery?: Json
           icon_color?: string | null
           icon_name?: string | null
           icon_svg?: string | null
           id?: string
+          slug?: string | null
           sort_order?: number | null
+          subtitle?: string | null
           title?: string
           updated_at?: string | null
+          whatsapp_message?: string | null
+          youtube_url?: string | null
         }
         Relationships: []
       }
