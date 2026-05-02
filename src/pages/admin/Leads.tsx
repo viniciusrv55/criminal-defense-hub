@@ -1,12 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useLeads } from '@/hooks/useLeads';
 import { usePracticeAreas } from '@/hooks/usePracticeAreas';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
-import { Users, Eye, ArrowRight, Phone, Mail, Calendar, X } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Phone, Mail, Calendar, X, UserPlus2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Lead } from '@/types/database';
+
+interface TeamMemberLite { id: string; user_id: string; full_name: string; active: boolean; }
+interface StagePerm { stage: string; team_member_id: string; can_act: boolean; }
 
 const KANBAN_COLUMNS = [
   { key: 'new', label: 'Novos', color: 'border-blue-500' },
@@ -17,10 +21,38 @@ const KANBAN_COLUMNS = [
 ];
 
 const Leads = () => {
-  const { leads, loading, updateLead, fetchLeads } = useLeads();
+  const { leads, loading, updateLead } = useLeads();
   const { areas } = usePracticeAreas();
+  const { user, isAdmin } = useAuth();
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [team, setTeam] = useState<TeamMemberLite[]>([]);
+  const [perms, setPerms] = useState<StagePerm[]>([]);
+  const [myMemberId, setMyMemberId] = useState<string | null>(null);
+
+  useEffect(() => {
+    db.from('team_members').select('id,user_id,full_name,active').eq('active', true).then(({ data }: { data: TeamMemberLite[] | null }) => {
+      setTeam(data ?? []);
+      if (user) {
+        const me = (data ?? []).find(t => t.user_id === user.id);
+        setMyMemberId(me?.id ?? null);
+      }
+    });
+    db.from('kanban_stage_permissions').select('stage,team_member_id,can_act').then(({ data }: { data: StagePerm[] | null }) => setPerms(data ?? []));
+  }, [user]);
+
+  const canActOnStage = (stage: string) => {
+    if (isAdmin()) return true;
+    if (!myMemberId) return false;
+    return perms.some(p => p.team_member_id === myMemberId && p.stage === stage && p.can_act);
+  };
+
+  const canActOnLead = (lead: Lead) => {
+    if (isAdmin()) return true;
+    if (!myMemberId) return false;
+    const isResp = (lead.responsible_ids ?? []).includes(myMemberId);
+    return isResp && canActOnStage(lead.kanban_status);
+  };
 
   const getAreaName = (areaId: string | null) => {
     if (!areaId) return 'N/A';
@@ -28,11 +60,32 @@ const Leads = () => {
   };
 
   const moveToColumn = async (lead: Lead, newStatus: string) => {
+    if (!isAdmin() && !canActOnLead(lead)) {
+      toast({ title: 'Sem permissão', description: 'Você não é responsável por este lead ou não pode atuar nesta etapa.', variant: 'destructive' });
+      return;
+    }
+    if (!isAdmin() && !canActOnStage(newStatus)) {
+      toast({ title: 'Sem permissão', description: 'Você não pode mover leads para esta etapa.', variant: 'destructive' });
+      return;
+    }
     const { error } = await updateLead(lead.id, { kanban_status: newStatus });
-    if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    else {
+      await db.from('lead_history').insert({ lead_id: lead.id, action: 'stage_change', description: `Movido para ${KANBAN_COLUMNS.find(c => c.key === newStatus)?.label}`, performed_by: user?.id });
     }
   };
+
+  const toggleResponsible = async (lead: Lead, memberId: string) => {
+    const current = lead.responsible_ids ?? [];
+    const next = current.includes(memberId) ? current.filter(i => i !== memberId) : [...current, memberId];
+    const { error } = await updateLead(lead.id, { responsible_ids: next } as Partial<Lead>);
+    if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    else setSelectedLead({ ...lead, responsible_ids: next });
+  };
+
+  const responsibleNames = (ids: string[] | null | undefined) =>
+    (ids ?? []).map(id => team.find(t => t.id === id)?.full_name).filter(Boolean).join(', ') || '—';
+
 
   if (loading) {
     return (
@@ -76,6 +129,7 @@ const Leads = () => {
                     >
                       <p className="font-medium text-foreground text-sm truncate">{lead.name}</p>
                       <p className="text-xs text-muted-foreground mt-1">{getAreaName(lead.practice_area_id)}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1 truncate">👤 {responsibleNames(lead.responsible_ids)}</p>
                       <div className="flex items-center gap-2 mt-2">
                         {lead.phone && <Phone className="w-3 h-3 text-muted-foreground" />}
                         <span className="text-xs text-muted-foreground">{new Date(lead.created_at).toLocaleDateString('pt-BR')}</span>
@@ -141,21 +195,45 @@ const Leads = () => {
                 <div><span className="text-sm text-muted-foreground">Mensagem:</span><p className="text-foreground text-sm mt-1 p-3 bg-muted/50 rounded-lg">{selectedLead.message}</p></div>
               )}
               <div className="space-y-2">
+                <span className="text-sm text-muted-foreground flex items-center gap-2"><UserPlus2 className="w-4 h-4" />Responsáveis:</span>
+                <div className="flex flex-wrap gap-2">
+                  {team.map(t => {
+                    const on = (selectedLead.responsible_ids ?? []).includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => toggleResponsible(selectedLead, t.id)}
+                        disabled={!isAdmin()}
+                        className={`text-xs px-3 py-1 rounded-full border transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${on ? 'bg-accent text-accent-foreground border-accent' : 'bg-background text-muted-foreground border-border hover:border-accent/50'}`}
+                      >
+                        {t.full_name}
+                      </button>
+                    );
+                  })}
+                  {team.length === 0 && <span className="text-xs text-muted-foreground">Cadastre membros em Equipe.</span>}
+                </div>
+                {!isAdmin() && <p className="text-[11px] text-muted-foreground">Apenas administradores atribuem responsáveis.</p>}
+              </div>
+              <div className="space-y-2">
                 <span className="text-sm text-muted-foreground">Mover para:</span>
                 <div className="flex flex-wrap gap-2">
-                  {KANBAN_COLUMNS.map(c => (
-                    <Button
-                      key={c.key}
-                      variant={selectedLead.kanban_status === c.key ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={async () => {
-                        await moveToColumn(selectedLead, c.key);
-                        setSelectedLead({ ...selectedLead, kanban_status: c.key });
-                      }}
-                    >
-                      {c.label}
-                    </Button>
-                  ))}
+                  {KANBAN_COLUMNS.map(c => {
+                    const allowed = isAdmin() || (canActOnLead(selectedLead) && canActOnStage(c.key));
+                    return (
+                      <Button
+                        key={c.key}
+                        variant={selectedLead.kanban_status === c.key ? 'default' : 'outline'}
+                        size="sm"
+                        disabled={!allowed}
+                        onClick={async () => {
+                          await moveToColumn(selectedLead, c.key);
+                          setSelectedLead({ ...selectedLead, kanban_status: c.key });
+                        }}
+                      >
+                        {c.label}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

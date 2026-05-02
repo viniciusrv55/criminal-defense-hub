@@ -127,6 +127,38 @@ export type Database = {
         }
         Relationships: []
       }
+      kanban_stage_permissions: {
+        Row: {
+          can_act: boolean
+          created_at: string
+          id: string
+          stage: string
+          team_member_id: string
+        }
+        Insert: {
+          can_act?: boolean
+          created_at?: string
+          id?: string
+          stage: string
+          team_member_id: string
+        }
+        Update: {
+          can_act?: boolean
+          created_at?: string
+          id?: string
+          stage?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kanban_stage_permissions_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_history: {
         Row: {
           action: string
@@ -173,6 +205,7 @@ export type Database = {
           name: string
           phone: string | null
           practice_area_id: string | null
+          responsible_ids: string[]
           status: string
           updated_at: string | null
         }
@@ -186,6 +219,7 @@ export type Database = {
           name: string
           phone?: string | null
           practice_area_id?: string | null
+          responsible_ids?: string[]
           status?: string
           updated_at?: string | null
         }
@@ -199,6 +233,7 @@ export type Database = {
           name?: string
           phone?: string | null
           practice_area_id?: string | null
+          responsible_ids?: string[]
           status?: string
           updated_at?: string | null
         }
@@ -326,6 +361,48 @@ export type Database = {
         }
         Relationships: []
       }
+      team_members: {
+        Row: {
+          active: boolean
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          id: string
+          phone: string | null
+          role_title: string | null
+          specialty: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name: string
+          id?: string
+          phone?: string | null
+          role_title?: string | null
+          specialty?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          id?: string
+          phone?: string | null
+          role_title?: string | null
+          specialty?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -349,6 +426,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_act_on_stage: {
+        Args: { _stage: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -357,9 +438,13 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_lead_responsible: {
+        Args: { _lead_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "attorney"
+      app_role: "super_admin" | "admin" | "attorney" | "team_member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -487,7 +572,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "attorney"],
+      app_role: ["super_admin", "admin", "attorney", "team_member"],
     },
   },
 } as const

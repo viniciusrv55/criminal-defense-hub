@@ -1,4 +1,4 @@
-export type AppRole = 'super_admin' | 'admin' | 'attorney';
+export type AppRole = 'super_admin' | 'admin' | 'attorney' | 'team_member';
 
 export interface Profile {
   id: string;
@@ -78,6 +78,7 @@ export interface Lead {
   status: string;
   assigned_attorney_id: string | null;
   kanban_status: string;
+  responsible_ids: string[];
   created_at: string;
   updated_at: string;
 }
