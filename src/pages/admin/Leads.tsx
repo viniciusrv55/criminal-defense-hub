@@ -25,8 +25,55 @@ const Leads = () => {
   const { leads, loading, updateLead } = useLeads();
   const { areas } = usePracticeAreas();
   const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [converting, setConverting] = useState(false);
+
+  const convertToContract = async (lead: Lead) => {
+    setConverting(true);
+    try {
+      // Find existing client by lead_id
+      const { data: existing } = await db.from('clients').select('id').eq('lead_id', lead.id).maybeSingle();
+      let clientId: string | null = (existing as { id: string } | null)?.id ?? null;
+
+      if (!clientId) {
+        const payload = {
+          person_type: 'pf',
+          full_name: lead.name,
+          emails: lead.email ? [{ label: 'principal', value: lead.email }] : [],
+          phones: lead.phone ? [{ label: 'celular', value: lead.phone }] : [],
+          notes: lead.message || null,
+          lead_id: lead.id,
+          created_by: user?.id,
+        };
+        const { data, error } = await db.from('clients').insert(payload).select('id').single();
+        if (error) { toast({ title: 'Erro ao criar cliente', description: error.message, variant: 'destructive' }); setConverting(false); return; }
+        clientId = (data as { id: string }).id;
+      }
+
+      const { data: ct, error: ctErr } = await db.from('contracts').insert({
+        client_id: clientId,
+        status: 'draft',
+        process_type: 'judicial',
+        process_data: lead.practice_area_id ? { practice_area: lead.practice_area_id } : {},
+        additional_data: lead.message ? { notes: lead.message } : {},
+        adverse_party: {},
+        fees: {},
+        created_by: user?.id,
+      }).select('id').single();
+      if (ctErr) { toast({ title: 'Erro ao criar contrato', description: ctErr.message, variant: 'destructive' }); setConverting(false); return; }
+
+      await db.from('lead_history').insert({ lead_id: lead.id, action: 'converted', description: 'Lead convertido em contrato', performed_by: user?.id });
+      toast({ title: 'Convertido!', description: 'Cliente e contrato criados.' });
+      setConverting(false);
+      navigate(`/admin/contratos/${(ct as { id: string }).id}`);
+    } catch (e) {
+      setConverting(false);
+      toast({ title: 'Erro inesperado', variant: 'destructive' });
+    }
+  };
+
   const [team, setTeam] = useState<TeamMemberLite[]>([]);
   const [perms, setPerms] = useState<StagePerm[]>([]);
   const [myMemberId, setMyMemberId] = useState<string | null>(null);
