@@ -48,6 +48,15 @@ export interface PracticeArea {
   icon_color: string;
   sort_order: number;
   active: boolean;
+  slug: string | null;
+  subtitle: string | null;
+  cover_image_url: string | null;
+  content: string | null;
+  gallery: string[];
+  featured: boolean;
+  whatsapp_message: string | null;
+  cta_button_text: string | null;
+  youtube_url: string | null;
   created_at: string;
   updated_at: string;
 }
