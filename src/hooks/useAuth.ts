@@ -12,12 +12,12 @@ export function useAuth() {
   const [profileName, setProfileName] = useState<string | null>(null);
 
   const fetchRoles = useCallback(async (userId: string) => {
-    const { data, error } = await db.from('user_roles').select('role').eq('user_id', userId);
+    const { data, error } = await db.from('user_roles').select('role').eq('user_id', userId).abortSignal(AbortSignal.timeout(8000));
     if (!error) setRoles(data?.map((r: { role: AppRole }) => r.role) ?? []);
   }, []);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data, error } = await db.from('profiles').select('full_name').eq('user_id', userId).maybeSingle();
+    const { data, error } = await db.from('profiles').select('full_name').eq('user_id', userId).maybeSingle().abortSignal(AbortSignal.timeout(8000));
     if (!error) setProfileName(data?.full_name ?? null);
   }, []);
 
@@ -40,6 +40,8 @@ export function useAuth() {
   }, [fetchRoles, fetchProfile]);
 
   useEffect(() => {
+    const loadingFallback = window.setTimeout(() => setLoading(false), 10000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
@@ -62,7 +64,10 @@ export function useAuth() {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      window.clearTimeout(loadingFallback);
+      subscription.unsubscribe();
+    };
   }, [loadUserContext]);
 
   const hasRole = (role: AppRole) => roles.includes(role);
