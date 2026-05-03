@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import { usePracticeAreas } from '@/hooks/usePracticeAreas';
+import { useSiteSettings } from '@/hooks/useSiteSettings';
 
 const iconMap: Record<string, LucideIcon> = {
   Gavel, Shield, Clock, AlertTriangle, FileText, Scale, BookOpen, Briefcase, Lock, Users, Eye, Heart,
@@ -13,7 +14,18 @@ const iconMap: Record<string, LucideIcon> = {
 
 const PracticeAreas = () => {
   const { areas, loading } = usePracticeAreas(true);
+  const { settings } = useSiteSettings();
   const ordered = [...areas].sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0) || a.sort_order - b.sort_order);
+
+  const title = settings.areas_page_title || 'Onde podemos defender você';
+  const highlight = settings.areas_page_title_highlight || 'defender você';
+  const renderTitle = () => {
+    if (highlight && title.includes(highlight)) {
+      const [before, ...rest] = title.split(highlight);
+      return (<>{before}<span className="text-gradient-gold">{highlight}</span>{rest.join(highlight)}</>);
+    }
+    return title;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -26,12 +38,12 @@ const PracticeAreas = () => {
 
       <section className="pt-32 pb-12 bg-card border-b border-border">
         <div className="container-custom text-center max-w-3xl mx-auto">
-          <span className="text-gold text-sm font-semibold tracking-wider uppercase mb-4 block">Áreas de Atuação</span>
+          <span className="text-gold text-sm font-semibold tracking-wider uppercase mb-4 block">{settings.areas_page_eyebrow || 'Áreas de Atuação'}</span>
           <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold text-foreground mb-6">
-            Onde podemos <span className="text-gradient-gold">defender você</span>
+            {renderTitle()}
           </h1>
           <p className="text-muted-foreground text-lg">
-            Atuação especializada em Direito Criminal. Selecione uma área para ver detalhes, casos, galeria e solicitar atendimento.
+            {settings.areas_page_subtitle || 'Atuação especializada em Direito Criminal. Selecione uma área para ver detalhes, casos, galeria e solicitar atendimento.'}
           </p>
         </div>
       </section>

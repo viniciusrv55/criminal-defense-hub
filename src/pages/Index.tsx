@@ -4,6 +4,7 @@ import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import HeroSection from "@/components/home/HeroSection";
 import AboutSection from "@/components/home/AboutSection";
+import AttorneysMarquee from "@/components/home/AttorneysMarquee";
 import PracticeAreasSection from "@/components/home/PracticeAreasSection";
 import DifferentialsSection from "@/components/home/DifferentialsSection";
 import BlogPreviewSection from "@/components/home/BlogPreviewSection";
@@ -42,6 +43,7 @@ const Index = () => {
       <main>
         <HeroSection />
         <AboutSection />
+        <AttorneysMarquee />
         <PracticeAreasSection />
         <DifferentialsSection />
         <BlogPreviewSection />
