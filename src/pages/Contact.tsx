@@ -5,10 +5,13 @@ import WhatsAppButton from '@/components/WhatsAppButton';
 import { Button } from '@/components/ui/button';
 import { MapPin, Phone, Mail, Clock, MessageCircle, Facebook, Instagram, ExternalLink } from 'lucide-react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { useFeaturedAttorneys } from '@/hooks/useFeaturedAttorneys';
+import { AttorneyCard } from '@/components/AttorneyCard';
 import { buildWhatsappLink } from '@/lib/whatsapp';
 
 const Contact = () => {
   const { settings } = useSiteSettings();
+  const { attorneys } = useFeaturedAttorneys(true);
   const whatsappLink = buildWhatsappLink(settings.whatsapp_number, settings.whatsapp_message);
 
   return (
@@ -104,6 +107,23 @@ const Contact = () => {
               </div>
             </div>
           </div>
+
+          {/* Advogados em destaque */}
+          {attorneys.length > 0 && (
+            <div className="mt-16">
+              <div className="text-center mb-10">
+                <span className="text-gold text-sm font-semibold tracking-wider uppercase mb-3 block">
+                  {settings.attorneys_section_eyebrow || 'Nossa Equipe'}
+                </span>
+                <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground">
+                  {settings.attorneys_section_title || 'Advogados que defendem você'}
+                </h2>
+              </div>
+              <div className="grid md:grid-cols-2 gap-6">
+                {attorneys.map(a => <AttorneyCard key={a.id} attorney={a} />)}
+              </div>
+            </div>
+          )}
 
           {/* Google Maps - largura total */}
           {settings.google_maps_embed && (
