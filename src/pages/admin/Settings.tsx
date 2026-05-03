@@ -77,6 +77,22 @@ const SETTINGS_GROUPS: SettingGroup[] = [
     ],
   },
   {
+    group: 'Página de Áreas de Atuação',
+    items: [
+      { key: 'areas_page_eyebrow', label: 'Pré-título (acima do título)', type: 'text' },
+      { key: 'areas_page_title', label: 'Título principal', type: 'text' },
+      { key: 'areas_page_title_highlight', label: 'Trecho do título em destaque dourado', type: 'text' },
+      { key: 'areas_page_subtitle', label: 'Subtítulo', type: 'textarea' },
+    ],
+  },
+  {
+    group: 'Equipe / Advogados em Destaque',
+    items: [
+      { key: 'attorneys_section_eyebrow', label: 'Pré-título da seção (Home + Contato)', type: 'text' },
+      { key: 'attorneys_section_title', label: 'Título da seção', type: 'text' },
+    ],
+  },
+  {
     group: 'Rodapé',
     items: [
       { key: 'footer_description', label: 'Descrição do escritório', type: 'textarea' },
