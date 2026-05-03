@@ -7,6 +7,7 @@ import { useSiteSettings } from "@/hooks/useSiteSettings";
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { settings } = useSiteSettings();
 
   const navLinks = [
     { href: "/", label: "Início" },
