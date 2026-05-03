@@ -38,6 +38,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       items: [
         { href: '/admin/blog', label: 'Blog', icon: FileText },
         { href: '/admin/areas', label: 'Áreas de Atuação', icon: Briefcase },
+        { href: '/admin/advogados-destaque', label: 'Advogados em Destaque', icon: UserCheck },
       ],
     },
     {

@@ -23,6 +23,7 @@ import PracticeAreas from "./pages/PracticeAreas";
 import Contracts from "./pages/admin/Contracts";
 import ContractForm from "./pages/admin/ContractForm";
 import ClientPortal from "./pages/ClientPortal";
+import FeaturedAttorneysAdmin from "./pages/admin/FeaturedAttorneys";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/admin/areas" element={<ProtectedRoute><PracticeAreasAdmin /></ProtectedRoute>} />
             <Route path="/admin/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
             <Route path="/admin/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/admin/advogados-destaque" element={<ProtectedRoute><FeaturedAttorneysAdmin /></ProtectedRoute>} />
             <Route path="/admin/attorneys" element={<ProtectedRoute><Attorneys /></ProtectedRoute>} />
             <Route path="/admin/equipe" element={<ProtectedRoute><Team /></ProtectedRoute>} />
             <Route path="/admin/contratos" element={<ProtectedRoute><Contracts /></ProtectedRoute>} />
