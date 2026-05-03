@@ -429,6 +429,42 @@ export type Database = {
           },
         ]
       }
+      featured_attorneys: {
+        Row: {
+          active: boolean
+          created_at: string
+          full_name: string
+          id: string
+          oab_number: string | null
+          photo_url: string | null
+          sort_order: number
+          specialty: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          full_name: string
+          id?: string
+          oab_number?: string | null
+          photo_url?: string | null
+          sort_order?: number
+          specialty?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          full_name?: string
+          id?: string
+          oab_number?: string | null
+          photo_url?: string | null
+          sort_order?: number
+          specialty?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       kanban_stage_permissions: {
         Row: {
           can_act: boolean
