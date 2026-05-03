@@ -11,6 +11,7 @@ import { buildWhatsappLink } from '@/lib/whatsapp';
 
 const Contact = () => {
   const { settings } = useSiteSettings();
+  const { attorneys } = useFeaturedAttorneys(true);
   const whatsappLink = buildWhatsappLink(settings.whatsapp_number, settings.whatsapp_message);
 
   return (
