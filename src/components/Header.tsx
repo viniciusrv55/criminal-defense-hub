@@ -33,13 +33,19 @@ const Header = () => {
       <nav className="container-custom">
         <div className="flex items-center justify-between h-20">
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="p-2 rounded-lg bg-primary/20 group-hover:bg-primary/30 transition-colors">
-              <Scale className="w-6 h-6 text-gold" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg font-serif font-semibold text-foreground">Lindomberto Moraes</span>
-              <span className="text-xs text-muted-foreground tracking-wider uppercase">Advocacia Criminal</span>
-            </div>
+            {settings.logo_url ? (
+              <img src={settings.logo_url} alt="Lindomberto Moraes" className="h-12 w-auto object-contain" />
+            ) : (
+              <>
+                <div className="p-2 rounded-lg bg-primary/20 group-hover:bg-primary/30 transition-colors">
+                  <Scale className="w-6 h-6 text-gold" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-serif font-semibold text-foreground">Lindomberto Moraes</span>
+                  <span className="text-xs text-muted-foreground tracking-wider uppercase">Advocacia Criminal</span>
+                </div>
+              </>
+            )}
           </Link>
 
           <div className="hidden lg:flex items-center gap-8">
