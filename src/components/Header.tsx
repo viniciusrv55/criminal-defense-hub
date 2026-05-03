@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Scale, Phone } from "lucide-react";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
