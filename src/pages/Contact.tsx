@@ -5,6 +5,8 @@ import WhatsAppButton from '@/components/WhatsAppButton';
 import { Button } from '@/components/ui/button';
 import { MapPin, Phone, Mail, Clock, MessageCircle, Facebook, Instagram, ExternalLink } from 'lucide-react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { useFeaturedAttorneys } from '@/hooks/useFeaturedAttorneys';
+import { AttorneyCard } from '@/components/AttorneyCard';
 import { buildWhatsappLink } from '@/lib/whatsapp';
 
 const Contact = () => {
