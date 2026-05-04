@@ -127,6 +127,57 @@ export type Database = {
         }
         Relationships: []
       }
+      client_groups: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          practice_area_id: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          practice_area_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          practice_area_id?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_groups_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "client_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_groups_practice_area_id_fkey"
+            columns: ["practice_area_id"]
+            isOneToOne: false
+            referencedRelation: "practice_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_portal_access: {
         Row: {
           active: boolean
@@ -190,6 +241,7 @@ export type Database = {
           emails: Json
           father_name: string | null
           full_name: string
+          group_id: string | null
           group_name: string | null
           id: string
           lead_id: string | null
@@ -225,6 +277,7 @@ export type Database = {
           emails?: Json
           father_name?: string | null
           full_name: string
+          group_id?: string | null
           group_name?: string | null
           id?: string
           lead_id?: string | null
@@ -260,6 +313,7 @@ export type Database = {
           emails?: Json
           father_name?: string | null
           full_name?: string
+          group_id?: string | null
           group_name?: string | null
           id?: string
           lead_id?: string | null
@@ -278,6 +332,44 @@ export type Database = {
           state?: string | null
           state_registration?: string | null
           trade_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clients_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "client_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      comarcas: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          state: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          state?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          state?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -373,51 +465,63 @@ export type Database = {
           adverse_party: Json
           attorney_id: string | null
           client_id: string
+          comarca_id: string | null
           contract_number: string | null
           created_at: string
           created_by: string | null
           fees: Json
+          group_id: string | null
           id: string
           notes: string | null
+          party_type: string | null
           practice_area_id: string | null
           process_data: Json
           process_type: string | null
           status: string
           updated_at: string
+          vara_id: string | null
         }
         Insert: {
           additional_data?: Json
           adverse_party?: Json
           attorney_id?: string | null
           client_id: string
+          comarca_id?: string | null
           contract_number?: string | null
           created_at?: string
           created_by?: string | null
           fees?: Json
+          group_id?: string | null
           id?: string
           notes?: string | null
+          party_type?: string | null
           practice_area_id?: string | null
           process_data?: Json
           process_type?: string | null
           status?: string
           updated_at?: string
+          vara_id?: string | null
         }
         Update: {
           additional_data?: Json
           adverse_party?: Json
           attorney_id?: string | null
           client_id?: string
+          comarca_id?: string | null
           contract_number?: string | null
           created_at?: string
           created_by?: string | null
           fees?: Json
+          group_id?: string | null
           id?: string
           notes?: string | null
+          party_type?: string | null
           practice_area_id?: string | null
           process_data?: Json
           process_type?: string | null
           status?: string
           updated_at?: string
+          vara_id?: string | null
         }
         Relationships: [
           {
@@ -425,6 +529,27 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_comarca_id_fkey"
+            columns: ["comarca_id"]
+            isOneToOne: false
+            referencedRelation: "comarcas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "client_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_vara_id_fkey"
+            columns: ["vara_id"]
+            isOneToOne: false
+            referencedRelation: "varas"
             referencedColumns: ["id"]
           },
         ]
@@ -584,6 +709,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      payment_methods: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       practice_areas: {
         Row: {
@@ -759,6 +911,47 @@ export type Database = {
         }
         Relationships: []
       }
+      varas: {
+        Row: {
+          active: boolean
+          comarca_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          location: string | null
+          updated_at: string
+          vara_number: string
+        }
+        Insert: {
+          active?: boolean
+          comarca_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location?: string | null
+          updated_at?: string
+          vara_number: string
+        }
+        Update: {
+          active?: boolean
+          comarca_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          location?: string | null
+          updated_at?: string
+          vara_number?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "varas_comarca_id_fkey"
+            columns: ["comarca_id"]
+            isOneToOne: false
+            referencedRelation: "comarcas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -776,6 +969,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_contract_attorney: {
+        Args: { _contract_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_lead_responsible: {
         Args: { _lead_id: string; _user_id: string }
         Returns: boolean
