@@ -29,6 +29,7 @@ export interface Client {
   mother_name: string | null;
   notes: string | null;
   group_name: string | null;
+  group_id: string | null;
   profile_type: string | null;
   lead_id: string | null;
   created_by: string | null;
@@ -37,23 +38,14 @@ export interface Client {
 }
 
 export interface ProcessData {
-  group?: string;
-  folder?: string;
   cnj_number?: string;
   process_number?: string;
-  process_status?: string;
-  practice_area?: string;
-  action_object?: string;
-  subject?: string;
-  comarca?: string;
+  party_type?: string; // Autor, Réu, Terceiro Interessado, etc.
   phase?: string;
   responsible?: string;
   locator?: string;
-  trial_location?: string;
-  details?: string;
   partner?: string;
   prognosis?: string;
-  origin?: string;
   contract_date?: string;
   closure_date?: string;
   distribution_date?: string;
@@ -62,11 +54,15 @@ export interface ProcessData {
   execution_date?: string;
   cause_value?: string;
   other_value?: string;
-  contingency?: string;
   request?: string;
   notes?: string;
   secrecy?: boolean;
   capture_updates?: boolean;
+  // Auto-preenchidos via DataJud
+  court?: string;
+  court_unit?: string;
+  class_name?: string;
+  subjects?: string[];
 }
 
 export interface AdverseParty {
@@ -83,19 +79,18 @@ export interface AdverseParty {
   notes?: string;
 }
 
+export interface CustomInstallment { value: string; due_date?: string }
+
 export interface FeesData {
-  initial_entry?: string;
-  initial_due_date?: string;
-  initial_installments?: string;
-  initial_payment_method?: string;
-  balance?: string;
-  balance_first_due?: string;
-  balance_installments?: string;
-  balance_payment_method?: string;
-  monthly_value?: string;
-  monthly_first_due?: string;
-  monthly_installments?: string;
-  monthly_payment_method?: string;
+  /** Honorários (entrada) */
+  entry?: string;
+  entry_due_date?: string;
+  /** Parcelas: "1" para à vista ou "2".."60" */
+  installments?: string;
+  payment_method?: string;
+  /** Parcelas personalizadas (ex: 7x R$500 + saldo R$450 gera 8ª) */
+  custom_installments?: CustomInstallment[];
+  /** Honorários sucumbenciais e contratuais (mantidos como observação) */
   contractual_fees?: string;
   succumbence_fees?: string;
   notes?: string;
@@ -109,6 +104,10 @@ export interface Contract {
   attorney_id: string | null;
   status: 'draft' | 'active' | 'concluded' | 'cancelled';
   process_type: 'judicial' | 'administrative';
+  group_id: string | null;
+  comarca_id: string | null;
+  vara_id: string | null;
+  party_type: string | null;
   process_data: ProcessData;
   additional_data: Record<string, unknown>;
   adverse_party: AdverseParty;
