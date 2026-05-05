@@ -71,7 +71,7 @@ export const DOC_VARIABLES: DocVariable[] = [
 export function applyVariables(html: string, ctx: { client?: Client | null; contract?: Contract | null }): string {
   let out = html;
   for (const v of DOC_VARIABLES) {
-    out = out.replaceAll(v.token, v.resolve(ctx));
+    out = out.split(v.token).join(v.resolve(ctx));
   }
   return out;
 }

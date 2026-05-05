@@ -2,7 +2,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } fro
 
 interface RunStyle { bold?: boolean; italic?: boolean; underline?: boolean; strike?: boolean }
 
-function inlineRuns(node: Node, style: RunStyle = []): TextRun[] {
+function inlineRuns(node: Node, style: RunStyle = {}): TextRun[] {
   if (node.nodeType === Node.TEXT_NODE) {
     const text = node.textContent ?? '';
     if (!text) return [];
