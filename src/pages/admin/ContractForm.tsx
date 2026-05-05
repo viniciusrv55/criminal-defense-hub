@@ -19,7 +19,7 @@ import { CreatableCombobox } from '@/components/admin/CreatableCombobox';
 import { CurrencyInput, formatBRL } from '@/components/admin/CurrencyInput';
 import type { Client, Contract, ProcessData, AdverseParty, FeesData, ContractDocument, CustomInstallment } from '@/types/contracts';
 
-const TAB_ORDER = ['cliente', 'processo', 'adicionais', 'seguranca', 'adversa', 'honorarios', 'documentos', 'acesso'] as const;
+const TAB_ORDER = ['cliente', 'processo', 'seguranca', 'adversa', 'honorarios', 'documentos', 'acesso'] as const;
 type TabKey = typeof TAB_ORDER[number];
 
 const PROFILE_OPTIONS = ['Cliente', 'Parceiro Comercial', 'Prospect', 'Indicador'];
@@ -155,7 +155,6 @@ const ContractForm = () => {
         <TabsList className="bg-card border border-border h-auto flex-wrap justify-start">
           <TabsTrigger value="cliente">Cliente</TabsTrigger>
           <TabsTrigger value="processo">Processo</TabsTrigger>
-          <TabsTrigger value="adicionais">Dados Adicionais</TabsTrigger>
           {canSeeSecurity && <TabsTrigger value="seguranca"><Lock className="w-3 h-3 mr-1" />Dados de Segurança</TabsTrigger>}
           <TabsTrigger value="adversa">Parte Adversa</TabsTrigger>
           <TabsTrigger value="honorarios">Honorários</TabsTrigger>
@@ -279,13 +278,6 @@ const ContractForm = () => {
             clientGroupId={clientDraft.group_id ?? null}
             groupsHook={groupsHook}
           />
-        </TabsContent>
-
-        {/* DADOS ADICIONAIS */}
-        <TabsContent value="adicionais" className="bg-card rounded-xl border border-border p-6">
-          <Field label="Anotações específicas da área de atuação">
-            <Textarea rows={10} value={(contractDraft.additional_data as { notes?: string })?.notes ?? ''} onChange={e => setContractDraft({ ...contractDraft, additional_data: { ...contractDraft.additional_data, notes: e.target.value } })} placeholder="Informações específicas da área de atuação selecionada..." />
-          </Field>
         </TabsContent>
 
         {/* DADOS DE SEGURANÇA */}
