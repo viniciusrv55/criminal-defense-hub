@@ -554,6 +554,83 @@ export type Database = {
           },
         ]
       }
+      document_template_types: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      document_templates: {
+        Row: {
+          active: boolean
+          assigned_team_member_ids: string[]
+          content_html: string
+          created_at: string
+          created_by: string | null
+          doc_date: string | null
+          id: string
+          owner_id: string
+          title: string
+          type_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          assigned_team_member_ids?: string[]
+          content_html?: string
+          created_at?: string
+          created_by?: string | null
+          doc_date?: string | null
+          id?: string
+          owner_id: string
+          title: string
+          type_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          assigned_team_member_ids?: string[]
+          content_html?: string
+          created_at?: string
+          created_by?: string | null
+          doc_date?: string | null
+          id?: string
+          owner_id?: string
+          title?: string
+          type_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_templates_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "document_template_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       featured_attorneys: {
         Row: {
           active: boolean
@@ -959,6 +1036,10 @@ export type Database = {
     Functions: {
       can_act_on_stage: {
         Args: { _stage: string; _user_id: string }
+        Returns: boolean
+      }
+      can_use_document_template: {
+        Args: { _template_id: string; _user_id: string }
         Returns: boolean
       }
       has_role: {
