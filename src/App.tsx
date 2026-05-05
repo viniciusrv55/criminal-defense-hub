@@ -24,6 +24,8 @@ import Contracts from "./pages/admin/Contracts";
 import ContractForm from "./pages/admin/ContractForm";
 import ClientPortal from "./pages/ClientPortal";
 import FeaturedAttorneysAdmin from "./pages/admin/FeaturedAttorneys";
+import DocumentTemplates from "./pages/admin/DocumentTemplates";
+import DocumentTemplateForm from "./pages/admin/DocumentTemplateForm";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -57,6 +59,8 @@ const App = () => (
             <Route path="/admin/equipe" element={<ProtectedRoute><Team /></ProtectedRoute>} />
             <Route path="/admin/contratos" element={<ProtectedRoute><Contracts /></ProtectedRoute>} />
             <Route path="/admin/contratos/:id" element={<ProtectedRoute><ContractForm /></ProtectedRoute>} />
+            <Route path="/admin/documentos" element={<ProtectedRoute><DocumentTemplates /></ProtectedRoute>} />
+            <Route path="/admin/documentos/:id" element={<ProtectedRoute><DocumentTemplateForm /></ProtectedRoute>} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
