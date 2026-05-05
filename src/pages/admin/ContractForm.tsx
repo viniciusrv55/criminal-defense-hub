@@ -490,34 +490,85 @@ const AdverseFields = ({ data, onChange }: { data: AdverseParty; onChange: (d: A
 
 /* =================== HONORÁRIOS =================== */
 
+/**
+ * Auto-gera parcelas a partir de: total - entrada, dividido pelo nº de parcelas.
+ * Se houver resto (centavos sobrando), cria uma parcela extra com o resto.
+ * Ex.: 3000 - 0 entrada, 7x → 6 parcelas de 428,57 + 1 com o saldo (= 428,58 final)
+ *      3000 - 600 entrada, 7x → cria 7 parcelas de 342,85 + 1 extra com restante se >0
+ * Se o resto da última parcela for >= valor padrão, cria uma N+1 com o restante.
+ */
+function autoGenerateInstallments(totalContract: number, entry: number, count: number): CustomInstallment[] {
+  const remaining = Math.max(0, +(totalContract - entry).toFixed(2));
+  if (count <= 0 || remaining <= 0) return [];
+  // valor base arredondado para baixo em centavos
+  const base = Math.floor((remaining * 100) / count) / 100;
+  const parcels: CustomInstallment[] = Array.from({ length: count }, () => ({ value: base.toFixed(2), due_date: '' }));
+  // soma e ajusta o resto na última parcela (sempre cabe; se sobrar > base cria nova)
+  let used = +(base * count).toFixed(2);
+  const leftover = +(remaining - used).toFixed(2);
+  if (leftover > 0) {
+    if (leftover >= base) {
+      parcels.push({ value: leftover.toFixed(2), due_date: '' });
+    } else {
+      const last = parcels[parcels.length - 1];
+      last.value = (parseFloat(last.value) + leftover).toFixed(2);
+    }
+  }
+  return parcels;
+}
+
 const FeesFields = ({ data, onChange }: { data: FeesData; onChange: (d: FeesData) => void }) => {
   const set = (patch: Partial<FeesData>) => onChange({ ...data, ...patch });
   const pmHook = usePaymentMethods();
 
-  // Custom installments
   const customs = data.custom_installments ?? [];
-  const addInstallment = () => set({ custom_installments: [...customs, { value: '', due_date: '' }] });
   const updateInstallment = (i: number, patch: Partial<CustomInstallment>) => {
     const next = [...customs]; next[i] = { ...next[i], ...patch }; set({ custom_installments: next });
   };
   const removeInstallment = (i: number) => set({ custom_installments: customs.filter((_, idx) => idx !== i) });
 
-  // Auto-calcula saldo remanescente: entrada + soma das parcelas customizadas
   const totals = useMemo(() => {
     const entry = parseFloat(data.entry ?? '') || 0;
+    const total = parseFloat(data.total_value ?? '') || 0;
     const customSum = customs.reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
-    return { entry, customSum, total: entry + customSum };
-  }, [data.entry, customs]);
+    return { entry, total, customSum, grand: entry + customSum };
+  }, [data.entry, data.total_value, customs]);
+
+  // Recalcula automaticamente parcelas quando muda total/entrada/parcelas
+  const handleInstallmentsChange = (val: string) => {
+    set({ installments: val });
+    if (val === 'À vista' || val === '1x' || val === '') {
+      set({ installments: val, custom_installments: [] });
+      return;
+    }
+    const n = parseInt(val.replace('x', ''), 10);
+    if (!isFinite(n) || n <= 0) return;
+    const generated = autoGenerateInstallments(totals.total, totals.entry, n);
+    set({ installments: val, custom_installments: generated });
+  };
+
+  const recalc = () => {
+    const val = data.installments ?? '';
+    if (!val || val === 'À vista' || val === '1x') return;
+    const n = parseInt(val.replace('x', ''), 10);
+    if (!isFinite(n) || n <= 0) return;
+    set({ custom_installments: autoGenerateInstallments(totals.total, totals.entry, n) });
+  };
 
   return (
     <div>
       <h3 className="font-medium text-foreground text-sm mb-3">Honorários</h3>
       <div className="grid sm:grid-cols-2 gap-4">
-        <Field label="Entrada"><CurrencyInput value={data.entry ?? ''} onChange={v => set({ entry: v })} /></Field>
+        <Field label="Valor total dos honorários">
+          <CurrencyInput value={data.total_value ?? ''} onChange={v => set({ total_value: v })} />
+        </Field>
+        <Field label="Entrada">
+          <CurrencyInput value={data.entry ?? ''} onChange={v => set({ entry: v })} />
+        </Field>
         <Field label="Vencimento da entrada"><Input type="date" value={data.entry_due_date ?? ''} onChange={e => set({ entry_due_date: e.target.value })} /></Field>
 
-        <Field label="Parcelas">
-          <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm" value={data.installments ?? ''} onChange={e => set({ installments: e.target.value })}>
+        <Field label="Parcelas (do saldo)">
+          <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm" value={data.installments ?? ''} onChange={e => handleInstallmentsChange(e.target.value)}>
             <option value="">Selecione...</option>
             {INSTALLMENTS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
@@ -543,24 +594,27 @@ const FeesFields = ({ data, onChange }: { data: FeesData; onChange: (d: FeesData
       </div>
 
       <div className="mt-6 pt-4 border-t border-border">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-medium text-foreground text-sm">Parcelas personalizadas</h3>
-          <Button type="button" size="sm" variant="outline" onClick={addInstallment}><Plus className="w-3 h-3 mr-1" />Adicionar parcela</Button>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h3 className="font-medium text-foreground text-sm">Plano de parcelas</h3>
+            <p className="text-[11px] text-muted-foreground">Calculado automaticamente. Se o valor não for divisível, a última parcela leva o saldo (ou cria-se uma extra).</p>
+          </div>
+          <Button type="button" size="sm" variant="outline" onClick={recalc}>Recalcular</Button>
         </div>
         {customs.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Adicione parcelas com valores específicos. Ex.: 7x de R$500,00 + saldo R$450,00 (8ª parcela).</p>
+          <p className="text-xs text-muted-foreground">Defina valor total, entrada e nº de parcelas para gerar o plano.</p>
         ) : (
           <div className="space-y-2">
             {customs.map((p, i) => (
               <div key={i} className="grid grid-cols-[40px_1fr_180px_40px] gap-2 items-end">
                 <div className="text-xs text-muted-foreground pb-2 text-center">{i + 1}ª</div>
-                <Field label={`Valor`}><CurrencyInput value={p.value} onChange={v => updateInstallment(i, { value: v })} /></Field>
+                <Field label="Valor"><CurrencyInput value={p.value} onChange={v => updateInstallment(i, { value: v })} /></Field>
                 <Field label="Vencimento"><Input type="date" value={p.due_date ?? ''} onChange={e => updateInstallment(i, { due_date: e.target.value })} /></Field>
                 <Button type="button" variant="ghost" size="icon" onClick={() => removeInstallment(i)} className="text-destructive"><Trash2 className="w-4 h-4" /></Button>
               </div>
             ))}
             <div className="text-xs text-muted-foreground pt-2 border-t border-border">
-              Entrada: <strong className="text-foreground">{formatBRL(totals.entry)}</strong> · Soma das parcelas: <strong className="text-foreground">{formatBRL(totals.customSum)}</strong> · <span className="text-accent">Total: {formatBRL(totals.total)}</span>
+              Total: <strong className="text-foreground">{formatBRL(totals.total)}</strong> · Entrada: <strong className="text-foreground">{formatBRL(totals.entry)}</strong> · Parcelas: <strong className="text-foreground">{formatBRL(totals.customSum)}</strong> · <span className="text-accent">Soma final: {formatBRL(totals.grand)}</span>
             </div>
           </div>
         )}
@@ -573,53 +627,74 @@ const FeesFields = ({ data, onChange }: { data: FeesData; onChange: (d: FeesData
   );
 };
 
-/* =================== DOCUMENTOS =================== */
-
-const DOC_TEMPLATES = [
-  { value: 'procuracao', label: 'Procuração' },
-  { value: 'declaracao', label: 'Declaração' },
-  { value: 'contrato_honorarios', label: 'Contrato de Honorários Advocatícios' },
-  { value: 'peticao', label: 'Petição' },
-  { value: 'outro', label: 'Outro Documento' },
-];
+/* =================== DOCUMENTOS (templates + .docx) =================== */
 
 const DocumentsTab = ({ contractId, client, contract, docs, onChange, userId }: { contractId?: string; client: Client | null; contract: Contract | null; docs: ContractDocument[]; onChange: (d: ContractDocument[]) => void; userId?: string }) => {
-  const [type, setType] = useState('procuracao');
+  const [templates, setTemplates] = useState<{ id: string; title: string; content_html: string; type_id: string }[]>([]);
+  const [types, setTypes] = useState<Record<string, string>>({});
+  const [templateId, setTemplateId] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    db.from('document_templates').select('id, title, content_html, type_id').eq('active', true)
+      .then(({ data }: { data: { id: string; title: string; content_html: string; type_id: string }[] | null }) => setTemplates(data ?? []));
+    db.from('document_template_types').select('id, name')
+      .then(({ data }: { data: { id: string; name: string }[] | null }) => {
+        const map: Record<string, string> = {};
+        (data ?? []).forEach(t => { map[t.id] = t.name; });
+        setTypes(map);
+      });
+  }, []);
 
   const generate = async () => {
     if (!contractId || !client || !contract) { toast({ title: 'Salve o contrato antes', variant: 'destructive' }); return; }
+    const tpl = templates.find(t => t.id === templateId);
+    if (!tpl) { toast({ title: 'Selecione um modelo', variant: 'destructive' }); return; }
+
     setGenerating(true);
-    const html = buildDocumentHtml(type, client, contract);
-    const blob = new Blob([html], { type: 'text/html' });
-    const fileName = `${type}-${client.full_name.replace(/\s+/g, '_')}-${Date.now()}.html`;
+    const { applyVariables } = await import('@/lib/document-variables');
+    const { htmlToDocxBlob } = await import('@/lib/html-to-docx');
+    const filledHtml = applyVariables(tpl.content_html, { client, contract });
+    const blob = await htmlToDocxBlob(filledHtml, tpl.title);
+
+    const safeTitle = tpl.title.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+    const fileName = `${safeTitle}-${client.full_name.replace(/\s+/g, '_')}-${Date.now()}.docx`;
     const path = `${contractId}/${fileName}`;
-    const { error: upErr } = await supabase.storage.from('contracts').upload(path, blob);
+    const { error: upErr } = await supabase.storage.from('contracts').upload(path, blob, {
+      contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    });
     if (upErr) { toast({ title: 'Erro upload', description: upErr.message, variant: 'destructive' }); setGenerating(false); return; }
     const { data: signed } = await supabase.storage.from('contracts').createSignedUrl(path, 60 * 60 * 24 * 365);
     const { data, error } = await db.from('contract_documents').insert({
-      contract_id: contractId, document_type: type, template_name: DOC_TEMPLATES.find(t => t.value === type)?.label,
-      file_url: signed?.signedUrl, file_name: fileName, generated_html: html, generated_by: userId,
+      contract_id: contractId, document_type: types[tpl.type_id] ?? 'documento', template_name: tpl.title,
+      file_url: signed?.signedUrl, file_name: fileName, generated_html: filledHtml, generated_by: userId,
     }).select().single();
     if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); setGenerating(false); return; }
+
     onChange([data as ContractDocument, ...docs]);
-    await db.from('contract_history').insert({ contract_id: contractId, action: 'document_generated', description: `Documento gerado: ${type}`, performed_by: userId });
-    toast({ title: 'Documento gerado!' });
+    await db.from('contract_history').insert({ contract_id: contractId, action: 'document_generated', description: `Documento gerado: ${tpl.title}`, performed_by: userId });
+
+    // download imediato no navegador
+    const { default: saveAs } = await import('file-saver');
+    saveAs(blob, fileName);
+
+    toast({ title: 'Documento .docx gerado!' });
     setGenerating(false);
   };
 
   return (
     <>
       <div className="bg-muted/50 border border-border rounded-lg p-3 text-xs text-muted-foreground">
-        ℹ️ O documento será gerado em HTML usando os dados das abas anteriores.
+        ℹ️ Selecione um modelo cadastrado em <strong>Gerador de Documentos</strong>. As variáveis serão preenchidas com os dados do cliente e do contrato e o arquivo será exportado em <strong>.docx</strong>.
       </div>
-      <div className="grid sm:grid-cols-3 gap-4">
-        <Field label="Tipo">
-          <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm" value={type} onChange={e => setType(e.target.value)}>
-            {DOC_TEMPLATES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+      <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-end">
+        <Field label="Modelo">
+          <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm" value={templateId ?? ''} onChange={e => setTemplateId(e.target.value || null)}>
+            <option value="">Selecione um modelo...</option>
+            {templates.map(t => <option key={t.id} value={t.id}>{(types[t.type_id] ? types[t.type_id] + ' — ' : '') + t.title}</option>)}
           </select>
         </Field>
-        <div className="flex items-end"><Button onClick={generate} disabled={generating} className="bg-accent text-accent-foreground hover:bg-accent/90"><FileText className="w-4 h-4 mr-2" />{generating ? 'Gerando...' : 'Gerar documento'}</Button></div>
+        <Button onClick={generate} disabled={generating || !templateId} className="bg-accent text-accent-foreground hover:bg-accent/90"><FileText className="w-4 h-4 mr-2" />{generating ? 'Gerando...' : 'Gerar .docx'}</Button>
       </div>
 
       <div className="pt-4 border-t border-border">
@@ -634,7 +709,7 @@ const DocumentsTab = ({ contractId, client, contract, docs, onChange, userId }: 
                   <p className="text-sm font-medium text-foreground">{d.template_name ?? d.document_type}</p>
                   <p className="text-[11px] text-muted-foreground">{new Date(d.created_at).toLocaleString('pt-BR')}</p>
                 </div>
-                {d.file_url && <Button asChild variant="outline" size="sm"><a href={d.file_url} target="_blank" rel="noopener"><Download className="w-3 h-3 mr-1" />Abrir</a></Button>}
+                {d.file_url && <Button asChild variant="outline" size="sm"><a href={d.file_url} target="_blank" rel="noopener"><Download className="w-3 h-3 mr-1" />Baixar</a></Button>}
               </div>
             ))}
           </div>
@@ -642,48 +717,6 @@ const DocumentsTab = ({ contractId, client, contract, docs, onChange, userId }: 
       </div>
     </>
   );
-};
-
-const buildDocumentHtml = (type: string, client: Client, contract: Contract): string => {
-  const today = new Date().toLocaleDateString('pt-BR');
-  const head = `<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><title>${type}</title>
-    <style>body{font-family:Georgia,serif;max-width:780px;margin:40px auto;padding:0 24px;color:#111;line-height:1.7}h1{text-align:center;font-size:18px;text-transform:uppercase;letter-spacing:2px}p{text-align:justify;margin:12px 0}.sig{margin-top:80px;text-align:center}.sig hr{width:280px;margin:0 auto 6px;border:none;border-top:1px solid #000}</style>
-    </head><body>`;
-  const foot = `<div class="sig"><hr><p style="margin:0">${client.full_name}<br>${client.cpf ? 'CPF: '+client.cpf : (client.cnpj ? 'CNPJ: '+client.cnpj : '')}</p></div></body></html>`;
-  const enderecoFmt = [client.address, client.neighborhood, client.city, client.state].filter(Boolean).join(', ');
-
-  if (type === 'procuracao') {
-    return head + `
-      <h1>Procuração ad judicia et extra</h1>
-      <p><strong>OUTORGANTE:</strong> ${client.full_name}, ${client.nationality ?? ''}, ${client.marital_status ?? ''}, ${client.profession ?? ''}, portador(a) ${client.rg ? 'do RG nº '+client.rg : ''} ${client.cpf ? 'e do CPF nº '+client.cpf : (client.cnpj ? 'inscrito no CNPJ '+client.cnpj : '')}, residente e domiciliado(a) em ${enderecoFmt}.</p>
-      <p><strong>OUTORGADO:</strong> Lindomberto Moraes, advogado(a) inscrito(a) na OAB.</p>
-      <p>Pelo presente instrumento particular de procuração, o(a) outorgante nomeia e constitui seu bastante procurador o outorgado acima qualificado, conferindo-lhe os poderes da cláusula <em>ad judicia et extra</em> para o foro em geral.</p>
-      <p style="text-align:right">${today}</p>
-    ` + foot;
-  }
-  if (type === 'declaracao') {
-    return head + `<h1>Declaração</h1><p>Eu, ${client.full_name}, ${client.cpf ? 'CPF '+client.cpf : ''}, declaro para os devidos fins que constituí o(a) advogado(a) Lindomberto Moraes para defesa dos meus interesses no processo em referência.</p><p style="text-align:right">${today}</p>` + foot;
-  }
-  if (type === 'contrato_honorarios') {
-    const f = contract.fees ?? {};
-    const entry = parseFloat(f.entry ?? '') || 0;
-    const customs = f.custom_installments ?? [];
-    const customsHtml = customs.length
-      ? `<ul>${customs.map((p, i) => `<li>${i + 1}ª parcela: ${formatBRL(parseFloat(p.value) || 0)}${p.due_date ? ' — venc. ' + new Date(p.due_date).toLocaleDateString('pt-BR') : ''}</li>`).join('')}</ul>`
-      : '';
-    return head + `
-      <h1>Contrato de Prestação de Serviços Advocatícios</h1>
-      <p><strong>CONTRATANTE:</strong> ${client.full_name}, ${client.cpf ? 'CPF '+client.cpf : (client.cnpj ? 'CNPJ '+client.cnpj : '')}, residente em ${enderecoFmt}.</p>
-      <p><strong>CONTRATADO:</strong> Lindomberto Moraes Advocacia.</p>
-      <p><strong>Cláusula 1ª — Objeto:</strong> Prestação de serviços advocatícios.</p>
-      <p><strong>Cláusula 2ª — Honorários:</strong> Entrada de ${formatBRL(entry)} (${f.installments ?? 'à vista'}). Forma de pagamento: ${f.payment_method ?? '____'}.</p>
-      ${customsHtml}
-      <p><strong>Cláusula 3ª — Honorários sucumbenciais:</strong> ${f.succumbence_fees ?? 'Pertencem ao contratado'}.</p>
-      <p><strong>Cláusula 4ª — Foro:</strong> Fica eleito o foro de ${client.city ?? '____'}/${client.state ?? '__'} para dirimir quaisquer questões.</p>
-      <p style="text-align:right">${today}</p>
-    ` + foot;
-  }
-  return head + `<h1>${type}</h1><p>Documento referente ao cliente ${client.full_name}.</p>` + foot;
 };
 
 /* =================== PORTAL ACCESS =================== */
