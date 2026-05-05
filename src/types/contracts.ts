@@ -82,6 +82,8 @@ export interface AdverseParty {
 export interface CustomInstallment { value: string; due_date?: string }
 
 export interface FeesData {
+  /** Valor total dos honorários */
+  total_value?: string;
   /** Honorários (entrada) */
   entry?: string;
   entry_due_date?: string;
