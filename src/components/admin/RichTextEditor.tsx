@@ -3,15 +3,15 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
-import TextStyle from '@tiptap/extension-text-style';
+import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
-import FontFamily from '@tiptap/extension-font-family';
-import Table from '@tiptap/extension-table';
-import TableRow from '@tiptap/extension-table-row';
-import TableCell from '@tiptap/extension-table-cell';
-import TableHeader from '@tiptap/extension-table-header';
-import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
+import { FontFamily } from '@tiptap/extension-font-family';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { Link } from '@tiptap/extension-link';
+import { Image } from '@tiptap/extension-image';
 import {
   Bold, Italic, UnderlineIcon, Strikethrough, List, ListOrdered, Quote,
   Undo2, Redo2, Heading1, Heading2, Heading3,
