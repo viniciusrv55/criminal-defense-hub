@@ -78,7 +78,8 @@ const PracticeAreaDetail = () => {
               <Link to="/#atuacao" className="inline-flex items-center gap-2 text-gold hover:text-gold/80 text-sm mb-8">
                 <ArrowLeft className="w-4 h-4" /> Voltar para áreas
               </Link>
-              <div className="inline-flex w-16 h-16 rounded-2xl items-center justify-center mb-6" style={{ backgroundColor: `${area.icon_color}25` }}>
+              <div className="flex justify-center mb-6">
+                <div className="inline-flex w-16 h-16 rounded-2xl items-center justify-center" style={{ backgroundColor: `${area.icon_color}25` }}>
                 {area.icon_svg
                   ? <div className="w-8 h-8" style={{ color: area.icon_color }} dangerouslySetInnerHTML={{ __html: area.icon_svg }} />
                   : <Icon className="w-8 h-8" style={{ color: area.icon_color }} />}
