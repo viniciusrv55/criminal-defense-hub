@@ -78,10 +78,12 @@ const PracticeAreaDetail = () => {
               <Link to="/#atuacao" className="inline-flex items-center gap-2 text-gold hover:text-gold/80 text-sm mb-8">
                 <ArrowLeft className="w-4 h-4" /> Voltar para áreas
               </Link>
-              <div className="inline-flex w-16 h-16 rounded-2xl items-center justify-center mb-6" style={{ backgroundColor: `${area.icon_color}25` }}>
+              <div className="flex justify-center mb-6">
+                <div className="inline-flex w-16 h-16 rounded-2xl items-center justify-center" style={{ backgroundColor: `${area.icon_color}25` }}>
                 {area.icon_svg
                   ? <div className="w-8 h-8" style={{ color: area.icon_color }} dangerouslySetInnerHTML={{ __html: area.icon_svg }} />
                   : <Icon className="w-8 h-8" style={{ color: area.icon_color }} />}
+                </div>
               </div>
               <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 drop-shadow-lg">{area.title}</h1>
               {area.subtitle && <p className="text-white/90 text-xl mb-4">{area.subtitle}</p>}
@@ -92,9 +94,9 @@ const PracticeAreaDetail = () => {
 
         {/* Content */}
         {area.content && (
-          <section className="section-padding bg-card">
+          <section className="section-padding bg-white">
             <div className="container-custom max-w-3xl">
-              <div className="prose prose-invert max-w-none text-foreground/90 whitespace-pre-line leading-relaxed">
+              <div className="prose max-w-none text-black whitespace-pre-line leading-relaxed">
                 {area.content}
               </div>
             </div>
