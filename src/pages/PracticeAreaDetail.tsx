@@ -94,9 +94,9 @@ const PracticeAreaDetail = () => {
 
         {/* Content */}
         {area.content && (
-          <section className="section-padding bg-card">
+          <section className="section-padding bg-white">
             <div className="container-custom max-w-3xl">
-              <div className="prose prose-invert max-w-none text-foreground/90 whitespace-pre-line leading-relaxed">
+              <div className="prose max-w-none text-black whitespace-pre-line leading-relaxed">
                 {area.content}
               </div>
             </div>
