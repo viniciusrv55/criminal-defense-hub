@@ -83,6 +83,7 @@ const PracticeAreaDetail = () => {
                 {area.icon_svg
                   ? <div className="w-8 h-8" style={{ color: area.icon_color }} dangerouslySetInnerHTML={{ __html: area.icon_svg }} />
                   : <Icon className="w-8 h-8" style={{ color: area.icon_color }} />}
+                </div>
               </div>
               <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 drop-shadow-lg">{area.title}</h1>
               {area.subtitle && <p className="text-white/90 text-xl mb-4">{area.subtitle}</p>}
