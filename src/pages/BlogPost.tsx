@@ -82,12 +82,12 @@ const BlogPost = () => {
           />
 
           <div className="grid lg:grid-cols-3 gap-8">
-            <article className="lg:col-span-2">
+            <article className="lg:col-span-2 bg-white text-black rounded-2xl p-6 md:p-10 border border-neutral-200">
               <header className="mb-8">
                 <span className="inline-block px-3 py-1 text-xs font-medium text-gold bg-gold/10 rounded-full mb-4">
                   {post.category}
                 </span>
-                <h1 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-6 leading-tight">
+                <h1 className="font-serif text-3xl md:text-4xl font-bold text-black mb-6 leading-tight">
                   {post.title}
                 </h1>
 
