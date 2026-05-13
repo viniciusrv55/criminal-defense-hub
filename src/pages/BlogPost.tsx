@@ -99,7 +99,7 @@ const BlogPost = () => {
                   />
                 )}
 
-                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-4 text-sm text-neutral-600">
                   <span className="flex items-center gap-2">
                     <User className="w-4 h-4" />
                     Dr. Lindomberto Moraes
@@ -115,11 +115,11 @@ const BlogPost = () => {
                 </div>
               </header>
 
-              <div className="prose prose-invert prose-lg max-w-none">
+              <div className="prose prose-lg max-w-none">
                 {post.content.split('\n\n').map((paragraph, index) => {
                   if (paragraph.startsWith('## ')) {
                     return (
-                      <h2 key={index} className="font-serif text-2xl font-bold text-foreground mt-8 mb-4">
+                      <h2 key={index} className="font-serif text-2xl font-bold text-black mt-8 mb-4">
                         {paragraph.replace('## ', '')}
                       </h2>
                     );
@@ -132,14 +132,14 @@ const BlogPost = () => {
                           const match = item.match(/- \*\*(.+?)\*\*: (.+)/);
                           if (match) {
                             return (
-                              <li key={i} className="flex items-start gap-3 text-muted-foreground">
+                              <li key={i} className="flex items-start gap-3 text-neutral-700">
                                 <span className="w-1.5 h-1.5 rounded-full bg-gold mt-2.5 flex-shrink-0" />
-                                <span><strong className="text-foreground">{match[1]}</strong>: {match[2]}</span>
+                                <span><strong className="text-black">{match[1]}</strong>: {match[2]}</span>
                               </li>
                             );
                           }
                           return (
-                            <li key={i} className="flex items-start gap-3 text-muted-foreground">
+                            <li key={i} className="flex items-start gap-3 text-neutral-700">
                               <span className="w-1.5 h-1.5 rounded-full bg-gold mt-2.5 flex-shrink-0" />
                               <span>{item.replace(/^- /, '')}</span>
                             </li>
@@ -154,13 +154,13 @@ const BlogPost = () => {
                       <ol key={index} className="space-y-3 my-6 list-decimal list-inside">
                         {items.map((item, i) => {
                           const text = item.replace(/^\d+\. \*\*(.+?)\*\*: (.+)/, '$1: $2').replace(/^\d+\. /, '');
-                          return <li key={i} className="text-muted-foreground">{text}</li>;
+                          return <li key={i} className="text-neutral-700">{text}</li>;
                         })}
                       </ol>
                     );
                   }
                   if (paragraph.trim()) {
-                    return <p key={index} className="text-muted-foreground leading-relaxed my-4">{paragraph}</p>;
+                    return <p key={index} className="text-neutral-700 leading-relaxed my-4">{paragraph}</p>;
                   }
                   return null;
                 })}
@@ -169,7 +169,7 @@ const BlogPost = () => {
               {/* Gallery */}
               {galleryImages.length > 0 && (
                 <div className="mt-10">
-                  <h3 className="font-serif text-xl font-semibold text-foreground mb-4">Galeria</h3>
+                  <h3 className="font-serif text-xl font-semibold text-black mb-4">Galeria</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {galleryImages.map((img) => (
                       <img
@@ -183,11 +183,11 @@ const BlogPost = () => {
                 </div>
               )}
 
-              <div className="mt-12 p-8 rounded-2xl bg-card border border-border">
-                <h3 className="font-serif text-xl font-semibold text-foreground mb-3">
+              <div className="mt-12 p-8 rounded-2xl bg-black border border-gold/30">
+                <h3 className="font-serif text-xl font-semibold text-white mb-3">
                   Precisa de orientação jurídica?
                 </h3>
-                <p className="text-muted-foreground mb-6">
+                <p className="text-white/80 mb-6">
                   Se você tem dúvidas sobre seu caso ou precisa de assistência jurídica especializada,
                   entre em contato conosco. Atendimento sigiloso e humanizado.
                 </p>
