@@ -35,6 +35,12 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       ],
     },
     {
+      label: 'Atendimento',
+      items: [
+        { href: '/admin/whatsapp', label: 'WhatsApp', icon: Smartphone },
+      ],
+    },
+    {
       label: 'Conteúdo',
       items: [
         { href: '/admin/blog', label: 'Blog', icon: FileText },
@@ -47,6 +53,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       items: [
         ...(isSuperAdmin() ? [{ href: '/admin/equipe', label: 'Equipe', icon: UserCheck }] : []),
         { href: '/admin/settings', label: 'Configurações', icon: Settings },
+        ...(isSuperAdmin() ? [{ href: '/admin/plataforma', label: 'Plataforma', icon: ShieldAlert }] : []),
       ],
     },
   ];
