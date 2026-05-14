@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import {
   LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, Scale,
-  Users, Settings, UserCheck, FileSignature, ExternalLink,
+  Users, Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -35,6 +35,12 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       ],
     },
     {
+      label: 'Atendimento',
+      items: [
+        { href: '/admin/whatsapp', label: 'WhatsApp', icon: Smartphone },
+      ],
+    },
+    {
       label: 'Conteúdo',
       items: [
         { href: '/admin/blog', label: 'Blog', icon: FileText },
@@ -47,6 +53,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       items: [
         ...(isSuperAdmin() ? [{ href: '/admin/equipe', label: 'Equipe', icon: UserCheck }] : []),
         { href: '/admin/settings', label: 'Configurações', icon: Settings },
+        ...(isSuperAdmin() ? [{ href: '/admin/plataforma', label: 'Plataforma', icon: ShieldAlert }] : []),
       ],
     },
   ];

@@ -814,6 +814,33 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_settings: {
+        Row: {
+          description: string | null
+          id: string
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
       practice_areas: {
         Row: {
           active: boolean | null
@@ -1028,6 +1055,89 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      whatsapp_instances: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          instance_name: string
+          last_connected_at: string | null
+          name: string
+          phone_number: string | null
+          qr_code: string | null
+          status: string
+          team_member_id: string | null
+          updated_at: string
+          webhook_secret: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instance_name: string
+          last_connected_at?: string | null
+          name: string
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          team_member_id?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instance_name?: string
+          last_connected_at?: string | null
+          name?: string
+          phone_number?: string | null
+          qr_code?: string | null
+          status?: string
+          team_member_id?: string | null
+          updated_at?: string
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_webhook_logs: {
+        Row: {
+          created_at: string
+          error: string | null
+          event_type: string | null
+          id: string
+          instance_name: string | null
+          payload: Json
+          processed: boolean
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          instance_name?: string | null
+          payload?: Json
+          processed?: boolean
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          event_type?: string | null
+          id?: string
+          instance_name?: string | null
+          payload?: Json
+          processed?: boolean
+        }
+        Relationships: []
       }
     }
     Views: {
