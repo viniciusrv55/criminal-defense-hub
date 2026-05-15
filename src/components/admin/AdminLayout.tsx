@@ -37,6 +37,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     {
       label: 'Atendimento',
       items: [
+        { href: '/admin/atendimento', label: 'Conversas', icon: MessageSquare },
         { href: '/admin/whatsapp', label: 'WhatsApp', icon: Smartphone },
       ],
     },
