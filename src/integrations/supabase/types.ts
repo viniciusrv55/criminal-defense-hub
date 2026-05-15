@@ -1056,6 +1056,155 @@ export type Database = {
           },
         ]
       }
+      whatsapp_conversation_notes: {
+        Row: {
+          author_user_id: string
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          author_user_id: string
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          author_user_id?: string
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversation_notes_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_conversation_transfers: {
+        Row: {
+          conversation_id: string
+          from_queue_id: string | null
+          from_user_id: string | null
+          id: string
+          note: string | null
+          to_queue_id: string | null
+          to_user_id: string | null
+          transferred_at: string
+        }
+        Insert: {
+          conversation_id: string
+          from_queue_id?: string | null
+          from_user_id?: string | null
+          id?: string
+          note?: string | null
+          to_queue_id?: string | null
+          to_user_id?: string | null
+          transferred_at?: string
+        }
+        Update: {
+          conversation_id?: string
+          from_queue_id?: string | null
+          from_user_id?: string | null
+          id?: string
+          note?: string | null
+          to_queue_id?: string | null
+          to_user_id?: string | null
+          transferred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversation_transfers_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_conversations: {
+        Row: {
+          assigned_team_member_id: string | null
+          client_id: string | null
+          contact_avatar_url: string | null
+          contact_name: string | null
+          contact_phone: string
+          created_at: string
+          current_queue_id: string | null
+          id: string
+          instance_id: string
+          last_message_at: string | null
+          last_message_preview: string | null
+          lead_id: string | null
+          status: string
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          assigned_team_member_id?: string | null
+          client_id?: string | null
+          contact_avatar_url?: string | null
+          contact_name?: string | null
+          contact_phone: string
+          created_at?: string
+          current_queue_id?: string | null
+          id?: string
+          instance_id: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          lead_id?: string | null
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          assigned_team_member_id?: string | null
+          client_id?: string | null
+          contact_avatar_url?: string | null
+          contact_name?: string | null
+          contact_phone?: string
+          created_at?: string
+          current_queue_id?: string | null
+          id?: string
+          instance_id?: string
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          lead_id?: string | null
+          status?: string
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_conversations_assigned_team_member_id_fkey"
+            columns: ["assigned_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_current_queue_id_fkey"
+            columns: ["current_queue_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_queues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_conversations_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_instances: {
         Row: {
           created_at: string
@@ -1109,6 +1258,142 @@ export type Database = {
           },
         ]
       }
+      whatsapp_messages: {
+        Row: {
+          content: string | null
+          conversation_id: string
+          created_at: string
+          direction: string
+          evolution_message_id: string | null
+          from_phone: string | null
+          id: string
+          media_mime: string | null
+          media_url: string | null
+          message_type: string
+          metadata: Json
+          sent_by_user_id: string | null
+          status: string
+          to_phone: string | null
+        }
+        Insert: {
+          content?: string | null
+          conversation_id: string
+          created_at?: string
+          direction: string
+          evolution_message_id?: string | null
+          from_phone?: string | null
+          id?: string
+          media_mime?: string | null
+          media_url?: string | null
+          message_type?: string
+          metadata?: Json
+          sent_by_user_id?: string | null
+          status?: string
+          to_phone?: string | null
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string
+          created_at?: string
+          direction?: string
+          evolution_message_id?: string | null
+          from_phone?: string | null
+          id?: string
+          media_mime?: string | null
+          media_url?: string | null
+          message_type?: string
+          metadata?: Json
+          sent_by_user_id?: string | null
+          status?: string
+          to_phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_queue_members: {
+        Row: {
+          created_at: string
+          id: string
+          queue_id: string
+          team_member_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          queue_id: string
+          team_member_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          queue_id?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_queue_members_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_queues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_queue_members_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_queues: {
+        Row: {
+          active: boolean
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          team_member_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_queues_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       whatsapp_webhook_logs: {
         Row: {
           created_at: string
@@ -1144,6 +1429,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_conversation: {
+        Args: { _conversation_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_act_on_stage: {
         Args: { _stage: string; _user_id: string }
         Returns: boolean
