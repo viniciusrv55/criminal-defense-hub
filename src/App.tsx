@@ -65,6 +65,7 @@ const App = () => (
             <Route path="/admin/contratos/:id" element={<ProtectedRoute><ContractForm /></ProtectedRoute>} />
             <Route path="/admin/documentos" element={<ProtectedRoute><DocumentTemplates /></ProtectedRoute>} />
             <Route path="/admin/documentos/:id" element={<ProtectedRoute><DocumentTemplateForm /></ProtectedRoute>} />
+            <Route path="/admin/atendimento" element={<ProtectedRoute><Atendimento /></ProtectedRoute>} />
             <Route path="/admin/whatsapp" element={<ProtectedRoute><WhatsAppInstances /></ProtectedRoute>} />
             <Route path="/admin/plataforma" element={<SuperAdminRoute><PlatformSettings /></SuperAdminRoute>} />
 
