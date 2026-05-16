@@ -137,6 +137,8 @@ Deno.serve(async (req) => {
         last_message_at: new Date().toISOString(),
         last_message_preview: (body.content ?? `[${messageType}]`).slice(0, 200),
         unread_count: 0,
+        ai_paused_at: new Date().toISOString(),
+        ai_handoff_reason: 'Atendente humano assumiu',
       })
       .eq('id', conv.id);
 
