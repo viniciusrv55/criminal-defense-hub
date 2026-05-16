@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import {
   Send, Search, Inbox, MessageSquare, ArrowRightLeft, User as UserIcon, Phone,
-  Loader2, FileText, Image as ImageIcon, Mic, Video as VideoIcon, MapPin, Sticker,
+  Loader2, FileText, Image as ImageIcon, Mic, Video as VideoIcon, MapPin, Sticker, Bot, BotOff,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
