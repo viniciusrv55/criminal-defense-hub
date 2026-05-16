@@ -260,6 +260,22 @@ export default function Atendimento() {
     setTransferQueueId('');
   }
 
+  async function toggleAi() {
+    if (!activeConv) return;
+    const paused = !!activeConv.ai_paused_at;
+    const { error } = await supabase
+      .from('whatsapp_conversations')
+      .update(paused
+        ? { ai_paused_at: null, ai_handoff_reason: null }
+        : { ai_paused_at: new Date().toISOString(), ai_handoff_reason: 'Pausado manualmente' })
+      .eq('id', activeConv.id);
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: paused ? 'IA retomada' : 'IA pausada' });
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="-m-6 lg:-m-10 h-[calc(100vh-3.5rem)] lg:h-screen flex flex-col bg-background">
