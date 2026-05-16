@@ -29,6 +29,7 @@ import DocumentTemplateForm from "./pages/admin/DocumentTemplateForm";
 import PlatformSettings from "./pages/admin/PlatformSettings";
 import WhatsAppInstances from "./pages/admin/WhatsAppInstances";
 import Atendimento from "./pages/admin/Atendimento";
+import AiAgents from "./pages/admin/AiAgents";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import SuperAdminRoute from "./components/admin/SuperAdminRoute";
 
