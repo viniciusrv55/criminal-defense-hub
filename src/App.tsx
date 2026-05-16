@@ -29,6 +29,7 @@ import DocumentTemplateForm from "./pages/admin/DocumentTemplateForm";
 import PlatformSettings from "./pages/admin/PlatformSettings";
 import WhatsAppInstances from "./pages/admin/WhatsAppInstances";
 import Atendimento from "./pages/admin/Atendimento";
+import AiAgents from "./pages/admin/AiAgents";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import SuperAdminRoute from "./components/admin/SuperAdminRoute";
 
@@ -66,6 +67,7 @@ const App = () => (
             <Route path="/admin/documentos" element={<ProtectedRoute><DocumentTemplates /></ProtectedRoute>} />
             <Route path="/admin/documentos/:id" element={<ProtectedRoute><DocumentTemplateForm /></ProtectedRoute>} />
             <Route path="/admin/atendimento" element={<ProtectedRoute><Atendimento /></ProtectedRoute>} />
+            <Route path="/admin/agentes-ia" element={<ProtectedRoute><AiAgents /></ProtectedRoute>} />
             <Route path="/admin/whatsapp" element={<ProtectedRoute><WhatsAppInstances /></ProtectedRoute>} />
             <Route path="/admin/plataforma" element={<SuperAdminRoute><PlatformSettings /></SuperAdminRoute>} />
 

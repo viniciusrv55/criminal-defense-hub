@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
         }
 
         // Insert message (dedupe by evolution_message_id)
-        await admin.from('whatsapp_messages').upsert(
+        const { data: inserted } = await admin.from('whatsapp_messages').upsert(
           {
             conversation_id: conversationId,
             evolution_message_id: messageId,
@@ -214,7 +214,32 @@ Deno.serve(async (req) => {
             status: 'sent',
           },
           { onConflict: 'evolution_message_id', ignoreDuplicates: true },
-        );
+        ).select('id').maybeSingle();
+
+        // Trigger AI agent reply (fire-and-forget) for new inbound messages
+        if (!fromMe && inserted?.id) {
+          const { data: convFull } = await admin
+            .from('whatsapp_conversations')
+            .select('ai_enabled, ai_paused_at, current_queue_id')
+            .eq('id', conversationId)
+            .maybeSingle();
+          if (convFull?.ai_enabled && !convFull.ai_paused_at && convFull.current_queue_id) {
+            const { data: agent } = await admin
+              .from('ai_agents')
+              .select('id')
+              .eq('queue_id', convFull.current_queue_id)
+              .eq('active', true)
+              .maybeSingle();
+            if (agent?.id) {
+              // Fire-and-forget
+              fetch(`${SUPABASE_URL}/functions/v1/ai-agent-reply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE}` },
+                body: JSON.stringify({ conversation_id: conversationId }),
+              }).catch((err) => console.error('ai-agent-reply trigger failed', err));
+            }
+          }
+        }
       }
     }
 

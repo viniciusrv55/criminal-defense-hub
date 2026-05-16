@@ -14,6 +14,172 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_agent_knowledge: {
+        Row: {
+          active: boolean
+          agent_id: string
+          content: string
+          created_at: string
+          id: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          agent_id: string
+          content?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          agent_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_knowledge_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_runs: {
+        Row: {
+          agent_id: string | null
+          completion_tokens: number | null
+          conversation_id: string | null
+          created_at: string
+          error: string | null
+          id: string
+          inbound_message_id: string | null
+          latency_ms: number | null
+          model: string | null
+          outbound_message_id: string | null
+          prompt_tokens: number | null
+          status: string
+          tool_calls: Json
+        }
+        Insert: {
+          agent_id?: string | null
+          completion_tokens?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          inbound_message_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          outbound_message_id?: string | null
+          prompt_tokens?: number | null
+          status?: string
+          tool_calls?: Json
+        }
+        Update: {
+          agent_id?: string | null
+          completion_tokens?: number | null
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          inbound_message_id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          outbound_message_id?: string | null
+          prompt_tokens?: number | null
+          status?: string
+          tool_calls?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_runs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_agent_runs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agents: {
+        Row: {
+          active: boolean
+          business_hours: Json | null
+          created_at: string
+          greeting_message: string | null
+          handoff_after_messages: number | null
+          handoff_keywords: string[]
+          id: string
+          max_tokens: number
+          model: string
+          name: string
+          queue_id: string
+          system_prompt: string
+          temperature: number
+          tools_enabled: string[]
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          business_hours?: Json | null
+          created_at?: string
+          greeting_message?: string | null
+          handoff_after_messages?: number | null
+          handoff_keywords?: string[]
+          id?: string
+          max_tokens?: number
+          model?: string
+          name: string
+          queue_id: string
+          system_prompt?: string
+          temperature?: number
+          tools_enabled?: string[]
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          business_hours?: Json | null
+          created_at?: string
+          greeting_message?: string | null
+          handoff_after_messages?: number | null
+          handoff_keywords?: string[]
+          id?: string
+          max_tokens?: number
+          model?: string
+          name?: string
+          queue_id?: string
+          system_prompt?: string
+          temperature?: number
+          tools_enabled?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agents_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: true
+            referencedRelation: "whatsapp_queues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attorney_permissions: {
         Row: {
           can_create: boolean | null
@@ -1131,6 +1297,9 @@ export type Database = {
       }
       whatsapp_conversations: {
         Row: {
+          ai_enabled: boolean
+          ai_handoff_reason: string | null
+          ai_paused_at: string | null
           assigned_team_member_id: string | null
           client_id: string | null
           contact_avatar_url: string | null
@@ -1148,6 +1317,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_enabled?: boolean
+          ai_handoff_reason?: string | null
+          ai_paused_at?: string | null
           assigned_team_member_id?: string | null
           client_id?: string | null
           contact_avatar_url?: string | null
@@ -1165,6 +1337,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_enabled?: boolean
+          ai_handoff_reason?: string | null
+          ai_paused_at?: string | null
           assigned_team_member_id?: string | null
           client_id?: string | null
           contact_avatar_url?: string | null

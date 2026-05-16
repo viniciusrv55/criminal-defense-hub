@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/select';
 import {
   Send, Search, Inbox, MessageSquare, ArrowRightLeft, User as UserIcon, Phone,
-  Loader2, FileText, Image as ImageIcon, Mic, Video as VideoIcon, MapPin, Sticker,
+  Loader2, FileText, Image as ImageIcon, Mic, Video as VideoIcon, MapPin, Sticker, Bot, BotOff,
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +31,8 @@ interface Conversation {
   last_message_preview: string | null;
   unread_count: number;
   lead_id: string | null;
+  ai_enabled: boolean;
+  ai_paused_at: string | null;
 }
 interface Message {
   id: string;
@@ -258,6 +260,22 @@ export default function Atendimento() {
     setTransferQueueId('');
   }
 
+  async function toggleAi() {
+    if (!activeConv) return;
+    const paused = !!activeConv.ai_paused_at;
+    const { error } = await supabase
+      .from('whatsapp_conversations')
+      .update(paused
+        ? { ai_paused_at: null, ai_handoff_reason: null }
+        : { ai_paused_at: new Date().toISOString(), ai_handoff_reason: 'Pausado manualmente' })
+      .eq('id', activeConv.id);
+    if (error) {
+      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: paused ? 'IA retomada' : 'IA pausada' });
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="-m-6 lg:-m-10 h-[calc(100vh-3.5rem)] lg:h-screen flex flex-col bg-background">
@@ -388,12 +406,22 @@ export default function Atendimento() {
                         {activeConv.lead_id && (
                           <Badge variant="outline" className="ml-2 h-4 text-[10px]">Lead</Badge>
                         )}
+                        {activeConv.ai_paused_at ? (
+                          <Badge variant="outline" className="ml-1 h-4 text-[10px] gap-1"><BotOff className="w-3 h-3" /> IA pausada</Badge>
+                        ) : activeConv.ai_enabled ? (
+                          <Badge variant="outline" className="ml-1 h-4 text-[10px] gap-1 border-accent text-accent"><Bot className="w-3 h-3" /> IA ativa</Badge>
+                        ) : null}
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
-                    <ArrowRightLeft className="w-4 h-4 mr-2" /> Transferir
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={toggleAi}>
+                      {activeConv.ai_paused_at ? <><Bot className="w-4 h-4 mr-2" />Retomar IA</> : <><BotOff className="w-4 h-4 mr-2" />Pausar IA</>}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
+                      <ArrowRightLeft className="w-4 h-4 mr-2" /> Transferir
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto py-4 space-y-2">

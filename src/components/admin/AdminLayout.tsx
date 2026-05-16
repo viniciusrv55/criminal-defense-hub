@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import {
   LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, Scale,
-  Users, Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert, MessageSquare,
+  Users, Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert, MessageSquare, Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -38,6 +38,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       label: 'Atendimento',
       items: [
         { href: '/admin/atendimento', label: 'Conversas', icon: MessageSquare },
+        { href: '/admin/agentes-ia', label: 'Agentes IA', icon: Bot },
         { href: '/admin/whatsapp', label: 'WhatsApp', icon: Smartphone },
       ],
     },

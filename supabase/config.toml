@@ -2,3 +2,6 @@ project_id = "fskstajvuoviicfjfcai"
 
 [functions.evolution-webhook]
 verify_jwt = false
+
+[functions.ai-agent-reply]
+verify_jwt = false
