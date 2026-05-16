@@ -31,6 +31,8 @@ interface Conversation {
   last_message_preview: string | null;
   unread_count: number;
   lead_id: string | null;
+  ai_enabled: boolean;
+  ai_paused_at: string | null;
 }
 interface Message {
   id: string;
