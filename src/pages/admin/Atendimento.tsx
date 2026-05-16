@@ -406,12 +406,22 @@ export default function Atendimento() {
                         {activeConv.lead_id && (
                           <Badge variant="outline" className="ml-2 h-4 text-[10px]">Lead</Badge>
                         )}
+                        {activeConv.ai_paused_at ? (
+                          <Badge variant="outline" className="ml-1 h-4 text-[10px] gap-1"><BotOff className="w-3 h-3" /> IA pausada</Badge>
+                        ) : activeConv.ai_enabled ? (
+                          <Badge variant="outline" className="ml-1 h-4 text-[10px] gap-1 border-accent text-accent"><Bot className="w-3 h-3" /> IA ativa</Badge>
+                        ) : null}
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
-                    <ArrowRightLeft className="w-4 h-4 mr-2" /> Transferir
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={toggleAi}>
+                      {activeConv.ai_paused_at ? <><Bot className="w-4 h-4 mr-2" />Retomar IA</> : <><BotOff className="w-4 h-4 mr-2" />Pausar IA</>}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
+                      <ArrowRightLeft className="w-4 h-4 mr-2" /> Transferir
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto py-4 space-y-2">
