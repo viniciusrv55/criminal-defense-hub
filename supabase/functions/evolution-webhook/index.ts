@@ -216,8 +216,18 @@ Deno.serve(async (req) => {
           { onConflict: 'evolution_message_id', ignoreDuplicates: true },
         ).select('id').maybeSingle();
 
-        // Trigger AI agent reply (fire-and-forget) for new inbound messages
-        if (!fromMe && inserted?.id) {
+        // Trigger media processing for inbound audio/image/document
+        if (!fromMe && inserted?.id && ['audio', 'image', 'document'].includes(type)) {
+          fetch(`${SUPABASE_URL}/functions/v1/whatsapp-media-process`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE}` },
+            body: JSON.stringify({ message_id: inserted.id }),
+          }).catch((err) => console.error('media-process trigger failed', err));
+        }
+
+        // Trigger AI agent reply (fire-and-forget) for new inbound TEXT messages
+        // (audio triggers AI after transcription inside media-process)
+        if (!fromMe && inserted?.id && type === 'text') {
           const { data: convFull } = await admin
             .from('whatsapp_conversations')
             .select('ai_enabled, ai_paused_at, current_queue_id')
