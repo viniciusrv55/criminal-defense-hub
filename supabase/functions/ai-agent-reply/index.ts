@@ -70,6 +70,49 @@ const TOOL_DEFS: Record<string, Any> = {
       },
     },
   },
+  list_appointment_types: {
+    type: 'function',
+    function: {
+      name: 'list_appointment_types',
+      description: 'Retorna os tipos de compromisso disponíveis (consulta, audiência etc).',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    },
+  },
+  get_available_slots: {
+    type: 'function',
+    function: {
+      name: 'get_available_slots',
+      description: 'Retorna horários livres para agendar consulta em uma data (YYYY-MM-DD). Considera disponibilidade dos advogados, compromissos existentes e bloqueios.',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'Data alvo no formato YYYY-MM-DD.' },
+          duration_minutes: { type: 'number', description: 'Duração desejada em minutos (default 30).' },
+        },
+        required: ['date'],
+        additionalProperties: false,
+      },
+    },
+  },
+  create_appointment: {
+    type: 'function',
+    function: {
+      name: 'create_appointment',
+      description: 'Cria um agendamento (consulta) vinculado à conversa atual.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Nome do cliente.' },
+          starts_at: { type: 'string', description: 'Data/hora ISO 8601 do início (ex 2026-05-20T14:00:00-03:00).' },
+          duration_minutes: { type: 'number', description: 'Duração em minutos (default 30).' },
+          appointment_type: { type: 'string', description: 'Nome do tipo (ex Consulta inicial).' },
+          notes: { type: 'string', description: 'Observações.' },
+        },
+        required: ['name', 'starts_at'],
+        additionalProperties: false,
+      },
+    },
+  },
 };
 
 function withinBusinessHours(bh: Any | null): boolean {
