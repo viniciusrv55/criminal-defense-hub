@@ -1,113 +1,130 @@
-# Fase 3 — Agentes de IA por fila WhatsApp
+### Fase 4 — Agenda, Agendamentos e Mídia (áudio/imagem) no Atendimento
 
-Objetivo: adicionar agentes de IA (OpenAI) que respondem automaticamente em conversas WhatsApp, por fila, com prompt configurável, base de conhecimento (RAG simples), ferramentas (tools) controladas e handoff suave para humano.
+Objetivo: dar ao escritório uma agenda integrada ao CRM + permitir que o agente de IA (e atendentes humanos) marquem compromissos diretamente no WhatsApp, além de processar áudios recebidos (transcrição) e imagens (descrição) para que o agente possa entendê-los.
 
-Fora do escopo: agenda/agendamentos (Fase 4), broadcast/Brevo (Fase 5), voice/áudio transcrito (Fase 4+).
+Fora do escopo: broadcast/Brevo (Fase 5), faturamento/cobrança, vídeo-chamada.
 
 ---
 
-## 1. Configuração da OpenAI
+## 1. Agenda — modelo de dados
 
-- Secret `OPENAI_API_KEY` (adicionar via tool de secrets).
-- Tabela `platform_settings` já existe — usar para guardar defaults globais: `openai_default_model` (`gpt-4o-mini`), `openai_default_temperature`.
+### `appointment_types`
+Tipos configuráveis (ex.: "Consulta inicial 30min", "Reunião contrato", "Audiência"):
+- `name`, `duration_minutes`, `color`, `default_location`, `requires_attorney` (bool), `active`, `sort_order`.
 
-## 2. Novas tabelas
+### `appointments`
+- `title`, `description`
+- `appointment_type_id`, `practice_area_id` (nullable)
+- `lead_id` / `client_id` / `contract_id` (nullable — vincula ao CRM)
+- `conversation_id` (nullable — quando criado via WhatsApp)
+- `attorney_id` (team_member responsável), `attendees` (uuid[] team_members extras)
+- `starts_at`, `ends_at`, `all_day` (bool), `location`, `meeting_url`
+- `status` ('scheduled'|'confirmed'|'completed'|'cancelled'|'no_show')
+- `reminder_sent_at`, `confirmation_sent_at`
+- `created_by`, `created_via` ('admin'|'ai_agent'|'client_portal')
+- `notes`, `external_calendar_id` (futuro Google Calendar)
 
-### `ai_agents`
-Um agente por fila (1:1 opcional). Se a fila tem agente ativo, ele responde automaticamente.
-- `queue_id` (FK whatsapp_queues, unique), `name`, `active` (bool)
-- `model` (text, default `gpt-4o-mini`), `temperature` (numeric), `max_tokens` (int)
-- `system_prompt` (text) — instruções da persona/escopo
-- `greeting_message` (text, nullable) — mensagem enviada na 1ª interação
-- `handoff_keywords` (text[]) — gatilhos para transferir ao humano (ex: `["atendente","humano","advogado"]`)
-- `handoff_after_messages` (int, nullable) — força handoff após N mensagens do bot
-- `business_hours` (jsonb, nullable) — horários em que o agente responde; fora disso só humano
-- `tools_enabled` (text[]) — IDs de ferramentas habilitadas (`create_lead`, `get_practice_areas`, `schedule_callback`)
+### `appointment_availability`
+Janelas de disponibilidade por team_member:
+- `team_member_id`, `weekday` (0-6), `start_time`, `end_time`, `active`
 
-### `ai_agent_knowledge`
-Base de conhecimento por agente (sem vector store ainda — chunk + busca por relevância simples / append no system prompt).
-- `agent_id`, `title`, `content` (text), `sort_order`, `active`
+### `appointment_blocks`
+Bloqueios pontuais (feriados, férias):
+- `team_member_id` (nullable = global), `starts_at`, `ends_at`, `reason`
 
-### `ai_agent_runs`
-Auditoria por mensagem processada.
-- `agent_id`, `conversation_id`, `inbound_message_id`, `outbound_message_id` (nullable)
-- `model`, `prompt_tokens`, `completion_tokens`, `latency_ms`, `tool_calls` (jsonb), `status` ('ok'|'error'|'handoff'), `error` (text)
+**RLS**: admin gerencia tudo. Team members veem/editam appointments onde são `attorney_id` ou estão em `attendees`. Clientes veem os próprios via portal.
 
-### Atualizar `whatsapp_conversations`
-- `ai_enabled` (bool, default true quando agente da fila ativo)
-- `ai_paused_at` (timestamptz, nullable) — atendente pode pausar IA manualmente
-- `ai_handoff_reason` (text, nullable)
+## 2. UI da Agenda — `/admin/agenda`
 
-**RLS**: admin gerencia agentes/knowledge. Membros leem runs das conversas que acessam.
+- Vista **Mensal** / **Semanal** / **Diária** (FullCalendar-like via componente próprio, sem nova dependência pesada — usar grid Tailwind).
+- Filtros: por advogado, por tipo, por área, por status.
+- Click em slot vazio → modal "Novo agendamento" (auto-preenche horário).
+- Click em evento → drawer com detalhes + ações (confirmar, cancelar, reagendar, enviar lembrete WhatsApp).
+- Coluna lateral: próximos 7 dias resumidos.
+- Aba **Configurações da agenda**: tipos, disponibilidade por advogado, bloqueios.
 
-## 3. Edge functions
+## 3. Integração com Lead / Contrato
 
-### `evolution-webhook` (atualizar)
-Após inserir `whatsapp_messages` inbound:
-- Se conversa está atribuída a fila com agente ativo, `ai_enabled=true`, sem `ai_paused_at`, e dentro do business_hours → dispara `ai-agent-reply` (fire-and-forget via `supabase.functions.invoke`).
+- Em `Leads` (kanban + detalhe): botão **"Agendar consulta"** abre modal já vinculando o lead.
+- Em `Contracts`: aba **Agendamentos** lista compromissos do contrato.
+- Em `Atendimento` (conversa WhatsApp): botão **"Agendar"** no header da conversa.
 
-### `ai-agent-reply` (nova)
-Recebe `{ conversation_id }`. Fluxo:
-1. Carrega agente da fila + últimas N mensagens da conversa (~20).
-2. Carrega knowledge ativo do agente, injeta no system prompt.
-3. Checa handoff: keywords na última msg, contador, fora de horário → marca `ai_paused_at`, cria transfer para fila "Geral" ou fila humana configurada, registra run com status=`handoff`. Não responde.
-4. Chama OpenAI Chat Completions com tools habilitadas (function calling).
-5. Se modelo chamar tool → executa server-side (ex: `create_lead` insere em `leads`, `get_practice_areas` lê tabela), devolve resultado, segue loop até resposta final (max 3 iterações).
-6. Envia resposta via `whatsapp-send` existente. Registra `ai_agent_runs` com tokens/latência.
+## 4. Agente IA — novas ferramentas
 
-### `ai-agent-test` (nova)
-Playground: recebe `{ agent_id, messages[] }`, roda mesma lógica sem enviar pra WhatsApp. Retorna resposta + tool_calls + tokens. Usado pela UI de admin pra testar prompt.
+Adicionar em `ai-agent-reply` (tools_enabled):
 
-## 4. UI
+- `get_available_slots({ date, duration_minutes, attorney_id? })` → consulta `appointment_availability` + appointments existentes + blocks, devolve até 6 slots livres.
+- `create_appointment({ name, phone, starts_at, duration_minutes, appointment_type_id?, notes? })` → cria appointment vinculado à conversa/lead, status `scheduled`, manda confirmação ao cliente.
+- `cancel_appointment({ appointment_id, reason })` (só se o lead/conv tiver appointment futuro próprio).
 
-### `/admin/agentes-ia` (novo)
-Lista de agentes (1 por fila). Tabs por agente:
-- **Geral**: nome, modelo, temperatura, ativo, mensagem de saudação.
-- **Prompt**: editor de `system_prompt` (textarea grande + exemplos).
-- **Conhecimento**: CRUD de `ai_agent_knowledge` (lista + editor markdown).
-- **Handoff**: keywords (tags), limite de mensagens, horário comercial (dias/horas).
-- **Ferramentas**: checkboxes das tools disponíveis.
-- **Playground**: chat lateral que chama `ai-agent-test` — vê resposta + tokens + tool calls.
-- **Histórico**: tabela de `ai_agent_runs` recentes (filtro por status).
+Prompt do agente ganha bloco com regras de horário comercial e tipos disponíveis (injetado dinamicamente, igual ao knowledge).
 
-### `Atendimento` (existente, ajustes)
-- Badge "🤖 IA ativa" / "⏸ IA pausada" no header da conversa.
-- Botão **Pausar IA** / **Retomar IA** (atualiza `ai_paused_at`).
-- Mensagens enviadas pelo bot ganham label visual "via IA" (já temos `sent_by_user_id=null` + metadata `{ai_agent_id}`).
+## 5. Mídia no WhatsApp — áudio e imagem
 
-### Menu admin
-Novo item **"Agentes IA"** abaixo de "Atendimento".
+### Inbound (`evolution-webhook`)
+Hoje só salva `text`. Estender:
+- `audioMessage` → baixa via URL Evolution, faz upload no bucket novo `whatsapp-media` (privado), salva `media_url`+`media_mime`, `message_type='audio'`.
+- `imageMessage` → idem, `message_type='image'`, captura `caption` em `content`.
+- `documentMessage` → idem, `message_type='document'`.
 
-## 5. Ferramentas (tools) do agente
+### Transcrição/descrição automática
+Nova edge function `whatsapp-media-process`:
+- Recebe `{ message_id }`.
+- Se áudio: chama OpenAI `whisper-1` → grava texto em `metadata.transcript` e (se conversa tem IA ativa) injeta como pseudo-mensagem ao chamar `ai-agent-reply`.
+- Se imagem: chama OpenAI `gpt-4o-mini` vision → grava `metadata.image_description`.
+- Disparado fire-and-forget pelo webhook após salvar a mensagem.
 
-MVP — implementadas server-side em `ai-agent-reply`:
-- `get_practice_areas()` → retorna áreas ativas (nome + descrição curta).
-- `create_lead({name, phone, practice_area, message})` → insere em `leads` + vincula à conversa.
-- `request_human_handoff({reason})` → pausa IA e transfere para fila Geral.
+### UI `Atendimento`
+- Renderizar bolha de áudio com `<audio controls>` + texto transcrito abaixo (badge "transcrição automática").
+- Imagens com `<img>` lightbox + descrição IA em tooltip.
+- Documentos com link de download + ícone por tipo.
 
-Cada tool tem JSON schema declarado no código. Só são expostas se listadas em `agents.tools_enabled`.
+### Outbound
+- Atendente pode anexar imagem/áudio/documento no composer → `whatsapp-send` aceita `mediaUrl`+`mediaType`, encaminha para Evolution endpoint correto (`/message/sendMedia/{instance}`).
 
-## 6. Permissões
+## 6. Storage
 
-- **Admin/super_admin**: gerencia agentes, knowledge, runs.
-- **Team member**: vê badge IA, pausa/retoma IA das suas conversas. Não edita prompt.
+Bucket `whatsapp-media` (privado). RLS via signed URLs geradas server-side; UI consome via signed URL com TTL 1h.
 
-## 7. Ordem de entrega
+## 7. Notificações WhatsApp
 
-1. Secret `OPENAI_API_KEY` + migration (3 tabelas novas + 3 colunas em conversations + RLS).
-2. Edge function `ai-agent-reply` com tools server-side.
-3. Atualizar `evolution-webhook` para disparar `ai-agent-reply`.
-4. Edge function `ai-agent-test`.
-5. UI `/admin/agentes-ia` com tabs.
-6. Badge + botão pausar IA no `Atendimento`.
-7. Seed: criar 1 agente "Triagem" na fila Geral com prompt básico.
+Edge function `appointment-notify` (chamada por triggers):
+- Confirmação imediata ao criar appointment.
+- Lembrete 24h antes (cron diário simples via `pg_cron` — opcional MVP; alternativa: job manual no admin).
+- Notificação de cancelamento.
 
-## 8. Riscos
+Templates de mensagem editáveis em `platform_settings` (`appointment_*_template`).
 
-- **Loop infinito de tool calls**: cap em 3 iterações + timeout 30s.
-- **Custo OpenAI**: log de tokens em `ai_agent_runs`, dashboard simples (futuro).
-- **Resposta fora de hora**: business_hours bloqueia antes de chamar OpenAI.
-- **IA respondendo enquanto humano digita**: `ai_paused_at` checado a cada inbound; ao 1º envio manual do humano, set automático de `ai_paused_at=now()`.
-- **Quebra de Fase 2**: zero — só adiciona; `ai_enabled` default false até existir agente ativo na fila.
+## 8. Menu admin
 
-Aprove pra eu adicionar o secret OPENAI_API_KEY e rodar a migration.
+Novo grupo **"Agenda"** com itens:
+- Calendário (`/admin/agenda`)
+- Tipos & Disponibilidade (`/admin/agenda/config`)
+
+## 9. Permissões
+
+- **Admin**: tudo.
+- **Team member (advogado)**: cria/edita appointments próprios, vê os onde está em `attendees`. Edita própria disponibilidade.
+- **IA**: cria via tool, com `attorney_id` herdado da fila ou roteado por regra.
+
+## 10. Ordem de entrega
+
+1. Migration: tabelas agenda + bucket `whatsapp-media` + colunas em messages se faltar.
+2. Edge function `whatsapp-media-process` (whisper + vision).
+3. Atualizar `evolution-webhook` para mídia + disparar processamento.
+4. Atualizar `whatsapp-send` para enviar mídia + composer com anexos.
+5. UI `/admin/agenda` (calendário + CRUD).
+6. Config de tipos/disponibilidade/bloqueios.
+7. Tools de agendamento no `ai-agent-reply` + atualizar `AiAgents` UI.
+8. Botões "Agendar" em Leads, Contracts, Atendimento.
+9. Edge function `appointment-notify` + templates.
+
+## 11. Riscos
+
+- **Custo Whisper**: ~$0.006/min. Log de uso opcional em tabela futura.
+- **Conflito de agenda**: validar overlap no `create_appointment` (server-side, com lock por advogado).
+- **Fuso horário**: tudo em `timestamptz`, UI exibe em `America/Fortaleza`.
+- **Mídia grande**: limitar upload a 16MB (limite Evolution).
+- **Quebra Fase 3**: zero — só adiciona tools opcionais.
+
+Aprove para eu rodar a migration e começar pela base (agenda + mídia).
