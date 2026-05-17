@@ -204,6 +204,70 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
     }
     return { ok: true, handed_off: true };
   }
+  if (name === 'list_appointment_types') {
+    const { data } = await admin.from('appointment_types').select('id, name, duration_minutes').eq('active', true).order('sort_order');
+    return { types: data ?? [] };
+  }
+  if (name === 'get_available_slots') {
+    const dateStr = args.date as string;
+    const duration = Number(args.duration_minutes) || 30;
+    if (!dateStr) return { ok: false, error: 'date obrigatória' };
+    const dayStart = new Date(`${dateStr}T00:00:00-03:00`);
+    const dayEnd = new Date(`${dateStr}T23:59:59-03:00`);
+    const weekday = dayStart.getDay();
+    const { data: avail } = await admin.from('appointment_availability').select('team_member_id, start_time, end_time').eq('weekday', weekday).eq('active', true);
+    if (!avail?.length) return { slots: [], note: 'Sem disponibilidade nesta data.' };
+    const { data: existing } = await admin.from('appointments').select('starts_at, ends_at, attorney_id').gte('starts_at', dayStart.toISOString()).lte('starts_at', dayEnd.toISOString()).neq('status', 'cancelled');
+    const { data: blocks } = await admin.from('appointment_blocks').select('starts_at, ends_at, team_member_id').lte('starts_at', dayEnd.toISOString()).gte('ends_at', dayStart.toISOString());
+    const slots: string[] = [];
+    for (const a of avail) {
+      const [sh, sm] = a.start_time.split(':').map(Number);
+      const [eh, em] = a.end_time.split(':').map(Number);
+      let cur = new Date(dayStart); cur.setHours(sh, sm, 0, 0);
+      const end = new Date(dayStart); end.setHours(eh, em, 0, 0);
+      while (cur.getTime() + duration * 60000 <= end.getTime()) {
+        const slotEnd = new Date(cur.getTime() + duration * 60000);
+        const conflict = (existing ?? []).some((e: Any) => e.attorney_id === a.team_member_id && new Date(e.starts_at) < slotEnd && new Date(e.ends_at) > cur)
+          || (blocks ?? []).some((b: Any) => (!b.team_member_id || b.team_member_id === a.team_member_id) && new Date(b.starts_at) < slotEnd && new Date(b.ends_at) > cur);
+        if (!conflict && cur > new Date()) slots.push(cur.toISOString());
+        cur = new Date(cur.getTime() + 30 * 60000);
+      }
+    }
+    return { slots: Array.from(new Set(slots)).sort().slice(0, 8) };
+  }
+  if (name === 'create_appointment') {
+    const starts = new Date(args.starts_at);
+    if (isNaN(starts.getTime())) return { ok: false, error: 'starts_at inválido' };
+    const duration = Number(args.duration_minutes) || 30;
+    const ends = new Date(starts.getTime() + duration * 60000);
+    let typeId: string | null = null;
+    if (args.appointment_type) {
+      const { data: types } = await admin.from('appointment_types').select('id, name').eq('active', true);
+      typeId = (types ?? []).find((t: Any) => t.name.toLowerCase().includes(String(args.appointment_type).toLowerCase()))?.id ?? null;
+    }
+    // tenta achar advogado disponível
+    const weekday = starts.getDay();
+    const hhmm = starts.toTimeString().slice(0, 5);
+    const { data: avail } = await admin.from('appointment_availability').select('team_member_id').eq('weekday', weekday).eq('active', true).lte('start_time', hhmm).gte('end_time', hhmm);
+    let attorneyId: string | null = null;
+    for (const a of (avail ?? [])) {
+      const { data: clash } = await admin.from('appointments').select('id').eq('attorney_id', a.team_member_id).neq('status', 'cancelled').lt('starts_at', ends.toISOString()).gt('ends_at', starts.toISOString()).maybeSingle();
+      if (!clash) { attorneyId = a.team_member_id; break; }
+    }
+    const { data: appt, error } = await admin.from('appointments').insert({
+      title: `Consulta — ${args.name}`,
+      appointment_type_id: typeId,
+      conversation_id: ctx.conversationId,
+      attorney_id: attorneyId,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
+      status: 'scheduled',
+      created_via: 'ai_agent',
+      notes: args.notes ?? null,
+    }).select('id').single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, appointment_id: appt.id, starts_at: starts.toISOString(), attorney_assigned: !!attorneyId };
+  }
   return { ok: false, error: `Tool desconhecida: ${name}` };
 }
 
