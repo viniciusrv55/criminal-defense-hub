@@ -180,6 +180,192 @@ export type Database = {
           },
         ]
       }
+      appointment_availability: {
+        Row: {
+          active: boolean
+          created_at: string
+          end_time: string
+          id: string
+          start_time: string
+          team_member_id: string
+          updated_at: string
+          weekday: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          end_time: string
+          id?: string
+          start_time: string
+          team_member_id: string
+          updated_at?: string
+          weekday: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          end_time?: string
+          id?: string
+          start_time?: string
+          team_member_id?: string
+          updated_at?: string
+          weekday?: number
+        }
+        Relationships: []
+      }
+      appointment_blocks: {
+        Row: {
+          created_at: string
+          ends_at: string
+          id: string
+          reason: string | null
+          starts_at: string
+          team_member_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          ends_at: string
+          id?: string
+          reason?: string | null
+          starts_at: string
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string
+          id?: string
+          reason?: string | null
+          starts_at?: string
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      appointment_types: {
+        Row: {
+          active: boolean
+          color: string
+          created_at: string
+          default_location: string | null
+          duration_minutes: number
+          id: string
+          name: string
+          requires_attorney: boolean
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          color?: string
+          created_at?: string
+          default_location?: string | null
+          duration_minutes?: number
+          id?: string
+          name: string
+          requires_attorney?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          color?: string
+          created_at?: string
+          default_location?: string | null
+          duration_minutes?: number
+          id?: string
+          name?: string
+          requires_attorney?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      appointments: {
+        Row: {
+          all_day: boolean
+          appointment_type_id: string | null
+          attendees: string[]
+          attorney_id: string | null
+          client_id: string | null
+          confirmation_sent_at: string | null
+          contract_id: string | null
+          conversation_id: string | null
+          created_at: string
+          created_by: string | null
+          created_via: string
+          description: string | null
+          ends_at: string
+          external_calendar_id: string | null
+          id: string
+          lead_id: string | null
+          location: string | null
+          meeting_url: string | null
+          notes: string | null
+          practice_area_id: string | null
+          reminder_sent_at: string | null
+          starts_at: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          appointment_type_id?: string | null
+          attendees?: string[]
+          attorney_id?: string | null
+          client_id?: string | null
+          confirmation_sent_at?: string | null
+          contract_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_via?: string
+          description?: string | null
+          ends_at: string
+          external_calendar_id?: string | null
+          id?: string
+          lead_id?: string | null
+          location?: string | null
+          meeting_url?: string | null
+          notes?: string | null
+          practice_area_id?: string | null
+          reminder_sent_at?: string | null
+          starts_at: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          appointment_type_id?: string | null
+          attendees?: string[]
+          attorney_id?: string | null
+          client_id?: string | null
+          confirmation_sent_at?: string | null
+          contract_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_via?: string
+          description?: string | null
+          ends_at?: string
+          external_calendar_id?: string | null
+          id?: string
+          lead_id?: string | null
+          location?: string | null
+          meeting_url?: string | null
+          notes?: string | null
+          practice_area_id?: string | null
+          reminder_sent_at?: string | null
+          starts_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       attorney_permissions: {
         Row: {
           can_create: boolean | null
@@ -1604,6 +1790,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_access_appointment: {
+        Args: { _appt_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_access_conversation: {
         Args: { _conversation_id: string; _user_id: string }
         Returns: boolean

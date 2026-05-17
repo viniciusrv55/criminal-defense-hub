@@ -5,3 +5,9 @@ verify_jwt = false
 
 [functions.ai-agent-reply]
 verify_jwt = false
+
+[functions.whatsapp-media-process]
+verify_jwt = false
+
+[functions.appointment-notify]
+verify_jwt = false
