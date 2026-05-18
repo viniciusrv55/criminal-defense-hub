@@ -41,9 +41,11 @@ interface Message {
   message_type: string;
   content: string | null;
   media_url: string | null;
+  media_mime: string | null;
   status: string;
   created_at: string;
   sent_by_user_id: string | null;
+  metadata: Record<string, unknown> | null;
 }
 interface Member { id: string; full_name: string; }
 
@@ -66,6 +68,9 @@ function formatPhone(p: string) {
 
 function MessageBubble({ msg }: { msg: Message }) {
   const isOut = msg.direction === 'outbound';
+  const meta = (msg.metadata ?? {}) as Record<string, unknown>;
+  const transcript = typeof meta.transcript === 'string' ? meta.transcript : null;
+  const imageDesc = typeof meta.image_description === 'string' ? meta.image_description : null;
   const icon = msg.message_type === 'image' ? <ImageIcon className="w-3 h-3" />
     : msg.message_type === 'audio' ? <Mic className="w-3 h-3" />
     : msg.message_type === 'video' ? <VideoIcon className="w-3 h-3" />
@@ -84,14 +89,25 @@ function MessageBubble({ msg }: { msg: Message }) {
         }`}
       >
         {msg.media_url && msg.message_type === 'image' && (
-          <img src={msg.media_url} alt="" className="rounded-lg mb-2 max-w-full" />
+          <a href={msg.media_url} target="_blank" rel="noreferrer">
+            <img src={msg.media_url} alt="" className="rounded-lg mb-2 max-w-full max-h-80 object-cover" />
+          </a>
         )}
-        {msg.media_url && msg.message_type !== 'image' && (
+        {msg.media_url && msg.message_type === 'audio' && (
+          <audio controls src={msg.media_url} className="w-full mb-1" />
+        )}
+        {msg.media_url && !['image', 'audio'].includes(msg.message_type) && (
           <a href={msg.media_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 underline text-xs mb-1">
             {icon}<span>{msg.message_type}</span>
           </a>
         )}
         {msg.content && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
+        {transcript && msg.message_type === 'audio' && !msg.content && (
+          <p className="text-sm whitespace-pre-wrap break-words italic">{transcript}</p>
+        )}
+        {imageDesc && (
+          <p className="text-[11px] mt-1 opacity-70 italic border-t border-current/10 pt-1">🤖 {imageDesc}</p>
+        )}
         <div className={`flex items-center gap-1 justify-end mt-1 text-[10px] ${isOut ? 'text-[hsl(0_0%_15%)]/70' : 'text-muted-foreground'}`}>
           <span>{formatTime(msg.created_at)}</span>
           {isOut && (
