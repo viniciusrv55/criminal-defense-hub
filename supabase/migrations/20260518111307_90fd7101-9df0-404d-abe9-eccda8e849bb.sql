@@ -1,0 +1,1 @@
+ALTER TABLE public.ai_agents ALTER COLUMN tools_enabled SET DEFAULT ARRAY['get_practice_areas','create_lead','request_human_handoff','list_appointment_types','get_available_slots','create_appointment']::text[];
