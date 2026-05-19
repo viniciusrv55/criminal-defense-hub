@@ -34,7 +34,7 @@ export default function CampaignTemplates() {
     delete (payload as { id?: string }).id;
     const op = editing.id
       ? supabase.from('message_templates').update(payload).eq('id', editing.id)
-      : supabase.from('message_templates').insert(payload);
+      : supabase.from('message_templates').insert(payload as { name: string; body: string });
     const { error } = await op;
     if (error) return toast.error(error.message);
     toast.success('Modelo salvo'); setEditing(null); load();
