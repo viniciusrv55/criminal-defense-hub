@@ -32,6 +32,9 @@ import Atendimento from "./pages/admin/Atendimento";
 import AiAgents from "./pages/admin/AiAgents";
 import Agenda from "./pages/admin/Agenda";
 import AgendaConfig from "./pages/admin/AgendaConfig";
+import Campaigns from "./pages/admin/Campaigns";
+import CampaignTemplates from "./pages/admin/CampaignTemplates";
+import CampaignAudiences from "./pages/admin/CampaignAudiences";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import SuperAdminRoute from "./components/admin/SuperAdminRoute";
 
