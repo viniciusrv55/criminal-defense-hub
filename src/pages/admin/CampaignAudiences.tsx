@@ -70,7 +70,7 @@ export default function CampaignAudiences() {
 
   const save = async () => {
     if (!editing?.name) return toast.error('Nome obrigatório');
-    const payload = { ...editing };
+    const payload = { ...editing, filters: (editing.filters ?? {}) as never };
     delete (payload as { id?: string }).id;
     delete (payload as { member_count?: number }).member_count;
     const op = editing.id
