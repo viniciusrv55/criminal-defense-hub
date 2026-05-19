@@ -11,3 +11,10 @@ verify_jwt = false
 
 [functions.appointment-notify]
 verify_jwt = false
+
+[functions.brevo-webhook]
+verify_jwt = false
+
+[functions.campaign-worker]
+verify_jwt = false
+
