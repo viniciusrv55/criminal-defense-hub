@@ -75,6 +75,9 @@ const App = () => (
             <Route path="/admin/agentes-ia" element={<ProtectedRoute><AiAgents /></ProtectedRoute>} />
             <Route path="/admin/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
             <Route path="/admin/agenda/config" element={<ProtectedRoute><AgendaConfig /></ProtectedRoute>} />
+            <Route path="/admin/campanhas" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
+            <Route path="/admin/campanhas/templates" element={<ProtectedRoute><CampaignTemplates /></ProtectedRoute>} />
+            <Route path="/admin/campanhas/publicos" element={<ProtectedRoute><CampaignAudiences /></ProtectedRoute>} />
             <Route path="/admin/whatsapp" element={<ProtectedRoute><WhatsAppInstances /></ProtectedRoute>} />
             <Route path="/admin/plataforma" element={<SuperAdminRoute><PlatformSettings /></SuperAdminRoute>} />
 
