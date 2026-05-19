@@ -1,130 +1,109 @@
-### Fase 4 — Agenda, Agendamentos e Mídia (áudio/imagem) no Atendimento
+# Fase 5 — Campanhas e Broadcast (WhatsApp + E-mail via Brevo)
 
-Objetivo: dar ao escritório uma agenda integrada ao CRM + permitir que o agente de IA (e atendentes humanos) marquem compromissos diretamente no WhatsApp, além de processar áudios recebidos (transcrição) e imagens (descrição) para que o agente possa entendê-los.
+Objetivo: permitir disparo de campanhas em massa para leads/clientes/contatos do CRM, via **WhatsApp (Evolution)** e **E-mail (Brevo)**, com segmentação, templates reutilizáveis, agendamento, fila controlada (anti-ban) e métricas. Encerra o ciclo de aquisição → atendimento → relacionamento.
 
-Fora do escopo: broadcast/Brevo (Fase 5), faturamento/cobrança, vídeo-chamada.
+Antes de iniciar, faço também os **ajustes finais da Fase 4** (ver seção 9).
 
 ---
 
-## 1. Agenda — modelo de dados
+## 1. Modelo de dados
 
-### `appointment_types`
-Tipos configuráveis (ex.: "Consulta inicial 30min", "Reunião contrato", "Audiência"):
-- `name`, `duration_minutes`, `color`, `default_location`, `requires_attorney` (bool), `active`, `sort_order`.
+### `audiences`
+Segmentos salvos.
+- `name`, `description`, `source` ('leads'|'clients'|'contacts'|'manual'), `filters` (jsonb — área, status kanban, tags, período), `member_count` (cache), `active`.
 
-### `appointments`
-- `title`, `description`
-- `appointment_type_id`, `practice_area_id` (nullable)
-- `lead_id` / `client_id` / `contract_id` (nullable — vincula ao CRM)
-- `conversation_id` (nullable — quando criado via WhatsApp)
-- `attorney_id` (team_member responsável), `attendees` (uuid[] team_members extras)
-- `starts_at`, `ends_at`, `all_day` (bool), `location`, `meeting_url`
-- `status` ('scheduled'|'confirmed'|'completed'|'cancelled'|'no_show')
-- `reminder_sent_at`, `confirmation_sent_at`
-- `created_by`, `created_via` ('admin'|'ai_agent'|'client_portal')
-- `notes`, `external_calendar_id` (futuro Google Calendar)
+### `audience_members`
+- `audience_id`, `lead_id` / `client_id` / `contact_id` (nullable), `phone`, `email`, `name`, `vars` (jsonb — variáveis por destinatário).
 
-### `appointment_availability`
-Janelas de disponibilidade por team_member:
-- `team_member_id`, `weekday` (0-6), `start_time`, `end_time`, `active`
+### `message_templates`
+Templates reutilizáveis (WhatsApp + e-mail).
+- `name`, `channel` ('whatsapp'|'email'|'both'), `subject` (email), `body` (texto/markdown com `{{variaveis}}`), `media_url` (opcional WhatsApp), `category`, `active`.
 
-### `appointment_blocks`
-Bloqueios pontuais (feriados, férias):
-- `team_member_id` (nullable = global), `starts_at`, `ends_at`, `reason`
+### `campaigns`
+- `name`, `channel` ('whatsapp'|'email'), `audience_id`, `template_id`, `whatsapp_instance_id` (se WA), `from_email` / `from_name` (se email), `subject_override`, `body_override`, `scheduled_at`, `status` ('draft'|'scheduled'|'running'|'paused'|'completed'|'failed'), `throttle_per_minute` (default 10 WA / 60 email), `started_at`, `finished_at`, `stats` (jsonb: sent/delivered/read/failed/clicked).
 
-**RLS**: admin gerencia tudo. Team members veem/editam appointments onde são `attorney_id` ou estão em `attendees`. Clientes veem os próprios via portal.
+### `campaign_recipients`
+Uma linha por destinatário.
+- `campaign_id`, `audience_member_id`, `phone`/`email`, `personalized_body`, `personalized_subject`, `status` ('pending'|'sending'|'sent'|'delivered'|'read'|'failed'|'unsubscribed'), `sent_at`, `delivered_at`, `read_at`, `error`, `provider_message_id`, `clicks` (int), `opens` (int).
 
-## 2. UI da Agenda — `/admin/agenda`
+### `unsubscribes`
+- `phone`/`email`, `channel`, `reason`, `created_at`. Bloqueia envios futuros.
 
-- Vista **Mensal** / **Semanal** / **Diária** (FullCalendar-like via componente próprio, sem nova dependência pesada — usar grid Tailwind).
-- Filtros: por advogado, por tipo, por área, por status.
-- Click em slot vazio → modal "Novo agendamento" (auto-preenche horário).
-- Click em evento → drawer com detalhes + ações (confirmar, cancelar, reagendar, enviar lembrete WhatsApp).
-- Coluna lateral: próximos 7 dias resumidos.
-- Aba **Configurações da agenda**: tipos, disponibilidade por advogado, bloqueios.
+**RLS**: admin gerencia tudo. Team members veem campanhas que criaram.
 
-## 3. Integração com Lead / Contrato
+## 2. Integração Brevo (e-mail transacional + marketing)
 
-- Em `Leads` (kanban + detalhe): botão **"Agendar consulta"** abre modal já vinculando o lead.
-- Em `Contracts`: aba **Agendamentos** lista compromissos do contrato.
-- Em `Atendimento` (conversa WhatsApp): botão **"Agendar"** no header da conversa.
+- Nova secret: `BREVO_API_KEY`.
+- Tabela `platform_settings` ganha campos: `brevo_sender_email`, `brevo_sender_name`, `brevo_reply_to`.
+- Edge function `brevo-send` (envio individual) e webhook `brevo-webhook` (eventos delivered/opened/clicked/bounced → atualiza `campaign_recipients`).
+- DNS: instruções para SPF/DKIM no admin (texto-guia).
 
-## 4. Agente IA — novas ferramentas
+## 3. WhatsApp broadcast
 
-Adicionar em `ai-agent-reply` (tools_enabled):
+- Edge function `whatsapp-broadcast-worker`: cron a cada 1 min, pega `campaign_recipients` pendentes da campanha mais antiga `running`, respeita `throttle_per_minute` por instância, envia via `whatsapp-send`, faz jitter aleatório (3–10s) para não parecer bot.
+- Suporta `mediaUrl` (imagem/áudio/documento).
+- Marca `unsubscribe` ao receber palavras-chave ("sair", "parar", "descadastrar") no `evolution-webhook`.
 
-- `get_available_slots({ date, duration_minutes, attorney_id? })` → consulta `appointment_availability` + appointments existentes + blocks, devolve até 6 slots livres.
-- `create_appointment({ name, phone, starts_at, duration_minutes, appointment_type_id?, notes? })` → cria appointment vinculado à conversa/lead, status `scheduled`, manda confirmação ao cliente.
-- `cancel_appointment({ appointment_id, reason })` (só se o lead/conv tiver appointment futuro próprio).
+## 4. Editor de campanha (`/admin/campanhas`)
 
-Prompt do agente ganha bloco com regras de horário comercial e tipos disponíveis (injetado dinamicamente, igual ao knowledge).
+- Lista de campanhas (status, canal, destinatários, taxa de entrega).
+- Wizard "Nova campanha": 1) canal → 2) público (escolhe audience ou cria filtro inline) → 3) template ou texto livre → 4) preview com variáveis renderizadas → 5) agendar/enviar agora.
+- Página de detalhe: barra de progresso, tabela de destinatários com status, botão pausar/retomar/duplicar, gráfico de funil.
 
-## 5. Mídia no WhatsApp — áudio e imagem
+## 5. Editor de templates (`/admin/campanhas/templates`)
 
-### Inbound (`evolution-webhook`)
-Hoje só salva `text`. Estender:
-- `audioMessage` → baixa via URL Evolution, faz upload no bucket novo `whatsapp-media` (privado), salva `media_url`+`media_mime`, `message_type='audio'`.
-- `imageMessage` → idem, `message_type='image'`, captura `caption` em `content`.
-- `documentMessage` → idem, `message_type='document'`.
+- CRUD de `message_templates`.
+- Editor com inserção de variáveis (`{{nome}}`, `{{area}}`, `{{processo}}` etc.) via dropdown.
+- Para e-mail: editor rich-text simples (reutiliza `RichTextEditor`).
+- Preview ao vivo com destinatário-amostra.
 
-### Transcrição/descrição automática
-Nova edge function `whatsapp-media-process`:
-- Recebe `{ message_id }`.
-- Se áudio: chama OpenAI `whisper-1` → grava texto em `metadata.transcript` e (se conversa tem IA ativa) injeta como pseudo-mensagem ao chamar `ai-agent-reply`.
-- Se imagem: chama OpenAI `gpt-4o-mini` vision → grava `metadata.image_description`.
-- Disparado fire-and-forget pelo webhook após salvar a mensagem.
+## 6. Segmentação (`/admin/campanhas/publicos`)
 
-### UI `Atendimento`
-- Renderizar bolha de áudio com `<audio controls>` + texto transcrito abaixo (badge "transcrição automática").
-- Imagens com `<img>` lightbox + descrição IA em tooltip.
-- Documentos com link de download + ícone por tipo.
+- Builder visual: origem (leads/clients/contacts) + filtros (área de atuação, status, tags, criado entre datas, com/sem contrato).
+- Preview de contagem em tempo real.
+- Salvar como audience ou usar one-off.
 
-### Outbound
-- Atendente pode anexar imagem/áudio/documento no composer → `whatsapp-send` aceita `mediaUrl`+`mediaType`, encaminha para Evolution endpoint correto (`/message/sendMedia/{instance}`).
+## 7. Métricas
 
-## 6. Storage
-
-Bucket `whatsapp-media` (privado). RLS via signed URLs geradas server-side; UI consome via signed URL com TTL 1h.
-
-## 7. Notificações WhatsApp
-
-Edge function `appointment-notify` (chamada por triggers):
-- Confirmação imediata ao criar appointment.
-- Lembrete 24h antes (cron diário simples via `pg_cron` — opcional MVP; alternativa: job manual no admin).
-- Notificação de cancelamento.
-
-Templates de mensagem editáveis em `platform_settings` (`appointment_*_template`).
+- Dashboard de campanha com: enviados, entregues, lidos, falhas, descadastros, CTR (e-mail).
+- Card no `/admin` (Dashboard) com últimas 3 campanhas.
 
 ## 8. Menu admin
 
-Novo grupo **"Agenda"** com itens:
-- Calendário (`/admin/agenda`)
-- Tipos & Disponibilidade (`/admin/agenda/config`)
+Novo grupo **"Campanhas"** com:
+- Visão geral (`/admin/campanhas`)
+- Templates (`/admin/campanhas/templates`)
+- Públicos (`/admin/campanhas/publicos`)
 
-## 9. Permissões
+## 9. Ajustes finais da Fase 4 (antes da Fase 5)
 
-- **Admin**: tudo.
-- **Team member (advogado)**: cria/edita appointments próprios, vê os onde está em `attendees`. Edita própria disponibilidade.
-- **IA**: cria via tool, com `attorney_id` herdado da fila ou roteado por regra.
+Pontos identificados na auditoria do que já foi entregue:
+- **Composer com anexos no Atendimento**: hoje `whatsapp-send` já aceita mídia, mas a UI ainda não tem botão de anexo (imagem/áudio/documento). Adicionar.
+- **Botão "Agendar"** no header da conversa Atendimento e no detalhe do Lead (ainda ausente).
+- **Aba "Agendamentos"** dentro do detalhe do Contrato.
+- **Cron de lembrete 24h** (`appointment-notify` com modo `mode=reminders`) — agendar via `pg_cron` ou orientar configuração no painel Supabase.
+- **Templates de notificação editáveis** em `platform_settings` (`appointment_confirmation_template`, `appointment_reminder_template`, `appointment_cancelled_template`).
+- **Tool `cancel_appointment`** no `ai-agent-reply` (planejado mas não criado).
+- **Validação de overlap** server-side ao criar appointment (evitar double-booking).
 
 ## 10. Ordem de entrega
 
-1. Migration: tabelas agenda + bucket `whatsapp-media` + colunas em messages se faltar.
-2. Edge function `whatsapp-media-process` (whisper + vision).
-3. Atualizar `evolution-webhook` para mídia + disparar processamento.
-4. Atualizar `whatsapp-send` para enviar mídia + composer com anexos.
-5. UI `/admin/agenda` (calendário + CRUD).
-6. Config de tipos/disponibilidade/bloqueios.
-7. Tools de agendamento no `ai-agent-reply` + atualizar `AiAgents` UI.
-8. Botões "Agendar" em Leads, Contracts, Atendimento.
-9. Edge function `appointment-notify` + templates.
+1. Ajustes finais Fase 4 (seção 9).
+2. Migration: `audiences`, `audience_members`, `message_templates`, `campaigns`, `campaign_recipients`, `unsubscribes` + campos Brevo em `platform_settings`.
+3. Secret `BREVO_API_KEY` + edge functions `brevo-send` / `brevo-webhook`.
+4. Edge function `whatsapp-broadcast-worker` + cron.
+5. UI Templates → Públicos → Campanhas (nesta ordem para destravar dependências).
+6. Métricas + cards no dashboard.
+7. Palavra-chave de unsubscribe no `evolution-webhook`.
 
 ## 11. Riscos
 
-- **Custo Whisper**: ~$0.006/min. Log de uso opcional em tabela futura.
-- **Conflito de agenda**: validar overlap no `create_appointment` (server-side, com lock por advogado).
-- **Fuso horário**: tudo em `timestamptz`, UI exibe em `America/Fortaleza`.
-- **Mídia grande**: limitar upload a 16MB (limite Evolution).
-- **Quebra Fase 3**: zero — só adiciona tools opcionais.
+- **Ban WhatsApp**: throttle obrigatório, jitter, opt-out automático. Documentar boas práticas no admin.
+- **Reputação e-mail**: exigir SPF/DKIM antes do primeiro disparo; bloquear envio se não configurado.
+- **Custo Brevo**: monitorar via campo `stats` por campanha.
+- **Variáveis faltantes**: validador pré-envio que mostra destinatários sem `{{variavel}}` preenchida.
+- **LGPD**: registrar base legal por audience (opt-in/legítimo interesse) — campo `legal_basis` em `audiences`.
 
-Aprove para eu rodar a migration e começar pela base (agenda + mídia).
+---
+
+Confirma para eu (a) aplicar os ajustes finais da Fase 4 e (b) rodar a migration da Fase 5 e seguir na ordem acima?
