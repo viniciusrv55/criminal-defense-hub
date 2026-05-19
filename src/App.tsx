@@ -32,6 +32,9 @@ import Atendimento from "./pages/admin/Atendimento";
 import AiAgents from "./pages/admin/AiAgents";
 import Agenda from "./pages/admin/Agenda";
 import AgendaConfig from "./pages/admin/AgendaConfig";
+import Campaigns from "./pages/admin/Campaigns";
+import CampaignTemplates from "./pages/admin/CampaignTemplates";
+import CampaignAudiences from "./pages/admin/CampaignAudiences";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import SuperAdminRoute from "./components/admin/SuperAdminRoute";
 
@@ -72,6 +75,9 @@ const App = () => (
             <Route path="/admin/agentes-ia" element={<ProtectedRoute><AiAgents /></ProtectedRoute>} />
             <Route path="/admin/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
             <Route path="/admin/agenda/config" element={<ProtectedRoute><AgendaConfig /></ProtectedRoute>} />
+            <Route path="/admin/campanhas" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
+            <Route path="/admin/campanhas/templates" element={<ProtectedRoute><CampaignTemplates /></ProtectedRoute>} />
+            <Route path="/admin/campanhas/publicos" element={<ProtectedRoute><CampaignAudiences /></ProtectedRoute>} />
             <Route path="/admin/whatsapp" element={<ProtectedRoute><WhatsAppInstances /></ProtectedRoute>} />
             <Route path="/admin/plataforma" element={<SuperAdminRoute><PlatformSettings /></SuperAdminRoute>} />
 
