@@ -5,6 +5,7 @@ import { useSiteSettings } from '@/hooks/useSiteSettings';
 import {
   LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, Scale,
   Users, Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert, MessageSquare, Bot, Calendar, CalendarCog,
+  Megaphone, LayoutTemplate, UsersRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
