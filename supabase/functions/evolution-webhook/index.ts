@@ -216,6 +216,14 @@ Deno.serve(async (req) => {
           { onConflict: 'evolution_message_id', ignoreDuplicates: true },
         ).select('id').maybeSingle();
 
+        // Auto-unsubscribe on opt-out keywords (inbound text only)
+        if (!fromMe && type === 'text' && text) {
+          const lower = text.trim().toLowerCase();
+          if (/^(sair|parar|descadastrar|cancelar|remover|stop|unsubscribe)\b/.test(lower)) {
+            await admin.from('unsubscribes').insert({ phone, channel: 'whatsapp', reason: `keyword: ${lower.slice(0,30)}` });
+          }
+        }
+
         // Trigger media processing for inbound audio/image/document
         if (!fromMe && inserted?.id && ['audio', 'image', 'document'].includes(type)) {
           fetch(`${SUPABASE_URL}/functions/v1/whatsapp-media-process`, {
