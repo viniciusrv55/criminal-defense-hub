@@ -40,18 +40,17 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const BREVO = Deno.env.get('BREVO_API_KEY');
-    if (!BREVO) return new Response(JSON.stringify({ ok: false, error: 'BREVO_API_KEY não configurada' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
     const admin = createClient(SUPABASE_URL, SERVICE);
     const body = await req.json();
 
-    // Load defaults
+    // Load Brevo creds + sender defaults from platform_settings
     const { data: settings } = await admin
       .from('platform_settings')
       .select('key,value')
-      .in('key', ['brevo_sender_email', 'brevo_sender_name', 'brevo_reply_to']);
+      .in('key', ['brevo_api_key', 'brevo_sender_email', 'brevo_sender_name', 'brevo_reply_to']);
     const cfg = Object.fromEntries((settings ?? []).map((s) => [s.key, s.value]));
+    const BREVO = cfg.brevo_api_key;
+    if (!BREVO) return new Response(JSON.stringify({ ok: false, error: 'brevo_api_key não configurada em Plataforma' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
     const payload: BrevoSendBody = {
       to: body.to,
