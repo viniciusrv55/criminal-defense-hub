@@ -103,11 +103,11 @@ Deno.serve(async (req) => {
           continue;
         }
       } else if (c.channel === 'email') {
-        brevoKey = Deno.env.get('BREVO_API_KEY') ?? '';
         const { data: settings } = await admin
           .from('platform_settings').select('key,value')
-          .in('key', ['brevo_sender_email', 'brevo_sender_name', 'brevo_reply_to']);
+          .in('key', ['brevo_api_key', 'brevo_sender_email', 'brevo_sender_name', 'brevo_reply_to']);
         const m = Object.fromEntries((settings ?? []).map(s => [s.key, s.value]));
+        brevoKey = m.brevo_api_key ?? '';
         brevoFrom = { email: c.from_email ?? m.brevo_sender_email, name: c.from_name ?? m.brevo_sender_name };
         if (m.brevo_reply_to || c.reply_to) brevoReplyTo = { email: c.reply_to ?? m.brevo_reply_to };
         if (!brevoKey || !brevoFrom.email) {
