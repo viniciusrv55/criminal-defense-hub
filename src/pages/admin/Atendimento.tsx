@@ -137,6 +137,14 @@ export default function Atendimento() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferQueueId, setTransferQueueId] = useState<string>('');
   const [transferNote, setTransferNote] = useState('');
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [apptTypes, setApptTypes] = useState<{ id: string; name: string; duration_minutes: number }[]>([]);
+  const [scheduleForm, setScheduleForm] = useState({
+    title: 'Consulta', appointment_type_id: '', attorney_id: '', starts_at: '', duration_minutes: 30, notes: '',
+  });
+  const [scheduling, setScheduling] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeConv = useMemo(
