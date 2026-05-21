@@ -302,6 +302,11 @@ const ContractForm = () => {
           <FeesFields data={contractDraft.fees ?? {}} onChange={f => setContractDraft({ ...contractDraft, fees: f })} />
         </TabsContent>
 
+        {/* AGENDAMENTOS */}
+        <TabsContent value="agendamentos" className="bg-card rounded-xl border border-border p-6 space-y-4">
+          <AgendamentosTab contractId={contract?.id} clientId={client?.id} clientName={client?.full_name ?? ''} userId={user?.id} />
+        </TabsContent>
+
         {/* DOCUMENTOS */}
         <TabsContent value="documentos" className="bg-card rounded-xl border border-border p-6 space-y-4">
           <DocumentsTab contractId={contract?.id} client={client} contract={contract} docs={docs} onChange={setDocs} userId={user?.id} />
