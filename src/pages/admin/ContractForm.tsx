@@ -779,4 +779,187 @@ const PortalAccessTab = ({ clientId, clientName, clientEmail }: { clientId?: str
   );
 };
 
+/* =================== AGENDAMENTOS =================== */
+
+interface ApptRow {
+  id: string;
+  title: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+  location: string | null;
+  notes: string | null;
+  attorney_id: string | null;
+  appointment_type_id: string | null;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  scheduled: 'Agendado', confirmed: 'Confirmado', completed: 'Realizado',
+  cancelled: 'Cancelado', no_show: 'Não compareceu',
+};
+
+const AgendamentosTab = ({ contractId, clientId, clientName, userId }: { contractId?: string; clientId?: string; clientName: string; userId?: string }) => {
+  const [appts, setAppts] = useState<ApptRow[]>([]);
+  const [types, setTypes] = useState<{ id: string; name: string; duration_minutes: number }[]>([]);
+  const [members, setMembers] = useState<{ id: string; full_name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ title: '', appointment_type_id: '', attorney_id: '', starts_at: '', duration_minutes: 30, location: '', notes: '' });
+
+  const reload = async () => {
+    if (!contractId) { setLoading(false); return; }
+    setLoading(true);
+    const { data } = await db.from('appointments').select('id,title,starts_at,ends_at,status,location,notes,attorney_id,appointment_type_id').eq('contract_id', contractId).order('starts_at', { ascending: false });
+    setAppts((data ?? []) as ApptRow[]);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    void reload();
+    db.from('appointment_types').select('id,name,duration_minutes').eq('active', true).order('sort_order')
+      .then(({ data }: { data: { id: string; name: string; duration_minutes: number }[] | null }) => setTypes(data ?? []));
+    db.from('team_members').select('id,full_name').eq('active', true).order('full_name')
+      .then(({ data }: { data: { id: string; full_name: string }[] | null }) => setMembers(data ?? []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contractId]);
+
+  const openCreate = () => {
+    const base = new Date();
+    base.setMinutes(0, 0, 0); base.setHours(base.getHours() + 1);
+    const iso = new Date(base.getTime() - base.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setForm({
+      title: `Reunião — ${clientName}`,
+      appointment_type_id: types[0]?.id ?? '',
+      attorney_id: '',
+      starts_at: iso,
+      duration_minutes: types[0]?.duration_minutes ?? 30,
+      location: '', notes: '',
+    });
+    setCreateOpen(true);
+  };
+
+  const handleCreate = async () => {
+    if (!contractId || !form.starts_at || !form.title) return;
+    setCreating(true);
+    const starts = new Date(form.starts_at);
+    const ends = new Date(starts.getTime() + form.duration_minutes * 60000);
+    const { data: appt, error } = await db.from('appointments').insert({
+      title: form.title,
+      appointment_type_id: form.appointment_type_id || null,
+      attorney_id: form.attorney_id || null,
+      contract_id: contractId,
+      client_id: clientId,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
+      location: form.location || null,
+      notes: form.notes || null,
+      status: 'scheduled',
+      created_by: userId,
+      created_via: 'admin',
+    }).select('id').single();
+    setCreating(false);
+    if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Agendamento criado' });
+    setCreateOpen(false);
+    void supabase.functions.invoke('appointment-notify', { body: { appointment_id: (appt as { id: string }).id, kind: 'confirmation' } });
+    void reload();
+  };
+
+  const changeStatus = async (id: string, status: string) => {
+    await db.from('appointments').update({ status }).eq('id', id);
+    void reload();
+  };
+
+  if (!contractId) return <p className="text-sm text-muted-foreground">Salve o contrato antes de agendar.</p>;
+  if (loading) return <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-accent" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-medium text-foreground">Agendamentos do contrato</h3>
+          <p className="text-xs text-muted-foreground">Reuniões, audiências e prazos vinculados a este caso.</p>
+        </div>
+        <Button onClick={openCreate} className="bg-accent text-accent-foreground hover:bg-accent/90"><Plus className="w-4 h-4 mr-2" />Novo</Button>
+      </div>
+      {appts.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-6 text-center">Nenhum agendamento ainda.</p>
+      ) : (
+        <div className="space-y-2">
+          {appts.map(a => {
+            const d = new Date(a.starts_at);
+            const e = new Date(a.ends_at);
+            const member = members.find(m => m.id === a.attorney_id);
+            const type = types.find(t => t.id === a.appointment_type_id);
+            return (
+              <div key={a.id} className="p-3 rounded-lg border border-border bg-background flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-sm truncate">{a.title}</p>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${a.status === 'cancelled' ? 'bg-destructive/15 text-destructive' : a.status === 'completed' ? 'bg-green-500/15 text-green-700' : 'bg-accent/15 text-accent'}`}>
+                      {STATUS_LABEL[a.status] ?? a.status}
+                    </span>
+                    {type && <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{type.name}</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} → {e.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    {member && ` · ${member.full_name}`}
+                    {a.location && ` · ${a.location}`}
+                  </p>
+                  {a.notes && <p className="text-xs text-muted-foreground mt-1">{a.notes}</p>}
+                </div>
+                <div className="flex flex-col gap-1">
+                  {a.status !== 'completed' && <Button size="sm" variant="outline" onClick={() => changeStatus(a.id, 'completed')}>Realizado</Button>}
+                  {a.status !== 'cancelled' && <Button size="sm" variant="outline" onClick={() => changeStatus(a.id, 'cancelled')}>Cancelar</Button>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {createOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setCreateOpen(false)} />
+          <div className="relative w-full max-w-lg bg-card rounded-2xl border border-border shadow-2xl p-6 space-y-3">
+            <h3 className="font-serif text-lg">Novo agendamento</h3>
+            <Field label="Título"><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Tipo">
+                <select className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm" value={form.appointment_type_id} onChange={e => {
+                  const t = types.find(x => x.id === e.target.value);
+                  setForm({ ...form, appointment_type_id: e.target.value, duration_minutes: t?.duration_minutes ?? form.duration_minutes });
+                }}>
+                  <option value="">—</option>
+                  {types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Advogado">
+                <select className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm" value={form.attorney_id} onChange={e => setForm({ ...form, attorney_id: e.target.value })}>
+                  <option value="">—</option>
+                  {members.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Início"><Input type="datetime-local" value={form.starts_at} onChange={e => setForm({ ...form, starts_at: e.target.value })} /></Field>
+              <Field label="Duração (min)"><Input type="number" min={5} step={5} value={form.duration_minutes} onChange={e => setForm({ ...form, duration_minutes: Number(e.target.value) })} /></Field>
+            </div>
+            <Field label="Local"><Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} /></Field>
+            <Field label="Notas"><Textarea rows={2} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} /></Field>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+              <Button onClick={handleCreate} disabled={creating} className="bg-accent text-accent-foreground hover:bg-accent/90">
+                {creating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}Criar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 export default ContractForm;
