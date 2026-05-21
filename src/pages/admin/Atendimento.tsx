@@ -156,14 +156,16 @@ export default function Atendimento() {
   useEffect(() => {
     void (async () => {
       setLoading(true);
-      const [qRes, mRes, cRes] = await Promise.all([
+      const [qRes, mRes, cRes, tRes] = await Promise.all([
         supabase.from('whatsapp_queues').select('*').eq('active', true).order('sort_order'),
         supabase.from('team_members').select('id, full_name').eq('active', true).order('full_name'),
         supabase.from('whatsapp_conversations').select('*').order('last_message_at', { ascending: false, nullsFirst: false }).limit(200),
+        supabase.from('appointment_types').select('id, name, duration_minutes').eq('active', true).order('sort_order'),
       ]);
       setQueues((qRes.data ?? []) as Queue[]);
       setMembers((mRes.data ?? []) as Member[]);
       setConversations((cRes.data ?? []) as Conversation[]);
+      setApptTypes((tRes.data ?? []) as { id: string; name: string; duration_minutes: number }[]);
       if (qRes.data?.[0]) setActiveQueueId((qRes.data[0] as Queue).id);
       setLoading(false);
     })();
