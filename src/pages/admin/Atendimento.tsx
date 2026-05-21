@@ -528,6 +528,9 @@ export default function Atendimento() {
                     <Button variant="outline" size="sm" onClick={toggleAi}>
                       {activeConv.ai_paused_at ? <><Bot className="w-4 h-4 mr-2" />Retomar IA</> : <><BotOff className="w-4 h-4 mr-2" />Pausar IA</>}
                     </Button>
+                    <Button variant="outline" size="sm" onClick={openSchedule}>
+                      <Calendar className="w-4 h-4 mr-2" /> Agendar
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
                       <ArrowRightLeft className="w-4 h-4 mr-2" /> Transferir
                     </Button>
@@ -540,6 +543,27 @@ export default function Atendimento() {
                 </div>
 
                 <div className="border-t border-border bg-card p-3 flex items-end gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,audio/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleUpload(f);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 flex-shrink-0"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Anexar arquivo"
+                  >
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                  </Button>
                   <Textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
@@ -558,6 +582,7 @@ export default function Atendimento() {
             )}
           </section>
         </div>
+
 
         <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
           <DialogContent>
