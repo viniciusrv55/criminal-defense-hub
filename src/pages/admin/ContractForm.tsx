@@ -158,6 +158,7 @@ const ContractForm = () => {
           {canSeeSecurity && <TabsTrigger value="seguranca"><Lock className="w-3 h-3 mr-1" />Dados de Segurança</TabsTrigger>}
           <TabsTrigger value="adversa">Parte Adversa</TabsTrigger>
           <TabsTrigger value="honorarios">Honorários</TabsTrigger>
+          <TabsTrigger value="agendamentos" disabled={isNew}>Agendamentos</TabsTrigger>
           <TabsTrigger value="documentos" disabled={isNew}>Gerar Documento</TabsTrigger>
           <TabsTrigger value="acesso" disabled={isNew}>Acesso ao Cliente</TabsTrigger>
         </TabsList>
