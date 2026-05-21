@@ -303,6 +303,89 @@ export default function Atendimento() {
     }
   }
 
+  function openSchedule() {
+    if (!activeConv) return;
+    const base = new Date();
+    base.setMinutes(0, 0, 0);
+    base.setHours(base.getHours() + 1);
+    const isoLocal = new Date(base.getTime() - base.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setScheduleForm({
+      title: `Consulta — ${activeConv.contact_name ?? formatPhone(activeConv.contact_phone)}`,
+      appointment_type_id: apptTypes[0]?.id ?? '',
+      attorney_id: '',
+      starts_at: isoLocal,
+      duration_minutes: apptTypes[0]?.duration_minutes ?? 30,
+      notes: '',
+    });
+    setScheduleOpen(true);
+  }
+
+  async function handleSchedule() {
+    if (!activeConv || !scheduleForm.starts_at || !scheduleForm.title) return;
+    setScheduling(true);
+    const starts = new Date(scheduleForm.starts_at);
+    const ends = new Date(starts.getTime() + (scheduleForm.duration_minutes || 30) * 60000);
+    const { data: appt, error } = await supabase.from('appointments').insert({
+      title: scheduleForm.title,
+      appointment_type_id: scheduleForm.appointment_type_id || null,
+      attorney_id: scheduleForm.attorney_id || null,
+      conversation_id: activeConv.id,
+      lead_id: activeConv.lead_id,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
+      notes: scheduleForm.notes || null,
+      status: 'scheduled',
+      created_by: user?.id,
+      created_via: 'admin',
+    }).select('id').single();
+    setScheduling(false);
+    if (error) {
+      toast({ title: 'Erro ao agendar', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Agendamento criado' });
+    setScheduleOpen(false);
+    // dispara notificação de confirmação
+    void supabase.functions.invoke('appointment-notify', { body: { appointment_id: appt.id, kind: 'confirmation' } });
+  }
+
+  async function handleUpload(file: File) {
+    if (!activeConvId) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'bin';
+      const path = `whatsapp-uploads/${activeConvId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('site-assets').upload(path, file, {
+        contentType: file.type, upsert: false,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from('site-assets').getPublicUrl(path);
+      const mime = file.type || '';
+      const messageType: 'image' | 'audio' | 'video' | 'document' =
+        mime.startsWith('image/') ? 'image'
+        : mime.startsWith('audio/') ? 'audio'
+        : mime.startsWith('video/') ? 'video'
+        : 'document';
+      const { data, error } = await supabase.functions.invoke('whatsapp-send', {
+        body: {
+          conversation_id: activeConvId,
+          message_type: messageType,
+          media_url: pub.publicUrl,
+          media_mime: mime,
+          content: draft.trim() || undefined,
+        },
+      });
+      if (error || (data && !data.ok)) throw new Error(error?.message ?? data?.error ?? 'Falha no envio');
+      setDraft('');
+    } catch (e) {
+      toast({ title: 'Erro ao enviar anexo', description: (e as Error).message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+
   return (
     <AdminLayout>
       <div className="-m-6 lg:-m-10 h-[calc(100vh-3.5rem)] lg:h-screen flex flex-col bg-background">
