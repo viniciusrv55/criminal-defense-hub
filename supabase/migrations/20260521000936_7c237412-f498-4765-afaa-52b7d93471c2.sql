@@ -1,0 +1,1 @@
+CREATE POLICY "Authenticated upload whatsapp uploads" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'site-assets' AND (storage.foldername(name))[1] = 'whatsapp-uploads');
