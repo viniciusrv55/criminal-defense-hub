@@ -6,7 +6,7 @@ import { usePracticeAreas } from '@/hooks/usePracticeAreas';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Phone, Mail, Calendar, X, UserPlus2, FileSignature } from 'lucide-react';
+import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Lead } from '@/types/database';
 
