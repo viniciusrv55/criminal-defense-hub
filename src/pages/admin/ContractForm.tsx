@@ -19,7 +19,7 @@ import { CreatableCombobox } from '@/components/admin/CreatableCombobox';
 import { CurrencyInput, formatBRL } from '@/components/admin/CurrencyInput';
 import type { Client, Contract, ProcessData, AdverseParty, FeesData, ContractDocument, CustomInstallment } from '@/types/contracts';
 
-const TAB_ORDER = ['cliente', 'processo', 'seguranca', 'adversa', 'honorarios', 'documentos', 'acesso'] as const;
+const TAB_ORDER = ['cliente', 'processo', 'seguranca', 'adversa', 'honorarios', 'agendamentos', 'documentos', 'acesso'] as const;
 type TabKey = typeof TAB_ORDER[number];
 
 const PROFILE_OPTIONS = ['Cliente', 'Parceiro Comercial', 'Prospect', 'Indicador'];
