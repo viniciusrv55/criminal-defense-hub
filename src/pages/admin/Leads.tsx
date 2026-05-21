@@ -6,7 +6,7 @@ import { usePracticeAreas } from '@/hooks/usePracticeAreas';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Phone, Mail, Calendar, X, UserPlus2, FileSignature } from 'lucide-react';
+import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Lead } from '@/types/database';
 
@@ -284,19 +284,30 @@ const Leads = () => {
                   })}
                 </div>
               </div>
-              {isAdmin() && (
-                <div className="pt-4 border-t border-border">
-                  <Button
-                    onClick={() => convertToContract(selectedLead)}
-                    disabled={converting}
-                    className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
-                  >
-                    <FileSignature className="w-4 h-4 mr-2" />
-                    {converting ? 'Convertendo...' : 'Converter em Contrato'}
-                  </Button>
-                  <p className="text-[11px] text-muted-foreground mt-2 text-center">Cria cliente e abre o contrato pré-preenchido.</p>
-                </div>
-              )}
+              <div className="pt-4 border-t border-border space-y-2">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/admin/agenda?lead=${selectedLead.id}&name=${encodeURIComponent(selectedLead.name)}&phone=${encodeURIComponent(selectedLead.phone ?? '')}`)}
+                  className="w-full"
+                >
+                  <CalendarPlus className="w-4 h-4 mr-2" />
+                  Agendar consulta
+                </Button>
+                {isAdmin() && (
+                  <>
+                    <Button
+                      onClick={() => convertToContract(selectedLead)}
+                      disabled={converting}
+                      className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                    >
+                      <FileSignature className="w-4 h-4 mr-2" />
+                      {converting ? 'Convertendo...' : 'Converter em Contrato'}
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground text-center">Cria cliente e abre o contrato pré-preenchido.</p>
+                  </>
+                )}
+              </div>
+
             </div>
           </div>
         </div>

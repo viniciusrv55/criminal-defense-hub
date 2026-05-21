@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -72,6 +73,29 @@ export default function Agenda() {
       }).subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, []);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const leadId = searchParams.get('lead');
+    const name = searchParams.get('name');
+    if (!leadId && !name) return;
+    const base = new Date();
+    base.setMinutes(0, 0, 0); base.setHours(base.getHours() + 1);
+    const isoLocal = new Date(base.getTime() - base.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setForm({
+      title: name ? `Consulta — ${name}` : 'Consulta',
+      description: searchParams.get('phone') ? `Tel: ${searchParams.get('phone')}` : '',
+      appointment_type_id: types[0]?.id ?? '',
+      attorney_id: '',
+      starts_at: isoLocal,
+      duration_minutes: types[0]?.duration_minutes ?? 30,
+      location: '', notes: '', status: 'scheduled',
+    });
+    setCreateOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('lead'); next.delete('name'); next.delete('phone');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, types]);
 
   const filtered = useMemo(() => {
     return appts.filter(a => filterAttorney === 'all' || a.attorney_id === filterAttorney);

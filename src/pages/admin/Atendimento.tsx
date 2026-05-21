@@ -528,6 +528,9 @@ export default function Atendimento() {
                     <Button variant="outline" size="sm" onClick={toggleAi}>
                       {activeConv.ai_paused_at ? <><Bot className="w-4 h-4 mr-2" />Retomar IA</> : <><BotOff className="w-4 h-4 mr-2" />Pausar IA</>}
                     </Button>
+                    <Button variant="outline" size="sm" onClick={openSchedule}>
+                      <Calendar className="w-4 h-4 mr-2" /> Agendar
+                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
                       <ArrowRightLeft className="w-4 h-4 mr-2" /> Transferir
                     </Button>
@@ -540,6 +543,27 @@ export default function Atendimento() {
                 </div>
 
                 <div className="border-t border-border bg-card p-3 flex items-end gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,audio/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleUpload(f);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 flex-shrink-0"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Anexar arquivo"
+                  >
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                  </Button>
                   <Textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
@@ -558,6 +582,7 @@ export default function Atendimento() {
             )}
           </section>
         </div>
+
 
         <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
           <DialogContent>
@@ -592,7 +617,69 @@ export default function Atendimento() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Agendar compromisso</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Título</label>
+                <Input value={scheduleForm.title} onChange={(e) => setScheduleForm({ ...scheduleForm, title: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Tipo</label>
+                  <Select
+                    value={scheduleForm.appointment_type_id}
+                    onValueChange={(v) => {
+                      const t = apptTypes.find(x => x.id === v);
+                      setScheduleForm({ ...scheduleForm, appointment_type_id: v, duration_minutes: t?.duration_minutes ?? scheduleForm.duration_minutes });
+                    }}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {apptTypes.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Advogado</label>
+                  <Select value={scheduleForm.attorney_id} onValueChange={(v) => setScheduleForm({ ...scheduleForm, attorney_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Selecione (opcional)" /></SelectTrigger>
+                    <SelectContent>
+                      {members.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Início</label>
+                  <Input type="datetime-local" value={scheduleForm.starts_at} onChange={(e) => setScheduleForm({ ...scheduleForm, starts_at: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Duração (min)</label>
+                  <Input type="number" min={5} step={5} value={scheduleForm.duration_minutes} onChange={(e) => setScheduleForm({ ...scheduleForm, duration_minutes: Number(e.target.value) })} />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Notas</label>
+                <Textarea rows={3} value={scheduleForm.notes} onChange={(e) => setScheduleForm({ ...scheduleForm, notes: e.target.value })} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setScheduleOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSchedule} disabled={scheduling || !scheduleForm.starts_at}>
+                {scheduling ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Calendar className="w-4 h-4 mr-2" />}
+                Agendar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
 }
+
