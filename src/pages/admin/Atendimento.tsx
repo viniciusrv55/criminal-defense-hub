@@ -636,11 +636,32 @@ export default function Atendimento() {
                     variant="outline"
                     size="icon"
                     className="h-10 w-10 flex-shrink-0"
-                    disabled={uploading}
+                    disabled={uploading || recording}
                     onClick={() => fileInputRef.current?.click()}
                     title="Anexar arquivo"
                   >
                     {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                  </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" size="icon" className="h-10 w-10 flex-shrink-0" title="Emoji" disabled={recording}>
+                        <Smile className="w-4 h-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 border-none bg-transparent shadow-none w-auto" side="top" align="start">
+                      <Picker data={emojiData} onEmojiSelect={insertEmoji} theme="light" locale="pt" previewPosition="none" />
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    type="button"
+                    variant={recording ? 'destructive' : 'outline'}
+                    size="icon"
+                    className="h-10 w-10 flex-shrink-0"
+                    onClick={recording ? stopRecording : startRecording}
+                    title={recording ? 'Parar gravação' : 'Gravar áudio'}
+                    disabled={uploading}
+                  >
+                    {recording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                   </Button>
                   <Textarea
                     value={draft}
@@ -648,14 +669,16 @@ export default function Atendimento() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); }
                     }}
-                    placeholder="Digite uma mensagem… (Enter para enviar)"
+                    placeholder={recording ? '🔴 Gravando…' : 'Digite uma mensagem… (Enter para enviar)'}
                     rows={1}
+                    disabled={recording}
                     className="resize-none min-h-[40px] max-h-32"
                   />
-                  <Button onClick={handleSend} disabled={sending || !draft.trim()} className="h-10">
+                  <Button onClick={handleSend} disabled={sending || !draft.trim() || recording} className="h-10">
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </Button>
                 </div>
+
               </>
             )}
           </section>
