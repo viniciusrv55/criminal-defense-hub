@@ -468,7 +468,11 @@ export default function Atendimento() {
             <h1 className="font-serif text-2xl">Atendimento</h1>
             <p className="text-sm text-muted-foreground">Chat em tempo real do WhatsApp</p>
           </div>
+          <Button onClick={() => setNewConvOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Nova conversa
+          </Button>
         </div>
+
 
         <div className="flex-1 flex overflow-hidden">
           {/* Queues */}
