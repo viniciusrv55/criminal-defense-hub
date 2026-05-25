@@ -363,18 +363,17 @@ export default function Atendimento() {
     void supabase.functions.invoke('appointment-notify', { body: { appointment_id: appt.id, kind: 'confirmation' } });
   }
 
-  async function handleUpload(file: File) {
+  async function uploadAndSend(blob: Blob, fileName: string, mime: string) {
     if (!activeConvId) return;
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop() || 'bin';
+      const ext = fileName.split('.').pop() || 'bin';
       const path = `whatsapp-uploads/${activeConvId}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('site-assets').upload(path, file, {
-        contentType: file.type, upsert: false,
+      const { error: upErr } = await supabase.storage.from('site-assets').upload(path, blob, {
+        contentType: mime, upsert: false,
       });
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from('site-assets').getPublicUrl(path);
-      const mime = file.type || '';
       const messageType: 'image' | 'audio' | 'video' | 'document' =
         mime.startsWith('image/') ? 'image'
         : mime.startsWith('audio/') ? 'audio'
@@ -398,6 +397,67 @@ export default function Atendimento() {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
+
+  async function handleUpload(file: File) {
+    await uploadAndSend(file, file.name, file.type || 'application/octet-stream');
+  }
+
+  async function startRecording() {
+    if (recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mr;
+      recordChunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) recordChunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(recordChunksRef.current, { type: 'audio/webm' });
+        await uploadAndSend(blob, `audio-${Date.now()}.webm`, 'audio/webm');
+      };
+      mr.start();
+      setRecording(true);
+    } catch (e) {
+      toast({ title: 'Microfone indisponível', description: (e as Error).message, variant: 'destructive' });
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    setRecording(false);
+  }
+
+  function insertEmoji(emoji: { native: string }) {
+    setDraft((d) => d + emoji.native);
+  }
+
+  async function handleOpenNewConv() {
+    if (!newConvForm.phone.trim()) return;
+    setOpeningConv(true);
+    const { data, error } = await supabase.functions.invoke('whatsapp-open-conversation', {
+      body: { phone: newConvForm.phone, name: newConvForm.name || null },
+    });
+    setOpeningConv(false);
+    if (error || !data?.ok) {
+      toast({ title: 'Erro', description: error?.message ?? data?.error ?? 'Falha ao abrir conversa', variant: 'destructive' });
+      return;
+    }
+    setNewConvOpen(false);
+    setNewConvForm({ phone: '', name: '' });
+    setActiveConvId(data.conversation_id as string);
+    toast({ title: data.created ? 'Conversa criada' : 'Conversa já existia, aberta' });
+  }
+
+  // Open conversation from URL param (?conversation=...)
+  useEffect(() => {
+    const cid = searchParams.get('conversation');
+    if (cid) {
+      setActiveConvId(cid);
+      searchParams.delete('conversation');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
 
 
   return (
