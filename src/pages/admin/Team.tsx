@@ -36,10 +36,15 @@ const KANBAN_STAGES = [
   { key: 'closed', label: 'Finalizado' },
 ];
 
+interface Queue { id: string; name: string; }
+interface StageMap { stage: string; queue_id: string; }
+
 const Team = () => {
   const { isSuperAdmin } = useAuth();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [perms, setPerms] = useState<StagePerm[]>([]);
+  const [queues, setQueues] = useState<Queue[]>([]);
+  const [stageMap, setStageMap] = useState<StageMap[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -48,12 +53,33 @@ const Team = () => {
   const fetchAll = async () => {
     const { data: tm } = await db.from('team_members').select('*').order('full_name');
     const { data: kp } = await db.from('kanban_stage_permissions').select('*');
+    const { data: qs } = await db.from('whatsapp_queues').select('id,name').eq('active', true).order('sort_order');
+    const { data: sm } = await db.from('kanban_stage_queue_map').select('stage,queue_id');
     setMembers(tm ?? []);
     setPerms(kp ?? []);
+    setQueues(qs ?? []);
+    setStageMap(sm ?? []);
     setLoading(false);
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  const setStageQueue = async (stage: string, queueId: string) => {
+    if (!queueId) {
+      await db.from('kanban_stage_queue_map').delete().eq('stage', stage);
+    } else {
+      const existing = stageMap.find(s => s.stage === stage);
+      if (existing) {
+        await db.from('kanban_stage_queue_map').update({ queue_id: queueId, updated_at: new Date().toISOString() }).eq('stage', stage);
+      } else {
+        await db.from('kanban_stage_queue_map').insert({ stage, queue_id: queueId });
+      }
+    }
+    const { data: sm } = await db.from('kanban_stage_queue_map').select('stage,queue_id');
+    setStageMap(sm ?? []);
+    toast({ title: 'Mapeamento atualizado' });
+  };
+
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
