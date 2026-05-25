@@ -151,11 +151,14 @@ export default function Atendimento() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [newConvOpen, setNewConvOpen] = useState(false);
+  const [newConvForm, setNewConvForm] = useState({ phone: '', name: '' });
+  const [openingConv, setOpeningConv] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunksRef = useRef<BlobPart[]>([]);
 
-  const activeConv = useMemo(
-    () => conversations.find((c) => c.id === activeConvId) ?? null,
-    [conversations, activeConvId],
-  );
 
   // Initial load
   useEffect(() => {
