@@ -6,9 +6,11 @@ import { usePracticeAreas } from '@/hooks/usePracticeAreas';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus } from 'lucide-react';
+import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/database';
+
 
 interface TeamMemberLite { id: string; user_id: string; full_name: string; active: boolean; }
 interface StagePerm { stage: string; team_member_id: string; can_act: boolean; }
@@ -117,11 +119,45 @@ const Leads = () => {
       return;
     }
     const { error } = await updateLead(lead.id, { kanban_status: newStatus });
-    if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' });
-    else {
-      await db.from('lead_history').insert({ lead_id: lead.id, action: 'stage_change', description: `Movido para ${KANBAN_COLUMNS.find(c => c.key === newStatus)?.label}`, performed_by: user?.id });
+    if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+
+    await db.from('lead_history').insert({ lead_id: lead.id, action: 'stage_change', description: `Movido para ${KANBAN_COLUMNS.find(c => c.key === newStatus)?.label}`, performed_by: user?.id });
+
+    // Auto-transferir a conversa de WhatsApp se a etapa estiver mapeada para uma fila
+    try {
+      const { data: mapRow } = await db.from('kanban_stage_queue_map').select('queue_id').eq('stage', newStatus).maybeSingle();
+      if (mapRow?.queue_id && lead.phone) {
+        const { data: conv } = await supabase
+          .from('whatsapp_conversations')
+          .select('id, current_queue_id')
+          .eq('lead_id', lead.id)
+          .maybeSingle();
+        if (conv?.id && conv.current_queue_id !== mapRow.queue_id) {
+          await supabase.functions.invoke('whatsapp-transfer', {
+            body: { conversation_id: conv.id, to_queue_id: mapRow.queue_id, note: `Auto: etapa "${KANBAN_COLUMNS.find(c => c.key === newStatus)?.label}"` },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('auto-transfer failed', e);
     }
   };
+
+  const openWhatsAppConversation = async (lead: Lead) => {
+    if (!lead.phone) {
+      toast({ title: 'Lead sem telefone', variant: 'destructive' });
+      return;
+    }
+    const { data, error } = await supabase.functions.invoke('whatsapp-open-conversation', {
+      body: { phone: lead.phone, name: lead.name, lead_id: lead.id },
+    });
+    if (error || !data?.ok) {
+      toast({ title: 'Erro ao abrir conversa', description: error?.message ?? data?.error, variant: 'destructive' });
+      return;
+    }
+    navigate(`/admin/atendimento?conversation=${data.conversation_id}`);
+  };
+
 
   const toggleResponsible = async (lead: Lead, memberId: string) => {
     const current = lead.responsible_ids ?? [];
@@ -285,6 +321,16 @@ const Leads = () => {
                 </div>
               </div>
               <div className="pt-4 border-t border-border space-y-2">
+                {selectedLead.phone && (
+                  <Button
+                    variant="outline"
+                    onClick={() => openWhatsAppConversation(selectedLead)}
+                    className="w-full"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Abrir conversa no WhatsApp
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   onClick={() => navigate(`/admin/agenda?lead=${selectedLead.id}&name=${encodeURIComponent(selectedLead.name)}&phone=${encodeURIComponent(selectedLead.phone ?? '')}`)}
@@ -293,6 +339,7 @@ const Leads = () => {
                   <CalendarPlus className="w-4 h-4 mr-2" />
                   Agendar consulta
                 </Button>
+
                 {isAdmin() && (
                   <>
                     <Button

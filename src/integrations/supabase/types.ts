@@ -1203,6 +1203,7 @@ export type Database = {
           created_by: string | null
           doc_date: string | null
           id: string
+          is_general: boolean
           owner_id: string
           title: string
           type_id: string
@@ -1216,6 +1217,7 @@ export type Database = {
           created_by?: string | null
           doc_date?: string | null
           id?: string
+          is_general?: boolean
           owner_id: string
           title: string
           type_id: string
@@ -1229,6 +1231,7 @@ export type Database = {
           created_by?: string | null
           doc_date?: string | null
           id?: string
+          is_general?: boolean
           owner_id?: string
           title?: string
           type_id?: string
@@ -1311,6 +1314,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      kanban_stage_queue_map: {
+        Row: {
+          created_at: string
+          id: string
+          queue_id: string
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          queue_id: string
+          stage: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          queue_id?: string
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       lead_history: {
         Row: {

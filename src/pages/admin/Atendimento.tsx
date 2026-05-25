@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +11,18 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Send, Search, Inbox, MessageSquare, ArrowRightLeft, User as UserIcon, Phone,
   Loader2, FileText, Image as ImageIcon, Mic, Video as VideoIcon, MapPin, Sticker, Bot, BotOff,
-  Calendar, Paperclip,
+  Calendar, Paperclip, Smile, Square, Plus,
 } from 'lucide-react';
+import Picker from '@emoji-mart/react';
+import emojiData from '@emoji-mart/data';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+
 
 interface Queue { id: string; name: string; team_member_id: string | null; color: string; }
 interface Conversation {
@@ -146,11 +151,20 @@ export default function Atendimento() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [newConvOpen, setNewConvOpen] = useState(false);
+  const [newConvForm, setNewConvForm] = useState({ phone: '', name: '' });
+  const [openingConv, setOpeningConv] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunksRef = useRef<BlobPart[]>([]);
 
   const activeConv = useMemo(
     () => conversations.find((c) => c.id === activeConvId) ?? null,
     [conversations, activeConvId],
   );
+
+
 
   // Initial load
   useEffect(() => {
@@ -349,18 +363,17 @@ export default function Atendimento() {
     void supabase.functions.invoke('appointment-notify', { body: { appointment_id: appt.id, kind: 'confirmation' } });
   }
 
-  async function handleUpload(file: File) {
+  async function uploadAndSend(blob: Blob, fileName: string, mime: string) {
     if (!activeConvId) return;
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop() || 'bin';
+      const ext = fileName.split('.').pop() || 'bin';
       const path = `whatsapp-uploads/${activeConvId}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from('site-assets').upload(path, file, {
-        contentType: file.type, upsert: false,
+      const { error: upErr } = await supabase.storage.from('site-assets').upload(path, blob, {
+        contentType: mime, upsert: false,
       });
       if (upErr) throw upErr;
       const { data: pub } = supabase.storage.from('site-assets').getPublicUrl(path);
-      const mime = file.type || '';
       const messageType: 'image' | 'audio' | 'video' | 'document' =
         mime.startsWith('image/') ? 'image'
         : mime.startsWith('audio/') ? 'audio'
@@ -385,6 +398,67 @@ export default function Atendimento() {
     }
   }
 
+  async function handleUpload(file: File) {
+    await uploadAndSend(file, file.name, file.type || 'application/octet-stream');
+  }
+
+  async function startRecording() {
+    if (recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mr;
+      recordChunksRef.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) recordChunksRef.current.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(recordChunksRef.current, { type: 'audio/webm' });
+        await uploadAndSend(blob, `audio-${Date.now()}.webm`, 'audio/webm');
+      };
+      mr.start();
+      setRecording(true);
+    } catch (e) {
+      toast({ title: 'Microfone indisponível', description: (e as Error).message, variant: 'destructive' });
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+    setRecording(false);
+  }
+
+  function insertEmoji(emoji: { native: string }) {
+    setDraft((d) => d + emoji.native);
+  }
+
+  async function handleOpenNewConv() {
+    if (!newConvForm.phone.trim()) return;
+    setOpeningConv(true);
+    const { data, error } = await supabase.functions.invoke('whatsapp-open-conversation', {
+      body: { phone: newConvForm.phone, name: newConvForm.name || null },
+    });
+    setOpeningConv(false);
+    if (error || !data?.ok) {
+      toast({ title: 'Erro', description: error?.message ?? data?.error ?? 'Falha ao abrir conversa', variant: 'destructive' });
+      return;
+    }
+    setNewConvOpen(false);
+    setNewConvForm({ phone: '', name: '' });
+    setActiveConvId(data.conversation_id as string);
+    toast({ title: data.created ? 'Conversa criada' : 'Conversa já existia, aberta' });
+  }
+
+  // Open conversation from URL param (?conversation=...)
+  useEffect(() => {
+    const cid = searchParams.get('conversation');
+    if (cid) {
+      setActiveConvId(cid);
+      searchParams.delete('conversation');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+
 
   return (
     <AdminLayout>
@@ -394,7 +468,11 @@ export default function Atendimento() {
             <h1 className="font-serif text-2xl">Atendimento</h1>
             <p className="text-sm text-muted-foreground">Chat em tempo real do WhatsApp</p>
           </div>
+          <Button onClick={() => setNewConvOpen(true)} className="gap-2">
+            <Plus className="w-4 h-4" /> Nova conversa
+          </Button>
         </div>
+
 
         <div className="flex-1 flex overflow-hidden">
           {/* Queues */}
@@ -558,11 +636,32 @@ export default function Atendimento() {
                     variant="outline"
                     size="icon"
                     className="h-10 w-10 flex-shrink-0"
-                    disabled={uploading}
+                    disabled={uploading || recording}
                     onClick={() => fileInputRef.current?.click()}
                     title="Anexar arquivo"
                   >
                     {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                  </Button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" size="icon" className="h-10 w-10 flex-shrink-0" title="Emoji" disabled={recording}>
+                        <Smile className="w-4 h-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0 border-none bg-transparent shadow-none w-auto" side="top" align="start">
+                      <Picker data={emojiData} onEmojiSelect={insertEmoji} theme="light" locale="pt" previewPosition="none" />
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    type="button"
+                    variant={recording ? 'destructive' : 'outline'}
+                    size="icon"
+                    className="h-10 w-10 flex-shrink-0"
+                    onClick={recording ? stopRecording : startRecording}
+                    title={recording ? 'Parar gravação' : 'Gravar áudio'}
+                    disabled={uploading}
+                  >
+                    {recording ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                   </Button>
                   <Textarea
                     value={draft}
@@ -570,14 +669,16 @@ export default function Atendimento() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend(); }
                     }}
-                    placeholder="Digite uma mensagem… (Enter para enviar)"
+                    placeholder={recording ? '🔴 Gravando…' : 'Digite uma mensagem… (Enter para enviar)'}
                     rows={1}
+                    disabled={recording}
                     className="resize-none min-h-[40px] max-h-32"
                   />
-                  <Button onClick={handleSend} disabled={sending || !draft.trim()} className="h-10">
+                  <Button onClick={handleSend} disabled={sending || !draft.trim() || recording} className="h-10">
                     {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </Button>
                 </div>
+
               </>
             )}
           </section>
@@ -678,7 +779,38 @@ export default function Atendimento() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nova conversa</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Telefone (com DDD)</label>
+                <Input
+                  value={newConvForm.phone}
+                  onChange={(e) => setNewConvForm({ ...newConvForm, phone: e.target.value })}
+                  placeholder="(11) 99999-9999"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">Sem código do país, prefixo 55 será adicionado automaticamente.</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Nome (opcional)</label>
+                <Input value={newConvForm.name} onChange={(e) => setNewConvForm({ ...newConvForm, name: e.target.value })} placeholder="Nome do contato" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNewConvOpen(false)}>Cancelar</Button>
+              <Button onClick={handleOpenNewConv} disabled={openingConv || !newConvForm.phone.trim()}>
+                {openingConv ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                Abrir conversa
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
     </AdminLayout>
   );
 }
