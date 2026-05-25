@@ -779,7 +779,38 @@ export default function Atendimento() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Nova conversa</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium mb-1 block">Telefone (com DDD)</label>
+                <Input
+                  value={newConvForm.phone}
+                  onChange={(e) => setNewConvForm({ ...newConvForm, phone: e.target.value })}
+                  placeholder="(11) 99999-9999"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">Sem código do país, prefixo 55 será adicionado automaticamente.</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Nome (opcional)</label>
+                <Input value={newConvForm.name} onChange={(e) => setNewConvForm({ ...newConvForm, name: e.target.value })} placeholder="Nome do contato" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setNewConvOpen(false)}>Cancelar</Button>
+              <Button onClick={handleOpenNewConv} disabled={openingConv || !newConvForm.phone.trim()}>
+                {openingConv ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                Abrir conversa
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
     </AdminLayout>
   );
 }
