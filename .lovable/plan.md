@@ -1,109 +1,93 @@
-# Fase 5 — Campanhas e Broadcast (WhatsApp + E-mail via Brevo)
+# Plano de Implementação
 
-Objetivo: permitir disparo de campanhas em massa para leads/clientes/contatos do CRM, via **WhatsApp (Evolution)** e **E-mail (Brevo)**, com segmentação, templates reutilizáveis, agendamento, fila controlada (anti-ban) e métricas. Encerra o ciclo de aquisição → atendimento → relacionamento.
-
-Antes de iniciar, faço também os **ajustes finais da Fase 4** (ver seção 9).
+Dividido em 3 frentes. Posso executar tudo de uma vez ou por blocos — me diga se quer alguma ordem específica.
 
 ---
 
-## 1. Modelo de dados
+## Frente 1 — Atendimento (Fila Geral, Kanban, Tempo Real)
 
-### `audiences`
-Segmentos salvos.
-- `name`, `description`, `source` ('leads'|'clients'|'contacts'|'manual'), `filters` (jsonb — área, status kanban, tags, período), `member_count` (cache), `active`.
+### Diagnóstico atual
+- Sim: a **Fila Geral** (queue sem `team_member_id`) é a fila padrão que recebe leads novos via webhook da Evolution.
+- O Kanban de leads NÃO move conversas entre filas hoje. Mover lead no Kanban deveria refletir na fila do WhatsApp — não está conectado.
+- Não existe botão "Iniciar conversa" a partir do Lead nem campo livre de telefone no Atendimento.
+- Falta tempo real (Realtime do Supabase nas mensagens/conversas).
+- Sem suporte a emojis (picker), e mídia funciona parcialmente (já tem upload, mas falta áudio/gravação).
 
-### `audience_members`
-- `audience_id`, `lead_id` / `client_id` / `contact_id` (nullable), `phone`, `email`, `name`, `vars` (jsonb — variáveis por destinatário).
+### O que vou implementar
 
-### `message_templates`
-Templates reutilizáveis (WhatsApp + e-mail).
-- `name`, `channel` ('whatsapp'|'email'|'both'), `subject` (email), `body` (texto/markdown com `{{variaveis}}`), `media_url` (opcional WhatsApp), `category`, `active`.
+**1.1 Realtime no Atendimento**
+- Subscribe em `whatsapp_messages` e `whatsapp_conversations` via `supabase.channel()` — admin e atendentes veem novas mensagens chegando sem refresh.
+- Auto-scroll para nova mensagem; indicador "digitando…" desabilitado por ora (Evolution API limita).
 
-### `campaigns`
-- `name`, `channel` ('whatsapp'|'email'), `audience_id`, `template_id`, `whatsapp_instance_id` (se WA), `from_email` / `from_name` (se email), `subject_override`, `body_override`, `scheduled_at`, `status` ('draft'|'scheduled'|'running'|'paused'|'completed'|'failed'), `throttle_per_minute` (default 10 WA / 60 email), `started_at`, `finished_at`, `stats` (jsonb: sent/delivered/read/failed/clicked).
+**1.2 Iniciar conversa a partir do Lead**
+- Botão **"Abrir conversa no WhatsApp"** no modal do Lead (`Leads.tsx`).
+- Cria/recupera `whatsapp_conversations` pelo telefone do lead, vincula `lead_id`, abre direto em `/admin/atendimento?conversation={id}`.
 
-### `campaign_recipients`
-Uma linha por destinatário.
-- `campaign_id`, `audience_member_id`, `phone`/`email`, `personalized_body`, `personalized_subject`, `status` ('pending'|'sending'|'sent'|'delivered'|'read'|'failed'|'unsubscribed'), `sent_at`, `delivered_at`, `read_at`, `error`, `provider_message_id`, `clicks` (int), `opens` (int).
+**1.3 Iniciar conversa por telefone livre**
+- Botão **"Nova conversa"** no topo do Atendimento → modal pedindo telefone + nome opcional + instância → cria conversa vazia e abre.
 
-### `unsubscribes`
-- `phone`/`email`, `channel`, `reason`, `created_at`. Bloqueia envios futuros.
+**1.4 Picker de emoji + envio de áudio gravado**
+- Emoji picker (lib `emoji-mart`) no input de mensagem.
+- Botão de microfone → grava `audio/webm`, faz upload em `whatsapp-media` e envia via `whatsapp-send` como áudio.
 
-**RLS**: admin gerencia tudo. Team members veem campanhas que criaram.
-
-## 2. Integração Brevo (e-mail transacional + marketing)
-
-- Nova secret: `BREVO_API_KEY`.
-- Tabela `platform_settings` ganha campos: `brevo_sender_email`, `brevo_sender_name`, `brevo_reply_to`.
-- Edge function `brevo-send` (envio individual) e webhook `brevo-webhook` (eventos delivered/opened/clicked/bounced → atualiza `campaign_recipients`).
-- DNS: instruções para SPF/DKIM no admin (texto-guia).
-
-## 3. WhatsApp broadcast
-
-- Edge function `whatsapp-broadcast-worker`: cron a cada 1 min, pega `campaign_recipients` pendentes da campanha mais antiga `running`, respeita `throttle_per_minute` por instância, envia via `whatsapp-send`, faz jitter aleatório (3–10s) para não parecer bot.
-- Suporta `mediaUrl` (imagem/áudio/documento).
-- Marca `unsubscribe` ao receber palavras-chave ("sair", "parar", "descadastrar") no `evolution-webhook`.
-
-## 4. Editor de campanha (`/admin/campanhas`)
-
-- Lista de campanhas (status, canal, destinatários, taxa de entrega).
-- Wizard "Nova campanha": 1) canal → 2) público (escolhe audience ou cria filtro inline) → 3) template ou texto livre → 4) preview com variáveis renderizadas → 5) agendar/enviar agora.
-- Página de detalhe: barra de progresso, tabela de destinatários com status, botão pausar/retomar/duplicar, gráfico de funil.
-
-## 5. Editor de templates (`/admin/campanhas/templates`)
-
-- CRUD de `message_templates`.
-- Editor com inserção de variáveis (`{{nome}}`, `{{area}}`, `{{processo}}` etc.) via dropdown.
-- Para e-mail: editor rich-text simples (reutiliza `RichTextEditor`).
-- Preview ao vivo com destinatário-amostra.
-
-## 6. Segmentação (`/admin/campanhas/publicos`)
-
-- Builder visual: origem (leads/clients/contacts) + filtros (área de atuação, status, tags, criado entre datas, com/sem contrato).
-- Preview de contagem em tempo real.
-- Salvar como audience ou usar one-off.
-
-## 7. Métricas
-
-- Dashboard de campanha com: enviados, entregues, lidos, falhas, descadastros, CTR (e-mail).
-- Card no `/admin` (Dashboard) com últimas 3 campanhas.
-
-## 8. Menu admin
-
-Novo grupo **"Campanhas"** com:
-- Visão geral (`/admin/campanhas`)
-- Templates (`/admin/campanhas/templates`)
-- Públicos (`/admin/campanhas/publicos`)
-
-## 9. Ajustes finais da Fase 4 (antes da Fase 5)
-
-Pontos identificados na auditoria do que já foi entregue:
-- **Composer com anexos no Atendimento**: hoje `whatsapp-send` já aceita mídia, mas a UI ainda não tem botão de anexo (imagem/áudio/documento). Adicionar.
-- **Botão "Agendar"** no header da conversa Atendimento e no detalhe do Lead (ainda ausente).
-- **Aba "Agendamentos"** dentro do detalhe do Contrato.
-- **Cron de lembrete 24h** (`appointment-notify` com modo `mode=reminders`) — agendar via `pg_cron` ou orientar configuração no painel Supabase.
-- **Templates de notificação editáveis** em `platform_settings` (`appointment_confirmation_template`, `appointment_reminder_template`, `appointment_cancelled_template`).
-- **Tool `cancel_appointment`** no `ai-agent-reply` (planejado mas não criado).
-- **Validação de overlap** server-side ao criar appointment (evitar double-booking).
-
-## 10. Ordem de entrega
-
-1. Ajustes finais Fase 4 (seção 9).
-2. Migration: `audiences`, `audience_members`, `message_templates`, `campaigns`, `campaign_recipients`, `unsubscribes` + campos Brevo em `platform_settings`.
-3. Secret `BREVO_API_KEY` + edge functions `brevo-send` / `brevo-webhook`.
-4. Edge function `whatsapp-broadcast-worker` + cron.
-5. UI Templates → Públicos → Campanhas (nesta ordem para destravar dependências).
-6. Métricas + cards no dashboard.
-7. Palavra-chave de unsubscribe no `evolution-webhook`.
-
-## 11. Riscos
-
-- **Ban WhatsApp**: throttle obrigatório, jitter, opt-out automático. Documentar boas práticas no admin.
-- **Reputação e-mail**: exigir SPF/DKIM antes do primeiro disparo; bloquear envio se não configurado.
-- **Custo Brevo**: monitorar via campo `stats` por campanha.
-- **Variáveis faltantes**: validador pré-envio que mostra destinatários sem `{{variavel}}` preenchida.
-- **LGPD**: registrar base legal por audience (opt-in/legítimo interesse) — campo `legal_basis` em `audiences`.
+**1.5 Kanban ↔ Fila vinculados (transferência entre filas com histórico de 30 dias)**
+- Nova tabela `kanban_stage_queue_map` mapeando `kanban_status` (etapa) → `queue_id` (fila WhatsApp).
+- Quando lead muda de etapa no Kanban: trigger/edge function transfere a conversa do lead para a nova fila, registra em `whatsapp_conversation_transfers`.
+- O **histórico de 30 dias** já é nativo (mensagens ficam no banco). A nova fila/atendente passa a ver toda a conversa.
+- Admin vê todas as filas; atendente vê apenas filas que é membro + filas que recebeu via transferência recente (já coberto pelo `can_access_conversation`).
+- Aviso visual na fila do atendente quando há lead na **etapa anterior à dele** ("X leads aguardando na etapa anterior"). Card discreto no topo do Atendimento.
 
 ---
 
-Confirma para eu (a) aplicar os ajustes finais da Fase 4 e (b) rodar a migration da Fase 5 e seguir na ordem acima?
+## Frente 2 — Honorários (Recibos)
+
+### O que vou implementar
+- Na aba **Honorários** do contrato, ao **dar baixa em uma parcela** (status pago):
+  - Modal de confirmação já existente ganha botão **"Gerar e enviar recibo"**.
+  - Seleção do **modelo de recibo** (filtrado pelos templates disponíveis para o advogado responsável OU marcados como uso geral).
+  - Gera PDF/HTML a partir do template (usa o motor já existente do Gerador de Documentos), salva em `contract_documents` com `document_type = 'receipt'`.
+  - Botão **"Enviar"** com 2 checkboxes: ✅ Cliente (WhatsApp/Email) ✅ Advogado responsável (WhatsApp/Email).
+  - Histórico em `contract_history` ("Recibo enviado para…").
+
+### Estrutura de dados
+- Adicionar campo `paid_at`, `paid_method`, `receipt_document_id` na estrutura `fees.installments[]` (já é JSONB em `contracts.fees`).
+
+---
+
+## Frente 3 — Gerador de Documentos (Modelo Recibo)
+
+### O que vou implementar
+- No `document_template_types` garantir que existe o tipo **"Recibo"** (insert idempotente).
+- No formulário do contrato (aba Honorários), antes do **Plano de Parcelas**, novo campo:
+  - **"Modelo de Recibo"** (select filtrado: templates do tipo "Recibo" + (`owner_id = advogado do contrato` OU `assigned_team_member_ids` contém o advogado OU marcado como geral)).
+  - Salvo em `contracts.fees.receipt_template_id`.
+- Adicionar flag `is_general` em `document_templates` (boolean, default false) para marcar templates de uso geral por todos os advogados.
+- Variáveis novas disponíveis no template de recibo: `{{parcela.numero}}`, `{{parcela.valor}}`, `{{parcela.data_pagamento}}`, `{{parcela.forma_pagamento}}`, `{{contrato.numero}}`, além das já existentes de cliente/advogado.
+
+---
+
+## Migrações de banco (resumo)
+
+1. `kanban_stage_queue_map` (stage text, queue_id uuid) + seed inicial.
+2. `document_templates.is_general boolean default false`.
+3. Insert idempotente em `document_template_types` para "Recibo".
+4. Storage policy para gravações de áudio em `whatsapp-media` (já existe bucket).
+
+## Edge functions
+
+- Atualizar `whatsapp-transfer` para aceitar transferência por mudança de etapa do Kanban.
+- Nova `receipt-send` — gera HTML do recibo, salva em `contract_documents`, envia via `whatsapp-send` e/ou `brevo-send`.
+
+## Arquivos front-end principais a editar
+
+- `src/pages/admin/Atendimento.tsx` — realtime, emoji, áudio, nova conversa, alerta etapa anterior.
+- `src/pages/admin/Leads.tsx` — botão "Abrir conversa".
+- `src/pages/admin/Leads.tsx` (Kanban) — onChange status dispara transferência de fila.
+- `src/pages/admin/ContractForm.tsx` (aba Honorários) — select de modelo de recibo, modal de baixa com envio.
+- `src/pages/admin/DocumentTemplates.tsx` + form — flag "uso geral".
+
+---
+
+## Pergunta antes de começar
+
+Quer que eu execute **tudo numa rodada só** (vai ser uma resposta longa com várias migrações) ou prefere **frente por frente** (começo pela 1 — Atendimento — que é a mais crítica)?
