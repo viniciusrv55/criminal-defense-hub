@@ -185,9 +185,35 @@ const Team = () => {
         </form>
       )}
 
+      {!loading && queues.length > 0 && (
+        <div className="mb-8 p-6 bg-card rounded-xl border border-border">
+          <h2 className="font-medium text-foreground mb-1">Mapeamento Kanban → Fila WhatsApp</h2>
+          <p className="text-xs text-muted-foreground mb-4">Quando um lead muda de etapa no Kanban, sua conversa do WhatsApp é transferida automaticamente para a fila escolhida.</p>
+          <div className="grid sm:grid-cols-5 gap-3">
+            {KANBAN_STAGES.map(s => {
+              const current = stageMap.find(x => x.stage === s.key)?.queue_id ?? '';
+              return (
+                <div key={s.key} className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">{s.label}</Label>
+                  <select
+                    value={current}
+                    onChange={(e) => setStageQueue(s.key, e.target.value)}
+                    className="w-full text-sm px-2 py-2 rounded-md border border-border bg-background"
+                  >
+                    <option value="">— Sem fila —</option>
+                    {queues.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" /></div>
       ) : members.length === 0 ? (
+
         <div className="text-center py-12 bg-card rounded-xl border border-border"><p className="text-muted-foreground">Nenhum membro cadastrado</p></div>
       ) : (
         <div className="space-y-4">
