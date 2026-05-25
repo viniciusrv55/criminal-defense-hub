@@ -6,9 +6,11 @@ import { usePracticeAreas } from '@/hooks/usePracticeAreas';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus } from 'lucide-react';
+import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/database';
+
 
 interface TeamMemberLite { id: string; user_id: string; full_name: string; active: boolean; }
 interface StagePerm { stage: string; team_member_id: string; can_act: boolean; }
