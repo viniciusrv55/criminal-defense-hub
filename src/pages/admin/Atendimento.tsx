@@ -159,6 +159,12 @@ export default function Atendimento() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<BlobPart[]>([]);
 
+  const activeConv = useMemo(
+    () => conversations.find((c) => c.id === activeConvId) ?? null,
+    [conversations, activeConvId],
+  );
+
+
 
   // Initial load
   useEffect(() => {
