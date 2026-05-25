@@ -321,6 +321,16 @@ const Leads = () => {
                 </div>
               </div>
               <div className="pt-4 border-t border-border space-y-2">
+                {selectedLead.phone && (
+                  <Button
+                    variant="outline"
+                    onClick={() => openWhatsAppConversation(selectedLead)}
+                    className="w-full"
+                  >
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Abrir conversa no WhatsApp
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   onClick={() => navigate(`/admin/agenda?lead=${selectedLead.id}&name=${encodeURIComponent(selectedLead.name)}&phone=${encodeURIComponent(selectedLead.phone ?? '')}`)}
@@ -329,6 +339,7 @@ const Leads = () => {
                   <CalendarPlus className="w-4 h-4 mr-2" />
                   Agendar consulta
                 </Button>
+
                 {isAdmin() && (
                   <>
                     <Button
