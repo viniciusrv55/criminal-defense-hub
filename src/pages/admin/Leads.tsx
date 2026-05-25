@@ -119,11 +119,45 @@ const Leads = () => {
       return;
     }
     const { error } = await updateLead(lead.id, { kanban_status: newStatus });
-    if (error) toast({ title: 'Erro', description: error.message, variant: 'destructive' });
-    else {
-      await db.from('lead_history').insert({ lead_id: lead.id, action: 'stage_change', description: `Movido para ${KANBAN_COLUMNS.find(c => c.key === newStatus)?.label}`, performed_by: user?.id });
+    if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+
+    await db.from('lead_history').insert({ lead_id: lead.id, action: 'stage_change', description: `Movido para ${KANBAN_COLUMNS.find(c => c.key === newStatus)?.label}`, performed_by: user?.id });
+
+    // Auto-transferir a conversa de WhatsApp se a etapa estiver mapeada para uma fila
+    try {
+      const { data: mapRow } = await db.from('kanban_stage_queue_map').select('queue_id').eq('stage', newStatus).maybeSingle();
+      if (mapRow?.queue_id && lead.phone) {
+        const { data: conv } = await supabase
+          .from('whatsapp_conversations')
+          .select('id, current_queue_id')
+          .eq('lead_id', lead.id)
+          .maybeSingle();
+        if (conv?.id && conv.current_queue_id !== mapRow.queue_id) {
+          await supabase.functions.invoke('whatsapp-transfer', {
+            body: { conversation_id: conv.id, to_queue_id: mapRow.queue_id, note: `Auto: etapa "${KANBAN_COLUMNS.find(c => c.key === newStatus)?.label}"` },
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('auto-transfer failed', e);
     }
   };
+
+  const openWhatsAppConversation = async (lead: Lead) => {
+    if (!lead.phone) {
+      toast({ title: 'Lead sem telefone', variant: 'destructive' });
+      return;
+    }
+    const { data, error } = await supabase.functions.invoke('whatsapp-open-conversation', {
+      body: { phone: lead.phone, name: lead.name, lead_id: lead.id },
+    });
+    if (error || !data?.ok) {
+      toast({ title: 'Erro ao abrir conversa', description: error?.message ?? data?.error, variant: 'destructive' });
+      return;
+    }
+    navigate(`/admin/atendimento?conversation=${data.conversation_id}`);
+  };
+
 
   const toggleResponsible = async (lead: Lead, memberId: string) => {
     const current = lead.responsible_ids ?? [];
