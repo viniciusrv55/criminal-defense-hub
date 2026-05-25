@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +11,18 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Send, Search, Inbox, MessageSquare, ArrowRightLeft, User as UserIcon, Phone,
   Loader2, FileText, Image as ImageIcon, Mic, Video as VideoIcon, MapPin, Sticker, Bot, BotOff,
-  Calendar, Paperclip,
+  Calendar, Paperclip, Smile, Square, Plus,
 } from 'lucide-react';
+import Picker from '@emoji-mart/react';
+import emojiData from '@emoji-mart/data';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+
 
 interface Queue { id: string; name: string; team_member_id: string | null; color: string; }
 interface Conversation {
