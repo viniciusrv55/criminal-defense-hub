@@ -905,34 +905,92 @@ export default function Atendimento() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
-          <DialogContent>
+        <Dialog open={newConvOpen} onOpenChange={(o) => {
+          setNewConvOpen(o);
+          if (!o) { setConvSearch(''); setConvSearchResults([]); }
+        }}>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Nova conversa</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-1 block">Telefone (com DDD)</label>
-                <Input
-                  value={newConvForm.phone}
-                  onChange={(e) => setNewConvForm({ ...newConvForm, phone: e.target.value })}
-                  placeholder="(11) 99999-9999"
-                />
-                <p className="text-[11px] text-muted-foreground mt-1">Sem código do país, prefixo 55 será adicionado automaticamente.</p>
+                <label className="text-sm font-medium mb-1 block">Buscar Lead ou Cliente</label>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={convSearch}
+                    onChange={(e) => setConvSearch(e.target.value)}
+                    placeholder="Nome, telefone, e-mail, CPF ou CNPJ…"
+                    className="pl-9"
+                  />
+                </div>
+                {(convSearch.trim().length >= 2) && (
+                  <div className="mt-2 max-h-64 overflow-y-auto border border-border rounded-lg divide-y divide-border bg-card">
+                    {searchingContacts ? (
+                      <div className="p-3 text-xs text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Buscando…
+                      </div>
+                    ) : convSearchResults.length === 0 ? (
+                      <div className="p-3 text-xs text-muted-foreground">Nada encontrado. Você pode digitar um telefone abaixo para iniciar mesmo assim.</div>
+                    ) : (
+                      convSearchResults.map((r) => (
+                        <button
+                          key={`${r.kind}-${r.id}`}
+                          type="button"
+                          disabled={openingConv || !r.phone}
+                          onClick={() => void handleOpenNewConv({
+                            phone: r.phone ?? '',
+                            name: r.name,
+                            lead_id: r.kind === 'lead' ? r.id : null,
+                            client_id: r.kind === 'client' ? r.id : null,
+                          })}
+                          className="w-full text-left p-3 hover:bg-muted/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium truncate">{r.name}</span>
+                            <Badge variant="outline" className="text-[10px] h-4">
+                              {r.kind === 'lead' ? 'Lead' : 'Cliente'}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate mt-0.5">
+                            {r.phone ? formatPhone(r.phone) : 'sem telefone'}
+                            {r.email ? ` · ${r.email}` : ''}
+                            {r.extra ? ` · ${r.extra}` : ''}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Nome (opcional)</label>
-                <Input value={newConvForm.name} onChange={(e) => setNewConvForm({ ...newConvForm, name: e.target.value })} placeholder="Nome do contato" />
+
+              <div className="border-t border-border pt-3 space-y-3">
+                <p className="text-xs text-muted-foreground">…ou inicie informando o telefone manualmente:</p>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Telefone (com DDD)</label>
+                  <Input
+                    value={newConvForm.phone}
+                    onChange={(e) => setNewConvForm({ ...newConvForm, phone: e.target.value })}
+                    placeholder="(11) 99999-9999"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Sem código do país, prefixo 55 será adicionado automaticamente.</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Nome (opcional)</label>
+                  <Input value={newConvForm.name} onChange={(e) => setNewConvForm({ ...newConvForm, name: e.target.value })} placeholder="Nome do contato" />
+                </div>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setNewConvOpen(false)}>Cancelar</Button>
-              <Button onClick={handleOpenNewConv} disabled={openingConv || !newConvForm.phone.trim()}>
+              <Button onClick={() => void handleOpenNewConv()} disabled={openingConv || !newConvForm.phone.trim()}>
                 {openingConv ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
                 Abrir conversa
               </Button>
             </DialogFooter>
           </DialogContent>
+
         </Dialog>
       </div>
 
