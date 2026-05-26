@@ -470,16 +470,27 @@ export default function Atendimento() {
         : mime.startsWith('audio/') ? 'audio'
         : mime.startsWith('video/') ? 'video'
         : 'document';
+      const rawCaption = draft.trim();
+      const signedCaption = rawCaption
+        ? (senderName ? `*${senderName}:*\n${rawCaption}` : rawCaption)
+        : undefined;
       const { data, error } = await supabase.functions.invoke('whatsapp-send', {
         body: {
           conversation_id: activeConvId,
           message_type: messageType,
           media_url: pub.publicUrl,
           media_mime: mime,
-          content: draft.trim() || undefined,
+          content: signedCaption,
         },
       });
-      if (error || (data && !data.ok)) throw new Error(error?.message ?? data?.error ?? 'Falha no envio');
+      if (error || (data && !data.ok)) {
+        // eslint-disable-next-line no-console
+        console.error('whatsapp-send media error', { error, data });
+        const desc = error?.message
+          ?? (typeof data?.error === 'string' ? data.error : null)
+          ?? (data?.error ? JSON.stringify(data.error) : 'Falha no envio — verifique se há instância WhatsApp conectada.');
+        throw new Error(desc);
+      }
       setDraft('');
     } catch (e) {
       toast({ title: 'Erro ao enviar anexo', description: (e as Error).message, variant: 'destructive' });
@@ -488,6 +499,7 @@ export default function Atendimento() {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
+
 
   async function handleUpload(file: File) {
     await uploadAndSend(file, file.name, file.type || 'application/octet-stream');
