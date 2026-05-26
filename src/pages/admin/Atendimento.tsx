@@ -534,22 +534,44 @@ export default function Atendimento() {
     setDraft((d) => d + emoji.native);
   }
 
-  async function handleOpenNewConv() {
-    if (!newConvForm.phone.trim()) return;
+  async function handleOpenNewConv(opts?: {
+    phone?: string;
+    name?: string | null;
+    lead_id?: string | null;
+    client_id?: string | null;
+  }) {
+    const phone = (opts?.phone ?? newConvForm.phone).trim();
+    if (!phone) {
+      toast({ title: 'Telefone obrigatório', variant: 'destructive' });
+      return;
+    }
     setOpeningConv(true);
     const { data, error } = await supabase.functions.invoke('whatsapp-open-conversation', {
-      body: { phone: newConvForm.phone, name: newConvForm.name || null },
+      body: {
+        phone,
+        name: opts?.name ?? (newConvForm.name || null),
+        lead_id: opts?.lead_id ?? null,
+        client_id: opts?.client_id ?? null,
+      },
     });
     setOpeningConv(false);
     if (error || !data?.ok) {
-      toast({ title: 'Erro', description: error?.message ?? data?.error ?? 'Falha ao abrir conversa', variant: 'destructive' });
+      // eslint-disable-next-line no-console
+      console.error('whatsapp-open-conversation error', { error, data });
+      const desc = error?.message
+        ?? (typeof data?.error === 'string' ? data.error : null)
+        ?? (data?.error ? JSON.stringify(data.error) : 'Falha ao abrir conversa — verifique se há instância WhatsApp conectada.');
+      toast({ title: 'Erro', description: desc, variant: 'destructive' });
       return;
     }
     setNewConvOpen(false);
     setNewConvForm({ phone: '', name: '' });
+    setConvSearch('');
+    setConvSearchResults([]);
     setActiveConvId(data.conversation_id as string);
     toast({ title: data.created ? 'Conversa criada' : 'Conversa já existia, aberta' });
   }
+
 
   // Open conversation from URL param (?conversation=...)
   useEffect(() => {
