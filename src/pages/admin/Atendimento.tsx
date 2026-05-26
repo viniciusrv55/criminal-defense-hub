@@ -357,15 +357,25 @@ export default function Atendimento() {
     setSending(true);
     const text = draft;
     setDraft('');
+    // Prefix agent name in WhatsApp bold (*Name*) so the contact sees who is replying.
+    const signed = senderName ? `*${senderName}:*\n${text}` : text;
     const { data, error } = await supabase.functions.invoke('whatsapp-send', {
-      body: { conversation_id: activeConvId, message_type: 'text', content: text },
+      body: { conversation_id: activeConvId, message_type: 'text', content: signed },
     });
     setSending(false);
     if (error || (data && !data.ok)) {
-      toast({ title: 'Erro ao enviar', description: error?.message ?? data?.error ?? 'Falha', variant: 'destructive' });
+      // eslint-disable-next-line no-console
+      console.error('whatsapp-send error', { error, data });
+      const desc =
+        error?.message ??
+        (typeof data?.error === 'string' ? data.error : null) ??
+        (data?.error ? JSON.stringify(data.error) : null) ??
+        'Falha ao enviar — verifique se há instância WhatsApp conectada.';
+      toast({ title: 'Erro ao enviar', description: desc, variant: 'destructive' });
       setDraft(text);
     }
   }
+
 
   async function handleTransfer() {
     if (!activeConvId || !transferQueueId) return;
