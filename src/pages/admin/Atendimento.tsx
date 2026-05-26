@@ -158,6 +158,18 @@ export default function Atendimento() {
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<BlobPart[]>([]);
+  const [senderName, setSenderName] = useState<string>('');
+  const [convSearch, setConvSearch] = useState('');
+  const [convSearchResults, setConvSearchResults] = useState<Array<{
+    kind: 'lead' | 'client';
+    id: string;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    extra?: string | null;
+  }>>([]);
+  const [searchingContacts, setSearchingContacts] = useState(false);
+
 
   const activeConv = useMemo(
     () => conversations.find((c) => c.id === activeConvId) ?? null,
@@ -184,6 +196,75 @@ export default function Atendimento() {
       setLoading(false);
     })();
   }, []);
+
+  // Load current user's team_member name (for outgoing-message signature)
+  useEffect(() => {
+    if (!user?.id) return;
+    void (async () => {
+      const { data } = await supabase
+        .from('team_members')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data?.full_name) setSenderName(data.full_name);
+    })();
+  }, [user?.id]);
+
+  // Debounced contact search (leads + clients) for the "Nova conversa" dialog
+  useEffect(() => {
+    if (!newConvOpen) return;
+    const term = convSearch.trim();
+    if (term.length < 2) { setConvSearchResults([]); return; }
+    const handle = setTimeout(async () => {
+      setSearchingContacts(true);
+      const digitsOnly = term.replace(/\D/g, '');
+      const like = `%${term}%`;
+      const [{ data: leadsRows }, { data: clientsRows }] = await Promise.all([
+        supabase.from('leads')
+          .select('id, name, phone, email')
+          .or(`name.ilike.${like},email.ilike.${like}${digitsOnly ? `,phone.ilike.%${digitsOnly}%` : ''}`)
+          .limit(8),
+        supabase.from('clients')
+          .select('id, full_name, cpf, cnpj, phones, emails')
+          .or(
+            `full_name.ilike.${like},cpf.ilike.${like},cnpj.ilike.${like},phones::text.ilike.${like},emails::text.ilike.${like}`,
+          )
+          .limit(8),
+      ]);
+      const results: typeof convSearchResults = [];
+      (leadsRows ?? []).forEach((l) => {
+        results.push({
+          kind: 'lead',
+          id: l.id as string,
+          name: (l.name as string) ?? 'Lead sem nome',
+          phone: (l.phone as string | null) ?? null,
+          email: (l.email as string | null) ?? null,
+        });
+      });
+      (clientsRows ?? []).forEach((c) => {
+        const phonesArr = Array.isArray(c.phones) ? (c.phones as unknown[]) : [];
+        const emailsArr = Array.isArray(c.emails) ? (c.emails as unknown[]) : [];
+        const firstPhone = phonesArr
+          .map((p) => (typeof p === 'string' ? p : (p as { number?: string })?.number))
+          .find(Boolean) as string | undefined;
+        const firstEmail = emailsArr
+          .map((e) => (typeof e === 'string' ? e : (e as { address?: string })?.address))
+          .find(Boolean) as string | undefined;
+        results.push({
+          kind: 'client',
+          id: c.id as string,
+          name: (c.full_name as string) ?? 'Cliente',
+          phone: firstPhone ?? null,
+          email: firstEmail ?? null,
+          extra: (c.cpf as string | null) ?? (c.cnpj as string | null) ?? null,
+        });
+      });
+      setConvSearchResults(results);
+      setSearchingContacts(false);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [convSearch, newConvOpen]);
+
 
   // Realtime: conversations
   useEffect(() => {
@@ -276,15 +357,25 @@ export default function Atendimento() {
     setSending(true);
     const text = draft;
     setDraft('');
+    // Prefix agent name in WhatsApp bold (*Name*) so the contact sees who is replying.
+    const signed = senderName ? `*${senderName}:*\n${text}` : text;
     const { data, error } = await supabase.functions.invoke('whatsapp-send', {
-      body: { conversation_id: activeConvId, message_type: 'text', content: text },
+      body: { conversation_id: activeConvId, message_type: 'text', content: signed },
     });
     setSending(false);
     if (error || (data && !data.ok)) {
-      toast({ title: 'Erro ao enviar', description: error?.message ?? data?.error ?? 'Falha', variant: 'destructive' });
+      // eslint-disable-next-line no-console
+      console.error('whatsapp-send error', { error, data });
+      const desc =
+        error?.message ??
+        (typeof data?.error === 'string' ? data.error : null) ??
+        (data?.error ? JSON.stringify(data.error) : null) ??
+        'Falha ao enviar — verifique se há instância WhatsApp conectada.';
+      toast({ title: 'Erro ao enviar', description: desc, variant: 'destructive' });
       setDraft(text);
     }
   }
+
 
   async function handleTransfer() {
     if (!activeConvId || !transferQueueId) return;
@@ -379,16 +470,27 @@ export default function Atendimento() {
         : mime.startsWith('audio/') ? 'audio'
         : mime.startsWith('video/') ? 'video'
         : 'document';
+      const rawCaption = draft.trim();
+      const signedCaption = rawCaption
+        ? (senderName ? `*${senderName}:*\n${rawCaption}` : rawCaption)
+        : undefined;
       const { data, error } = await supabase.functions.invoke('whatsapp-send', {
         body: {
           conversation_id: activeConvId,
           message_type: messageType,
           media_url: pub.publicUrl,
           media_mime: mime,
-          content: draft.trim() || undefined,
+          content: signedCaption,
         },
       });
-      if (error || (data && !data.ok)) throw new Error(error?.message ?? data?.error ?? 'Falha no envio');
+      if (error || (data && !data.ok)) {
+        // eslint-disable-next-line no-console
+        console.error('whatsapp-send media error', { error, data });
+        const desc = error?.message
+          ?? (typeof data?.error === 'string' ? data.error : null)
+          ?? (data?.error ? JSON.stringify(data.error) : 'Falha no envio — verifique se há instância WhatsApp conectada.');
+        throw new Error(desc);
+      }
       setDraft('');
     } catch (e) {
       toast({ title: 'Erro ao enviar anexo', description: (e as Error).message, variant: 'destructive' });
@@ -397,6 +499,7 @@ export default function Atendimento() {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
+
 
   async function handleUpload(file: File) {
     await uploadAndSend(file, file.name, file.type || 'application/octet-stream');
@@ -431,22 +534,44 @@ export default function Atendimento() {
     setDraft((d) => d + emoji.native);
   }
 
-  async function handleOpenNewConv() {
-    if (!newConvForm.phone.trim()) return;
+  async function handleOpenNewConv(opts?: {
+    phone?: string;
+    name?: string | null;
+    lead_id?: string | null;
+    client_id?: string | null;
+  }) {
+    const phone = (opts?.phone ?? newConvForm.phone).trim();
+    if (!phone) {
+      toast({ title: 'Telefone obrigatório', variant: 'destructive' });
+      return;
+    }
     setOpeningConv(true);
     const { data, error } = await supabase.functions.invoke('whatsapp-open-conversation', {
-      body: { phone: newConvForm.phone, name: newConvForm.name || null },
+      body: {
+        phone,
+        name: opts?.name ?? (newConvForm.name || null),
+        lead_id: opts?.lead_id ?? null,
+        client_id: opts?.client_id ?? null,
+      },
     });
     setOpeningConv(false);
     if (error || !data?.ok) {
-      toast({ title: 'Erro', description: error?.message ?? data?.error ?? 'Falha ao abrir conversa', variant: 'destructive' });
+      // eslint-disable-next-line no-console
+      console.error('whatsapp-open-conversation error', { error, data });
+      const desc = error?.message
+        ?? (typeof data?.error === 'string' ? data.error : null)
+        ?? (data?.error ? JSON.stringify(data.error) : 'Falha ao abrir conversa — verifique se há instância WhatsApp conectada.');
+      toast({ title: 'Erro', description: desc, variant: 'destructive' });
       return;
     }
     setNewConvOpen(false);
     setNewConvForm({ phone: '', name: '' });
+    setConvSearch('');
+    setConvSearchResults([]);
     setActiveConvId(data.conversation_id as string);
     toast({ title: data.created ? 'Conversa criada' : 'Conversa já existia, aberta' });
   }
+
 
   // Open conversation from URL param (?conversation=...)
   useEffect(() => {
@@ -780,34 +905,92 @@ export default function Atendimento() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
-          <DialogContent>
+        <Dialog open={newConvOpen} onOpenChange={(o) => {
+          setNewConvOpen(o);
+          if (!o) { setConvSearch(''); setConvSearchResults([]); }
+        }}>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Nova conversa</DialogTitle>
             </DialogHeader>
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium mb-1 block">Telefone (com DDD)</label>
-                <Input
-                  value={newConvForm.phone}
-                  onChange={(e) => setNewConvForm({ ...newConvForm, phone: e.target.value })}
-                  placeholder="(11) 99999-9999"
-                />
-                <p className="text-[11px] text-muted-foreground mt-1">Sem código do país, prefixo 55 será adicionado automaticamente.</p>
+                <label className="text-sm font-medium mb-1 block">Buscar Lead ou Cliente</label>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={convSearch}
+                    onChange={(e) => setConvSearch(e.target.value)}
+                    placeholder="Nome, telefone, e-mail, CPF ou CNPJ…"
+                    className="pl-9"
+                  />
+                </div>
+                {(convSearch.trim().length >= 2) && (
+                  <div className="mt-2 max-h-64 overflow-y-auto border border-border rounded-lg divide-y divide-border bg-card">
+                    {searchingContacts ? (
+                      <div className="p-3 text-xs text-muted-foreground flex items-center gap-2">
+                        <Loader2 className="w-3 h-3 animate-spin" /> Buscando…
+                      </div>
+                    ) : convSearchResults.length === 0 ? (
+                      <div className="p-3 text-xs text-muted-foreground">Nada encontrado. Você pode digitar um telefone abaixo para iniciar mesmo assim.</div>
+                    ) : (
+                      convSearchResults.map((r) => (
+                        <button
+                          key={`${r.kind}-${r.id}`}
+                          type="button"
+                          disabled={openingConv || !r.phone}
+                          onClick={() => void handleOpenNewConv({
+                            phone: r.phone ?? '',
+                            name: r.name,
+                            lead_id: r.kind === 'lead' ? r.id : null,
+                            client_id: r.kind === 'client' ? r.id : null,
+                          })}
+                          className="w-full text-left p-3 hover:bg-muted/50 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium truncate">{r.name}</span>
+                            <Badge variant="outline" className="text-[10px] h-4">
+                              {r.kind === 'lead' ? 'Lead' : 'Cliente'}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate mt-0.5">
+                            {r.phone ? formatPhone(r.phone) : 'sem telefone'}
+                            {r.email ? ` · ${r.email}` : ''}
+                            {r.extra ? ` · ${r.extra}` : ''}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="text-sm font-medium mb-1 block">Nome (opcional)</label>
-                <Input value={newConvForm.name} onChange={(e) => setNewConvForm({ ...newConvForm, name: e.target.value })} placeholder="Nome do contato" />
+
+              <div className="border-t border-border pt-3 space-y-3">
+                <p className="text-xs text-muted-foreground">…ou inicie informando o telefone manualmente:</p>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Telefone (com DDD)</label>
+                  <Input
+                    value={newConvForm.phone}
+                    onChange={(e) => setNewConvForm({ ...newConvForm, phone: e.target.value })}
+                    placeholder="(11) 99999-9999"
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Sem código do país, prefixo 55 será adicionado automaticamente.</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-1 block">Nome (opcional)</label>
+                  <Input value={newConvForm.name} onChange={(e) => setNewConvForm({ ...newConvForm, name: e.target.value })} placeholder="Nome do contato" />
+                </div>
               </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setNewConvOpen(false)}>Cancelar</Button>
-              <Button onClick={handleOpenNewConv} disabled={openingConv || !newConvForm.phone.trim()}>
+              <Button onClick={() => void handleOpenNewConv()} disabled={openingConv || !newConvForm.phone.trim()}>
                 {openingConv ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
                 Abrir conversa
               </Button>
             </DialogFooter>
           </DialogContent>
+
         </Dialog>
       </div>
 
