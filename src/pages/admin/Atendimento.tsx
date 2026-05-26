@@ -158,6 +158,18 @@ export default function Atendimento() {
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<BlobPart[]>([]);
+  const [senderName, setSenderName] = useState<string>('');
+  const [convSearch, setConvSearch] = useState('');
+  const [convSearchResults, setConvSearchResults] = useState<Array<{
+    kind: 'lead' | 'client';
+    id: string;
+    name: string;
+    phone: string | null;
+    email: string | null;
+    extra?: string | null;
+  }>>([]);
+  const [searchingContacts, setSearchingContacts] = useState(false);
+
 
   const activeConv = useMemo(
     () => conversations.find((c) => c.id === activeConvId) ?? null,
