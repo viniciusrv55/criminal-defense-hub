@@ -197,6 +197,75 @@ export default function Atendimento() {
     })();
   }, []);
 
+  // Load current user's team_member name (for outgoing-message signature)
+  useEffect(() => {
+    if (!user?.id) return;
+    void (async () => {
+      const { data } = await supabase
+        .from('team_members')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (data?.full_name) setSenderName(data.full_name);
+    })();
+  }, [user?.id]);
+
+  // Debounced contact search (leads + clients) for the "Nova conversa" dialog
+  useEffect(() => {
+    if (!newConvOpen) return;
+    const term = convSearch.trim();
+    if (term.length < 2) { setConvSearchResults([]); return; }
+    const handle = setTimeout(async () => {
+      setSearchingContacts(true);
+      const digitsOnly = term.replace(/\D/g, '');
+      const like = `%${term}%`;
+      const [{ data: leadsRows }, { data: clientsRows }] = await Promise.all([
+        supabase.from('leads')
+          .select('id, name, phone, email')
+          .or(`name.ilike.${like},email.ilike.${like}${digitsOnly ? `,phone.ilike.%${digitsOnly}%` : ''}`)
+          .limit(8),
+        supabase.from('clients')
+          .select('id, full_name, cpf, cnpj, phones, emails')
+          .or(
+            `full_name.ilike.${like},cpf.ilike.${like},cnpj.ilike.${like},phones::text.ilike.${like},emails::text.ilike.${like}`,
+          )
+          .limit(8),
+      ]);
+      const results: typeof convSearchResults = [];
+      (leadsRows ?? []).forEach((l) => {
+        results.push({
+          kind: 'lead',
+          id: l.id as string,
+          name: (l.name as string) ?? 'Lead sem nome',
+          phone: (l.phone as string | null) ?? null,
+          email: (l.email as string | null) ?? null,
+        });
+      });
+      (clientsRows ?? []).forEach((c) => {
+        const phonesArr = Array.isArray(c.phones) ? (c.phones as unknown[]) : [];
+        const emailsArr = Array.isArray(c.emails) ? (c.emails as unknown[]) : [];
+        const firstPhone = phonesArr
+          .map((p) => (typeof p === 'string' ? p : (p as { number?: string })?.number))
+          .find(Boolean) as string | undefined;
+        const firstEmail = emailsArr
+          .map((e) => (typeof e === 'string' ? e : (e as { address?: string })?.address))
+          .find(Boolean) as string | undefined;
+        results.push({
+          kind: 'client',
+          id: c.id as string,
+          name: (c.full_name as string) ?? 'Cliente',
+          phone: firstPhone ?? null,
+          email: firstEmail ?? null,
+          extra: (c.cpf as string | null) ?? (c.cnpj as string | null) ?? null,
+        });
+      });
+      setConvSearchResults(results);
+      setSearchingContacts(false);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [convSearch, newConvOpen]);
+
+
   // Realtime: conversations
   useEffect(() => {
     const ch = supabase
