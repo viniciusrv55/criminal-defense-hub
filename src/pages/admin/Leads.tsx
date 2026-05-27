@@ -6,31 +6,34 @@ import { usePracticeAreas } from '@/hooks/usePracticeAreas';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus, MessageCircle } from 'lucide-react';
+import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus, MessageCircle, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/database';
+import { KanbanColumnsEditor, type KanbanColumn } from './KanbanColumns';
 
 
 interface TeamMemberLite { id: string; user_id: string; full_name: string; active: boolean; }
 interface StagePerm { stage: string; team_member_id: string; can_act: boolean; }
-
-const KANBAN_COLUMNS = [
-  { key: 'new', label: 'Novos', color: 'border-blue-500' },
-  { key: 'contacted', label: 'Contatado', color: 'border-yellow-500' },
-  { key: 'in_progress', label: 'Em Atendimento', color: 'border-accent' },
-  { key: 'proposal', label: 'Proposta', color: 'border-purple-500' },
-  { key: 'closed', label: 'Finalizado', color: 'border-green-500' },
-];
 
 const Leads = () => {
   const { leads, loading, updateLead } = useLeads();
   const { areas } = usePracticeAreas();
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [converting, setConverting] = useState(false);
+  const [columns, setColumns] = useState<KanbanColumn[]>([]);
+  const [showColumnsEditor, setShowColumnsEditor] = useState(false);
+
+  const fetchColumns = async () => {
+    const { data } = await db.from('kanban_columns').select('*').order('sort_order');
+    setColumns(data ?? []);
+  };
+  useEffect(() => { fetchColumns(); }, []);
+
+  const visibleColumns = columns.filter(c => c.active);
+  const closedKey = visibleColumns[visibleColumns.length - 1]?.key;
 
   const convertToContract = async (lead: Lead) => {
     setConverting(true);
@@ -121,7 +124,7 @@ const Leads = () => {
     const { error } = await updateLead(lead.id, { kanban_status: newStatus });
     if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
 
-    await db.from('lead_history').insert({ lead_id: lead.id, action: 'stage_change', description: `Movido para ${KANBAN_COLUMNS.find(c => c.key === newStatus)?.label}`, performed_by: user?.id });
+    await db.from('lead_history').insert({ lead_id: lead.id, action: 'stage_change', description: `Movido para ${visibleColumns.find(c => c.key === newStatus)?.label}`, performed_by: user?.id });
 
     // Auto-transferir a conversa de WhatsApp se a etapa estiver mapeada para uma fila
     try {
@@ -134,7 +137,7 @@ const Leads = () => {
           .maybeSingle();
         if (conv?.id && conv.current_queue_id !== mapRow.queue_id) {
           await supabase.functions.invoke('whatsapp-transfer', {
-            body: { conversation_id: conv.id, to_queue_id: mapRow.queue_id, note: `Auto: etapa "${KANBAN_COLUMNS.find(c => c.key === newStatus)?.label}"` },
+            body: { conversation_id: conv.id, to_queue_id: mapRow.queue_id, note: `Auto: etapa "${visibleColumns.find(c => c.key === newStatus)?.label}"` },
           });
         }
       }
@@ -181,83 +184,70 @@ const Leads = () => {
 
   return (
     <AdminLayout>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
         <div>
-          <h1 className="font-serif text-2xl font-bold text-foreground">Leads</h1>
+          <h1 className="font-serif text-2xl font-bold text-foreground">Atendimento Kanban</h1>
           <p className="text-muted-foreground text-sm mt-1">{leads.length} leads no total</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant={view === 'kanban' ? 'default' : 'outline'} size="sm" onClick={() => setView('kanban')}>Kanban</Button>
-          <Button variant={view === 'list' ? 'default' : 'outline'} size="sm" onClick={() => setView('list')}>Lista</Button>
-        </div>
+        {isAdmin() && (
+          <Button variant="outline" size="sm" onClick={() => setShowColumnsEditor(v => !v)}>
+            <Settings2 className="w-4 h-4 mr-2" /> {showColumnsEditor ? 'Fechar' : 'Personalizar colunas'}
+          </Button>
+        )}
       </div>
 
-      {view === 'kanban' ? (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {KANBAN_COLUMNS.map(col => {
-            const colLeads = leads.filter(l => l.kanban_status === col.key);
-            return (
-              <div key={col.key} className="min-w-[280px] flex-1">
-                <div className={`p-3 rounded-t-xl bg-card border-t-4 ${col.color} border-x border-border`}>
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-foreground text-sm">{col.label}</h3>
-                    <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{colLeads.length}</span>
-                  </div>
-                </div>
-                <div className="space-y-2 p-2 bg-muted/30 rounded-b-xl border-x border-b border-border min-h-[200px]">
-                  {colLeads.map(lead => (
-                    <div
-                      key={lead.id}
-                      className="p-3 bg-card rounded-lg border border-border cursor-pointer hover:border-accent/50 transition-colors"
-                      onClick={() => setSelectedLead(lead)}
-                    >
-                      <p className="font-medium text-foreground text-sm truncate">{lead.name}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{getAreaName(lead.practice_area_id)}</p>
-                      <p className="text-[10px] text-muted-foreground mt-1 truncate">👤 {responsibleNames(lead.responsible_ids)}</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        {lead.phone && <Phone className="w-3 h-3 text-muted-foreground" />}
-                        <span className="text-xs text-muted-foreground">{new Date(lead.created_at).toLocaleDateString('pt-BR')}</span>
-                      </div>
-                      {col.key !== 'closed' && (
-                        <div className="flex gap-1 mt-2">
-                          {KANBAN_COLUMNS.filter(c => c.key !== col.key).slice(0, 2).map(c => (
-                            <button
-                              key={c.key}
-                              onClick={(e) => { e.stopPropagation(); moveToColumn(lead, c.key); }}
-                              className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-accent/20 hover:text-accent transition-colors"
-                            >
-                              → {c.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {leads.map(lead => (
-            <div key={lead.id} className="flex items-center justify-between p-4 bg-card rounded-xl border border-border cursor-pointer hover:border-accent/50 transition-colors" onClick={() => setSelectedLead(lead)}>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-medium text-foreground">{lead.name}</h3>
-                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                  {lead.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</span>}
-                  {lead.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{lead.email}</span>}
-                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(lead.created_at).toLocaleDateString('pt-BR')}</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent">{getAreaName(lead.practice_area_id)}</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{KANBAN_COLUMNS.find(c => c.key === lead.kanban_status)?.label}</span>
-              </div>
-            </div>
-          ))}
+      {showColumnsEditor && (
+        <div className="mb-6">
+          <KanbanColumnsEditor columns={columns} onChanged={fetchColumns} />
         </div>
       )}
+
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {visibleColumns.map(col => {
+          const colLeads = leads.filter(l => l.kanban_status === col.key);
+          return (
+            <div key={col.key} className="min-w-[280px] flex-1">
+              <div className={`p-3 rounded-t-xl bg-card border-t-4 ${col.color ?? 'border-accent'} border-x border-border`}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-medium text-foreground text-sm">{col.label}</h3>
+                  <span className="text-xs bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{colLeads.length}</span>
+                </div>
+              </div>
+              <div className="space-y-2 p-2 bg-muted/30 rounded-b-xl border-x border-b border-border min-h-[200px]">
+                {colLeads.map(lead => (
+                  <div
+                    key={lead.id}
+                    className="p-3 bg-card rounded-lg border border-border cursor-pointer hover:border-accent/50 transition-colors"
+                    onClick={() => setSelectedLead(lead)}
+                  >
+                    <p className="font-medium text-foreground text-sm truncate">{lead.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">{getAreaName(lead.practice_area_id)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 truncate">👤 {responsibleNames(lead.responsible_ids)}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      {lead.phone && <Phone className="w-3 h-3 text-muted-foreground" />}
+                      <span className="text-xs text-muted-foreground">{new Date(lead.created_at).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                    {col.key !== closedKey && (
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {visibleColumns.filter(c => c.key !== col.key).slice(0, 2).map(c => (
+                          <button
+                            key={c.key}
+                            onClick={(e) => { e.stopPropagation(); moveToColumn(lead, c.key); }}
+                            className="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground hover:bg-accent/20 hover:text-accent transition-colors"
+                          >
+                            → {c.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
 
       {/* Lead Detail Modal */}
       {selectedLead && (
@@ -301,7 +291,7 @@ const Leads = () => {
               <div className="space-y-2">
                 <span className="text-sm text-muted-foreground">Mover para:</span>
                 <div className="flex flex-wrap gap-2">
-                  {KANBAN_COLUMNS.map(c => {
+                  {visibleColumns.map(c => {
                     const allowed = isAdmin() || (canActOnLead(selectedLead) && canActOnStage(c.key));
                     return (
                       <Button

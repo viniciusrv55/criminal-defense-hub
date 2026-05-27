@@ -5,7 +5,7 @@ import { useSiteSettings } from '@/hooks/useSiteSettings';
 import {
   LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, Scale,
   Users, Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert, MessageSquare, Bot, Calendar, CalendarCog,
-  Megaphone, LayoutTemplate, UsersRound,
+  Megaphone, LayoutTemplate, UsersRound, KanbanSquare, Inbox,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -30,7 +30,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     {
       label: 'CRM',
       items: [
-        { href: '/admin/leads', label: 'Leads', icon: Users },
         { href: '/admin/contratos', label: 'Contratos', icon: FileSignature },
         { href: '/admin/documentos', label: 'Gerador de Documentos', icon: FileText },
       ],
@@ -38,7 +37,9 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     {
       label: 'Atendimento',
       items: [
+        { href: '/admin/leads', label: 'Atendimento Kanban', icon: KanbanSquare },
         { href: '/admin/atendimento', label: 'Conversas', icon: MessageSquare },
+        { href: '/admin/filas', label: 'Filas', icon: Inbox },
         { href: '/admin/agentes-ia', label: 'Agentes IA', icon: Bot },
         { href: '/admin/whatsapp', label: 'WhatsApp', icon: Smartphone },
       ],

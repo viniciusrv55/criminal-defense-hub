@@ -1283,6 +1283,39 @@ export type Database = {
         }
         Relationships: []
       }
+      kanban_columns: {
+        Row: {
+          active: boolean
+          color: string | null
+          created_at: string
+          id: string
+          key: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          color?: string | null
+          created_at?: string
+          id?: string
+          key: string
+          label: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          color?: string | null
+          created_at?: string
+          id?: string
+          key?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       kanban_stage_permissions: {
         Row: {
           can_act: boolean
