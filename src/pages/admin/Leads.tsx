@@ -6,31 +6,34 @@ import { usePracticeAreas } from '@/hooks/usePracticeAreas';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus, MessageCircle } from 'lucide-react';
+import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus, MessageCircle, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/database';
+import { KanbanColumnsEditor, type KanbanColumn } from './KanbanColumns';
 
 
 interface TeamMemberLite { id: string; user_id: string; full_name: string; active: boolean; }
 interface StagePerm { stage: string; team_member_id: string; can_act: boolean; }
-
-const KANBAN_COLUMNS = [
-  { key: 'new', label: 'Novos', color: 'border-blue-500' },
-  { key: 'contacted', label: 'Contatado', color: 'border-yellow-500' },
-  { key: 'in_progress', label: 'Em Atendimento', color: 'border-accent' },
-  { key: 'proposal', label: 'Proposta', color: 'border-purple-500' },
-  { key: 'closed', label: 'Finalizado', color: 'border-green-500' },
-];
 
 const Leads = () => {
   const { leads, loading, updateLead } = useLeads();
   const { areas } = usePracticeAreas();
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [converting, setConverting] = useState(false);
+  const [columns, setColumns] = useState<KanbanColumn[]>([]);
+  const [showColumnsEditor, setShowColumnsEditor] = useState(false);
+
+  const fetchColumns = async () => {
+    const { data } = await db.from('kanban_columns').select('*').order('sort_order');
+    setColumns(data ?? []);
+  };
+  useEffect(() => { fetchColumns(); }, []);
+
+  const visibleColumns = columns.filter(c => c.active);
+  const closedKey = visibleColumns[visibleColumns.length - 1]?.key;
 
   const convertToContract = async (lead: Lead) => {
     setConverting(true);
