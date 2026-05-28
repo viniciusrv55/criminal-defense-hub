@@ -44,11 +44,12 @@ const TOOL_DEFS: Record<string, Any> = {
     type: 'function',
     function: {
       name: 'create_lead',
-      description: 'Cria um lead no CRM com os dados informados pelo cliente.',
+      description: 'Cria/atualiza um lead no CRM com nome, email e telefone do cliente. SEMPRE colete nome e email no início da conversa.',
       parameters: {
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Nome completo do cliente.' },
+          email: { type: 'string', description: 'Email do cliente (opcional, mas peça).' },
           practice_area: { type: 'string', description: 'Área de atuação relacionada (opcional).' },
           message: { type: 'string', description: 'Resumo do caso/dor do cliente.' },
         },
