@@ -36,6 +36,7 @@ import Campaigns from "./pages/admin/Campaigns";
 import CampaignTemplates from "./pages/admin/CampaignTemplates";
 import CampaignAudiences from "./pages/admin/CampaignAudiences";
 import Queues from "./pages/admin/Queues";
+import Clients from "./pages/admin/Clients";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import SuperAdminRoute from "./components/admin/SuperAdminRoute";
 
