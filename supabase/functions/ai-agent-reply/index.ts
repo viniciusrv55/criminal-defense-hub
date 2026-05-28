@@ -169,6 +169,7 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
       .from('leads')
       .insert({
         name: args.name,
+        email: args.email ?? null,
         phone: ctx.contactPhone,
         message: args.message,
         practice_area_id: areaId,
