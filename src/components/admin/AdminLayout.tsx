@@ -30,6 +30,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     {
       label: 'CRM',
       items: [
+        { href: '/admin/clientes', label: 'Clientes', icon: UsersRound },
         { href: '/admin/contratos', label: 'Contratos', icon: FileSignature },
         { href: '/admin/documentos', label: 'Gerador de Documentos', icon: FileText },
       ],
