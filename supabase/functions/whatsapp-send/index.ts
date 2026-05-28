@@ -87,6 +87,10 @@ Deno.serve(async (req) => {
     if (messageType === 'text') {
       path = `/message/sendText/${inst.instance_name}`;
       upstreamBody = { number, text: body.content };
+    } else if (messageType === 'audio') {
+      // Endpoint dedicado para áudio/PTT — Evolution converte para opus automaticamente
+      path = `/message/sendWhatsAppAudio/${inst.instance_name}`;
+      upstreamBody = { number, audio: body.media_url, encoding: true };
     } else {
       path = `/message/sendMedia/${inst.instance_name}`;
       upstreamBody = {
@@ -94,6 +98,7 @@ Deno.serve(async (req) => {
         mediatype: messageType,
         media: body.media_url,
         caption: body.content ?? '',
+        fileName: (body.media_url ?? '').split('/').pop() || `arquivo.${messageType === 'image' ? 'jpg' : messageType === 'video' ? 'mp4' : 'pdf'}`,
       };
     }
 
