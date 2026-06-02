@@ -373,6 +373,20 @@ export const FinanceiroTab = ({
     }
   };
 
+  const openReceiptFile = async (receipt: ReceiptRow) => {
+    if (!receipt.file_name) { toast({ title: 'Recibo sem arquivo', variant: 'destructive' }); return; }
+    try {
+      const path = `${contractId}/${receipt.file_name}`;
+      const { data, error } = await supabase.storage
+        .from('contracts')
+        .createSignedUrl(path, 60 * 5, { download: receipt.file_name });
+      if (error || !data?.signedUrl) throw error ?? new Error('URL não gerada');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      toast({ title: 'Erro ao baixar recibo', description: (e as Error).message, variant: 'destructive' });
+    }
+  };
+
   const sendReceiptWhatsApp = async (receipt: ReceiptRow) => {
     if (!client) return;
     const phone = client.phones?.[0]?.value;
@@ -474,10 +488,8 @@ export const FinanceiroTab = ({
                   )}
                   {receiptForKey?.file_url && (
                     <>
-                      <Button asChild size="sm" variant="outline">
-                        <a href={receiptForKey.file_url} target="_blank" rel="noreferrer">
-                          <Download className="w-4 h-4" />
-                        </a>
+                      <Button size="sm" variant="outline" onClick={() => openReceiptFile(receiptForKey)}>
+                        <Download className="w-4 h-4" />
                       </Button>
                       <Button
                         size="sm"
@@ -541,7 +553,7 @@ export const FinanceiroTab = ({
                 {receipts.map(r => (
                   <div key={r.id} className="text-xs flex justify-between border-b border-border/50 py-1.5 gap-2">
                     <span className="truncate">{new Date(r.created_at).toLocaleDateString('pt-BR')} — {r.file_name} {r.sent_at && `· enviado em ${new Date(r.sent_at).toLocaleDateString('pt-BR')}`}</span>
-                    {r.file_url && <a href={r.file_url} target="_blank" rel="noreferrer" className="text-accent underline">baixar</a>}
+                    {r.file_url && <button onClick={() => openReceiptFile(r)} className="text-accent underline">baixar</button>}
                   </div>
                 ))}
               </div>
