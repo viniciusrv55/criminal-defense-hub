@@ -303,7 +303,11 @@ export const FinanceiroTab = ({
       remaining_debt: remainingDebt,
       reason: renegForm.reason || null,
       created_by: userId,
+      payment_key_map: Object.fromEntries(keyMap),
     });
+
+    /* ============ DESFAZER RENEGOCIAÇÃO ============ */
+    // (handler abaixo)
     await db.from('contract_history').insert({
       contract_id: contractId, action: 'renegotiation',
       description: `Renegociação: dívida ${formatBRL(remainingDebt)} → entrada ${formatBRL(newEntry)} + ${count}x ${formatBRL(base)}`,
