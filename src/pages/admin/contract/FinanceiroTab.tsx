@@ -553,7 +553,7 @@ export const FinanceiroTab = ({
                 {receipts.map(r => (
                   <div key={r.id} className="text-xs flex justify-between border-b border-border/50 py-1.5 gap-2">
                     <span className="truncate">{new Date(r.created_at).toLocaleDateString('pt-BR')} — {r.file_name} {r.sent_at && `· enviado em ${new Date(r.sent_at).toLocaleDateString('pt-BR')}`}</span>
-                    {r.file_url && <a href={r.file_url} target="_blank" rel="noreferrer" className="text-accent underline">baixar</a>}
+                    {r.file_url && <button onClick={() => openReceiptFile(r)} className="text-accent underline">baixar</button>}
                   </div>
                 ))}
               </div>
