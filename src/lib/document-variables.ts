@@ -129,8 +129,10 @@ export const DOC_VARIABLES: DocVariable[] = [
   } },
   // Recibo
   { token: '[PARCELAREFERENCIA]', label: 'Parcela (referência)', group: 'Recibo', resolve: ({ receipt }) => fmt(receipt?.installment_label) },
-  { token: '[PARCELAVALOR]', label: 'Valor da parcela', group: 'Recibo', resolve: ({ receipt }) => formatBRL(receipt?.amount ?? 0) },
+  { token: '[PARCELAVALOR]', label: 'Valor da parcela (cheia)', group: 'Recibo', resolve: ({ receipt }) => formatBRL(receipt?.amount ?? 0) },
+  { token: '[PARCELAVALORPAGO]', label: 'Valor pago (recibo)', group: 'Recibo', resolve: ({ receipt }) => formatBRL(receipt?.amount ?? 0) },
   { token: '[PARCELAVALOREXTENSO]', label: 'Valor por extenso', group: 'Recibo', resolve: ({ receipt }) => receipt?.amount != null ? numberToWordsBRL(receipt.amount) : '____' },
+  { token: '[PARCELAVALORPAGOEXTENSO]', label: 'Valor pago por extenso', group: 'Recibo', resolve: ({ receipt }) => receipt?.amount != null ? numberToWordsBRL(receipt.amount) : '____' },
   { token: '[PARCELADATAPAGAMENTO]', label: 'Data do pagamento', group: 'Recibo', resolve: ({ receipt }) => fmtDate(receipt?.paid_at) },
   { token: '[PARCELAFORMAPAGAMENTO]', label: 'Forma de pagamento da parcela', group: 'Recibo', resolve: ({ receipt }) => fmt(receipt?.payment_method) },
   { token: '[RECIBODATA]', label: 'Data de emissão do recibo', group: 'Recibo', resolve: ({ receipt }) => fmtDate(receipt?.receipt_date ?? new Date().toISOString()) },
