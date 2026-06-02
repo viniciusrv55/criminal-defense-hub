@@ -4,8 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import {
   LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, Scale,
-  Users, Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert, MessageSquare, Bot, Calendar, CalendarCog,
-  Megaphone, LayoutTemplate, UsersRound, KanbanSquare, Inbox,
+  Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert, MessageSquare, Bot, Calendar, CalendarCog,
+  UsersRound, KanbanSquare, Inbox,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
