@@ -100,26 +100,37 @@ const FinancialWidgets = () => {
       const payments = (ps ?? []) as Payment[];
       const clientMap = new Map(clients.map(c => [c.id, c.full_name]));
 
-      // Overdue per contract
+      // Pendências por contrato (atraso + saldo a pagar)
       const od: OverdueClient[] = [];
       for (const c of contracts) {
         const cps = payments.filter(p => p.contract_id === c.id);
         const rows = computeRows(c.fees ?? {}, cps);
         const overdueRows = rows.filter(r => r.status === 'overdue' || (r.status === 'partial' && r.dueDate && new Date(r.dueDate) < new Date()));
         const pendingRows = rows.filter(r => r.status !== 'paid');
-        if (overdueRows.length > 0) {
+
+        const totalPaid = cps.reduce((s, p) => s + Number(p.amount), 0);
+        const totalValue = parseFloat(String(c.fees?.total_value ?? '').replace(',', '.')) || 0;
+        const scheduledTotal = rows.reduce((s, r) => s + r.amount, 0);
+        const referenceTotal = Math.max(totalValue, scheduledTotal);
+        const totalPending = Math.max(0, +(referenceTotal - totalPaid).toFixed(2));
+        const unscheduledBalance = Math.max(0, +(referenceTotal - scheduledTotal).toFixed(2));
+
+        if (overdueRows.length > 0 || totalPending > 0) {
           od.push({
             clientId: c.client_id,
             clientName: clientMap.get(c.client_id) ?? '—',
             contractId: c.id,
             contractNumber: c.contract_number,
             totalOverdue: overdueRows.reduce((s, r) => s + r.remaining, 0),
+            totalPending,
+            unscheduledBalance,
+            hasOverdue: overdueRows.length > 0,
             overdueRows,
             pendingRows,
           });
         }
       }
-      od.sort((a, b) => b.totalOverdue - a.totalOverdue);
+      od.sort((a, b) => Number(b.hasOverdue) - Number(a.hasOverdue) || b.totalOverdue - a.totalOverdue || b.totalPending - a.totalPending);
       setOverdue(od);
 
       // Week payments
