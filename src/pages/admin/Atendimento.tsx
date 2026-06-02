@@ -72,11 +72,20 @@ function formatPhone(p: string) {
   return p;
 }
 
+function parseSenderPrefix(text: string | null): { sender: string | null; body: string } {
+  if (!text) return { sender: null, body: '' };
+  // Match leading "*Nome:*\n" (markdown bold used in WhatsApp)
+  const m = /^\*([^*\n]+):\*\n?/.exec(text);
+  if (!m) return { sender: null, body: text };
+  return { sender: m[1].trim(), body: text.slice(m[0].length) };
+}
+
 function MessageBubble({ msg }: { msg: Message }) {
   const isOut = msg.direction === 'outbound';
   const meta = (msg.metadata ?? {}) as Record<string, unknown>;
   const transcript = typeof meta.transcript === 'string' ? meta.transcript : null;
   const imageDesc = typeof meta.image_description === 'string' ? meta.image_description : null;
+  const { sender, body } = parseSenderPrefix(msg.content);
   const icon = msg.message_type === 'image' ? <ImageIcon className="w-3 h-3" />
     : msg.message_type === 'audio' ? <Mic className="w-3 h-3" />
     : msg.message_type === 'video' ? <VideoIcon className="w-3 h-3" />
@@ -94,6 +103,9 @@ function MessageBubble({ msg }: { msg: Message }) {
             : 'bg-white border border-border text-[hsl(0_0%_8%)] rounded-bl-sm'
         }`}
       >
+        {sender && isOut && (
+          <p className="text-[11px] font-bold mb-0.5 text-[hsl(0_0%_15%)]">{sender}</p>
+        )}
         {msg.media_url && msg.message_type === 'image' && (
           <a href={msg.media_url} target="_blank" rel="noreferrer">
             <img src={msg.media_url} alt="" className="rounded-lg mb-2 max-w-full max-h-80 object-cover" />
@@ -107,8 +119,8 @@ function MessageBubble({ msg }: { msg: Message }) {
             {icon}<span>{msg.message_type}</span>
           </a>
         )}
-        {msg.content && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
-        {transcript && msg.message_type === 'audio' && !msg.content && (
+        {body && <p className="text-sm whitespace-pre-wrap break-words">{body}</p>}
+        {transcript && msg.message_type === 'audio' && !body && (
           <p className="text-sm whitespace-pre-wrap break-words italic">{transcript}</p>
         )}
         {imageDesc && (

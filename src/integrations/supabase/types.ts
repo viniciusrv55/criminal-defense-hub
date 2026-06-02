@@ -1283,6 +1283,94 @@ export type Database = {
         }
         Relationships: []
       }
+      installment_payments: {
+        Row: {
+          amount: number
+          contract_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          installment_key: string
+          notes: string | null
+          paid_at: string
+          payment_method: string | null
+        }
+        Insert: {
+          amount: number
+          contract_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installment_key: string
+          notes?: string | null
+          paid_at?: string
+          payment_method?: string | null
+        }
+        Update: {
+          amount?: number
+          contract_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          installment_key?: string
+          notes?: string | null
+          paid_at?: string
+          payment_method?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installment_payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installment_renegotiations: {
+        Row: {
+          contract_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          new_fees: Json
+          previous_fees: Json
+          reason: string | null
+          remaining_debt: number
+          total_paid_before: number
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_fees: Json
+          previous_fees: Json
+          reason?: string | null
+          remaining_debt?: number
+          total_paid_before?: number
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          new_fees?: Json
+          previous_fees?: Json
+          reason?: string | null
+          remaining_debt?: number
+          total_paid_before?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installment_renegotiations_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kanban_columns: {
         Row: {
           active: boolean
@@ -1531,6 +1619,79 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      payment_receipts: {
+        Row: {
+          amount: number | null
+          contract_id: string
+          created_at: string
+          created_by: string | null
+          file_name: string | null
+          file_url: string | null
+          id: string
+          installment_key: string | null
+          payment_id: string | null
+          sender_name: string | null
+          sender_user_id: string | null
+          sent_at: string | null
+          sent_via: string | null
+          template_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          contract_id: string
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          installment_key?: string | null
+          payment_id?: string | null
+          sender_name?: string | null
+          sender_user_id?: string | null
+          sent_at?: string | null
+          sent_via?: string | null
+          template_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          contract_id?: string
+          created_at?: string
+          created_by?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          installment_key?: string | null
+          payment_id?: string | null
+          sender_name?: string | null
+          sender_user_id?: string | null
+          sent_at?: string | null
+          sent_via?: string | null
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_receipts_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_receipts_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "installment_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_receipts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       platform_settings: {
         Row: {

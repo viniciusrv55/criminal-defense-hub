@@ -4,8 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import {
   LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, Scale,
-  Users, Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert, MessageSquare, Bot, Calendar, CalendarCog,
-  Megaphone, LayoutTemplate, UsersRound, KanbanSquare, Inbox,
+  Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert, MessageSquare, Bot, Calendar, CalendarCog,
+  UsersRound, KanbanSquare, Inbox,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -50,14 +50,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       items: [
         { href: '/admin/agenda', label: 'Calendário', icon: Calendar },
         { href: '/admin/agenda/config', label: 'Tipos & Disponibilidade', icon: CalendarCog },
-      ],
-    },
-    {
-      label: 'Campanhas',
-      items: [
-        { href: '/admin/campanhas', label: 'Campanhas', icon: Megaphone },
-        { href: '/admin/campanhas/templates', label: 'Modelos', icon: LayoutTemplate },
-        { href: '/admin/campanhas/publicos', label: 'Públicos', icon: UsersRound },
       ],
     },
     {

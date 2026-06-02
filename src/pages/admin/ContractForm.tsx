@@ -17,9 +17,10 @@ import { usePracticeAreas } from '@/hooks/usePracticeAreas';
 import { useClientGroups, useComarcas, useVaras, usePaymentMethods } from '@/hooks/useContractCatalog';
 import { CreatableCombobox } from '@/components/admin/CreatableCombobox';
 import { CurrencyInput, formatBRL } from '@/components/admin/CurrencyInput';
+import { FinanceiroTab } from './contract/FinanceiroTab';
 import type { Client, Contract, ProcessData, AdverseParty, FeesData, ContractDocument, CustomInstallment } from '@/types/contracts';
 
-const TAB_ORDER = ['cliente', 'processo', 'seguranca', 'adversa', 'honorarios', 'agendamentos', 'documentos', 'acesso'] as const;
+const TAB_ORDER = ['cliente', 'processo', 'seguranca', 'adversa', 'honorarios', 'financeiro', 'agendamentos', 'documentos', 'acesso'] as const;
 type TabKey = typeof TAB_ORDER[number];
 
 const PROFILE_OPTIONS = ['Cliente', 'Parceiro Comercial', 'Prospect', 'Indicador'];
@@ -34,10 +35,11 @@ const ContractForm = () => {
   const { id } = useParams();
   const isNew = !id || id === 'new';
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, profileName } = useAuth() as ReturnType<typeof useAuth> & { profileName?: string };
   const { contract, client, loading, setClient, setContract } = useContract(id);
   const { areas } = usePracticeAreas();
   const groupsHook = useClientGroups();
+  const paymentMethodsHook = usePaymentMethods();
 
   const [tab, setTab] = useState<TabKey>('cliente');
   const [saving, setSaving] = useState(false);
@@ -158,6 +160,7 @@ const ContractForm = () => {
           {canSeeSecurity && <TabsTrigger value="seguranca"><Lock className="w-3 h-3 mr-1" />Dados de Segurança</TabsTrigger>}
           <TabsTrigger value="adversa">Parte Adversa</TabsTrigger>
           <TabsTrigger value="honorarios">Honorários</TabsTrigger>
+          <TabsTrigger value="financeiro" disabled={isNew}>Financeiro</TabsTrigger>
           <TabsTrigger value="agendamentos" disabled={isNew}>Agendamentos</TabsTrigger>
           <TabsTrigger value="documentos" disabled={isNew}>Gerar Documento</TabsTrigger>
           <TabsTrigger value="acesso" disabled={isNew}>Acesso ao Cliente</TabsTrigger>
@@ -301,6 +304,19 @@ const ContractForm = () => {
         <TabsContent value="honorarios" className="bg-card rounded-xl border border-border p-6 space-y-6">
           <FeesFields data={contractDraft.fees ?? {}} onChange={f => setContractDraft({ ...contractDraft, fees: f })} />
         </TabsContent>
+
+        {/* FINANCEIRO */}
+        <TabsContent value="financeiro" className="bg-card rounded-xl border border-border p-6 space-y-4">
+          <FinanceiroTab
+            contractId={contract?.id}
+            contract={contract}
+            client={client}
+            userId={user?.id}
+            senderName={profileName ?? user?.email ?? ''}
+            paymentMethods={paymentMethodsHook.methods}
+          />
+        </TabsContent>
+
 
         {/* AGENDAMENTOS */}
         <TabsContent value="agendamentos" className="bg-card rounded-xl border border-border p-6 space-y-4">
