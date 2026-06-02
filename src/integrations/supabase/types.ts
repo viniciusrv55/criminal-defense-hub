@@ -1334,9 +1334,11 @@ export type Database = {
           created_by: string | null
           id: string
           new_fees: Json
+          payment_key_map: Json | null
           previous_fees: Json
           reason: string | null
           remaining_debt: number
+          reverted_at: string | null
           total_paid_before: number
         }
         Insert: {
@@ -1345,9 +1347,11 @@ export type Database = {
           created_by?: string | null
           id?: string
           new_fees: Json
+          payment_key_map?: Json | null
           previous_fees: Json
           reason?: string | null
           remaining_debt?: number
+          reverted_at?: string | null
           total_paid_before?: number
         }
         Update: {
@@ -1356,9 +1360,11 @@ export type Database = {
           created_by?: string | null
           id?: string
           new_fees?: Json
+          payment_key_map?: Json | null
           previous_fees?: Json
           reason?: string | null
           remaining_debt?: number
+          reverted_at?: string | null
           total_paid_before?: number
         }
         Relationships: [
