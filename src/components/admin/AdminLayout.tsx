@@ -53,14 +53,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       ],
     },
     {
-      label: 'Campanhas',
-      items: [
-        { href: '/admin/campanhas', label: 'Campanhas', icon: Megaphone },
-        { href: '/admin/campanhas/templates', label: 'Modelos', icon: LayoutTemplate },
-        { href: '/admin/campanhas/publicos', label: 'Públicos', icon: UsersRound },
-      ],
-    },
-    {
       label: 'Conteúdo',
       items: [
         { href: '/admin/blog', label: 'Blog', icon: FileText },
