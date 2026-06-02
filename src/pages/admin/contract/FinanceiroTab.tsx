@@ -39,6 +39,8 @@ interface RenegRow {
   total_paid_before: number;
   remaining_debt: number;
   reason: string | null;
+  payment_key_map: Record<string, string> | null;
+  reverted_at: string | null;
 }
 
 interface ReceiptRow {
@@ -301,7 +303,11 @@ export const FinanceiroTab = ({
       remaining_debt: remainingDebt,
       reason: renegForm.reason || null,
       created_by: userId,
+      payment_key_map: Object.fromEntries(keyMap),
     });
+
+    /* ============ DESFAZER RENEGOCIAÇÃO ============ */
+    // (handler abaixo)
     await db.from('contract_history').insert({
       contract_id: contractId, action: 'renegotiation',
       description: `Renegociação: dívida ${formatBRL(remainingDebt)} → entrada ${formatBRL(newEntry)} + ${count}x ${formatBRL(base)}`,
@@ -312,6 +318,53 @@ export const FinanceiroTab = ({
     toast({ title: 'Renegociação registrada. Recarregue para ver as novas parcelas.' });
     // Não temos como atualizar o contract pai daqui; força reload da página
     setTimeout(() => window.location.reload(), 600);
+  };
+
+  /* ============ DESFAZER RENEGOCIAÇÃO ============ */
+  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const handleUndoReneg = async (reneg: RenegRow) => {
+    if (!contractId) return;
+    if (!confirm('Desfazer esta renegociação? Isso restaura os honorários anteriores e reverte as chaves dos pagamentos.')) return;
+    setUndoingId(reneg.id);
+    try {
+      // 1) Restaura fees anteriores
+      const { error: ue } = await db.from('contracts').update({ fees: reneg.previous_fees }).eq('id', contractId);
+      if (ue) throw new Error(ue.message);
+
+      // 2) Reverte o remapeamento das chaves de pagamento (newKey -> oldKey)
+      const map = reneg.payment_key_map ?? {};
+      const entries = Object.entries(map); // [oldKey, newKey]
+      for (const [, newKey] of entries) {
+        await db.from('installment_payments')
+          .update({ installment_key: `__undo_${newKey}` })
+          .eq('contract_id', contractId)
+          .eq('installment_key', newKey);
+      }
+      for (const [oldKey, newKey] of entries) {
+        await db.from('installment_payments')
+          .update({ installment_key: oldKey })
+          .eq('contract_id', contractId)
+          .eq('installment_key', `__undo_${newKey}`);
+      }
+
+      // 3) Marca a renegociação como revertida
+      await db.from('installment_renegotiations')
+        .update({ reverted_at: new Date().toISOString() })
+        .eq('id', reneg.id);
+
+      await db.from('contract_history').insert({
+        contract_id: contractId,
+        action: 'renegotiation_reverted',
+        description: `Renegociação de ${new Date(reneg.created_at).toLocaleString('pt-BR')} desfeita`,
+        performed_by: userId,
+      });
+
+      toast({ title: 'Renegociação desfeita. Recarregando…' });
+      setTimeout(() => window.location.reload(), 600);
+    } catch (e) {
+      toast({ title: 'Erro ao desfazer', description: (e as Error).message, variant: 'destructive' });
+      setUndoingId(null);
+    }
   };
 
   /* ============ RECIBO ============ */
@@ -565,12 +618,32 @@ export const FinanceiroTab = ({
               <p className="text-xs text-muted-foreground">Sem renegociações.</p>
             ) : (
               <div className="space-y-1">
-                {renegs.map(r => (
-                  <div key={r.id} className="text-xs border-b border-border/50 py-1.5">
-                    <p>{new Date(r.created_at).toLocaleString('pt-BR')} — pago antes: {formatBRL(Number(r.total_paid_before))} · saldo refinanciado: {formatBRL(Number(r.remaining_debt))}</p>
-                    {r.reason && <p className="text-muted-foreground">{r.reason}</p>}
-                  </div>
-                ))}
+                {renegs.map((r, idx) => {
+                  // renegs vem ordenado DESC. A primeira não-revertida é a "última".
+                  const isLatestActive = !r.reverted_at && renegs.slice(0, idx).every(x => x.reverted_at);
+                  return (
+                    <div key={r.id} className="text-xs border-b border-border/50 py-1.5 flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p>
+                          {new Date(r.created_at).toLocaleString('pt-BR')} — pago antes: {formatBRL(Number(r.total_paid_before))} · saldo refinanciado: {formatBRL(Number(r.remaining_debt))}
+                          {r.reverted_at && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">DESFEITA</span>}
+                        </p>
+                        {r.reason && <p className="text-muted-foreground">{r.reason}</p>}
+                      </div>
+                      {isLatestActive && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={undoingId === r.id}
+                          onClick={() => handleUndoReneg(r)}
+                          className="shrink-0"
+                        >
+                          {undoingId === r.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Desfazer'}
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
