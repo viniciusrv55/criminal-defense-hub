@@ -244,15 +244,28 @@ export const FinanceiroTab = ({
     const totalPaidBefore = payments.reduce((s, p) => s + Number(p.amount), 0);
     const previousFees = fees;
 
-    // Constrói novos honorários: mantém os pagos + entrada nova + parcelas novas
-    const paidRows = rows.filter(r => r.status === 'paid' || r.status === 'partial');
+    // Itens históricos: tudo que já teve algum pagamento vira parcela "paga" no novo layout.
+    // Reaproveitamos o valor efetivamente PAGO (não o original) e preservamos a data de vencimento.
+    const historical = rows
+      .filter(r => r.paid > 0)
+      .map(r => ({ oldKey: r.key, value: r.paid, dueDate: r.dueDate }));
+
     const newCustoms: CustomInstallment[] = [
-      // mantém parcelas já pagas (exceto entry)
-      ...paidRows.filter(r => r.key !== 'entry').map(r => ({ value: r.paid.toFixed(2), due_date: '' })),
+      ...historical.map(h => ({ value: h.value.toFixed(2), due_date: h.dueDate ?? '' })),
       ...newInstallments,
     ];
+
+    // Mapeia chaves antigas → novas posições (1..N) no array custom_installments.
+    // A entrada antiga (key='entry') passa a ser uma parcela histórica para
+    // não colidir com a NOVA entrada.
+    const keyMap = new Map<string, string>();
+    historical.forEach((h, i) => keyMap.set(h.oldKey, String(i + 1)));
+
+    const newTotalValue = +(totalPaidBefore + newEntry + newBalance).toFixed(2);
+
     const newFees: FeesData = {
       ...previousFees,
+      total_value: newTotalValue.toFixed(2),
       entry: newEntry.toFixed(2),
       entry_due_date: new Date().toISOString().slice(0, 10),
       installments: `${count}x`,
@@ -263,6 +276,23 @@ export const FinanceiroTab = ({
     setRenegSaving(true);
     const { error: ue } = await db.from('contracts').update({ fees: newFees }).eq('id', contractId);
     if (ue) { toast({ title: 'Erro', description: ue.message, variant: 'destructive' }); setRenegSaving(false); return; }
+
+    // Reatribui installment_key dos pagamentos existentes para casar com o novo layout.
+    // Usa prefixo temporário para evitar colisão durante o update.
+    for (const [oldKey, newKey] of keyMap) {
+      if (oldKey === newKey) continue;
+      await db.from('installment_payments')
+        .update({ installment_key: `__tmp_${newKey}` })
+        .eq('contract_id', contractId)
+        .eq('installment_key', oldKey);
+    }
+    for (const [, newKey] of keyMap) {
+      await db.from('installment_payments')
+        .update({ installment_key: newKey })
+        .eq('contract_id', contractId)
+        .eq('installment_key', `__tmp_${newKey}`);
+    }
+
     await db.from('installment_renegotiations').insert({
       contract_id: contractId,
       previous_fees: previousFees,
