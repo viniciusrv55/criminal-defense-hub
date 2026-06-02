@@ -2376,6 +2376,7 @@ export type Database = {
         Args: { _lead_id: string; _user_id: string }
         Returns: boolean
       }
+      is_team_member: { Args: { _user_id: string }; Returns: boolean }
       is_unsubscribed: {
         Args: { _channel: string; _email: string; _phone: string }
         Returns: boolean
