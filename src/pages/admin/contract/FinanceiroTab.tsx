@@ -373,6 +373,20 @@ export const FinanceiroTab = ({
     }
   };
 
+  const openReceiptFile = async (receipt: ReceiptRow) => {
+    if (!receipt.file_name) { toast({ title: 'Recibo sem arquivo', variant: 'destructive' }); return; }
+    try {
+      const path = `${contractId}/${receipt.file_name}`;
+      const { data, error } = await supabase.storage
+        .from('contracts')
+        .createSignedUrl(path, 60 * 5, { download: receipt.file_name });
+      if (error || !data?.signedUrl) throw error ?? new Error('URL não gerada');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      toast({ title: 'Erro ao baixar recibo', description: (e as Error).message, variant: 'destructive' });
+    }
+  };
+
   const sendReceiptWhatsApp = async (receipt: ReceiptRow) => {
     if (!client) return;
     const phone = client.phones?.[0]?.value;
