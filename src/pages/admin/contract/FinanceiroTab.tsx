@@ -320,6 +320,53 @@ export const FinanceiroTab = ({
     setTimeout(() => window.location.reload(), 600);
   };
 
+  /* ============ DESFAZER RENEGOCIAÇÃO ============ */
+  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const handleUndoReneg = async (reneg: RenegRow) => {
+    if (!contractId) return;
+    if (!confirm('Desfazer esta renegociação? Isso restaura os honorários anteriores e reverte as chaves dos pagamentos.')) return;
+    setUndoingId(reneg.id);
+    try {
+      // 1) Restaura fees anteriores
+      const { error: ue } = await db.from('contracts').update({ fees: reneg.previous_fees }).eq('id', contractId);
+      if (ue) throw new Error(ue.message);
+
+      // 2) Reverte o remapeamento das chaves de pagamento (newKey -> oldKey)
+      const map = reneg.payment_key_map ?? {};
+      const entries = Object.entries(map); // [oldKey, newKey]
+      for (const [, newKey] of entries) {
+        await db.from('installment_payments')
+          .update({ installment_key: `__undo_${newKey}` })
+          .eq('contract_id', contractId)
+          .eq('installment_key', newKey);
+      }
+      for (const [oldKey, newKey] of entries) {
+        await db.from('installment_payments')
+          .update({ installment_key: oldKey })
+          .eq('contract_id', contractId)
+          .eq('installment_key', `__undo_${newKey}`);
+      }
+
+      // 3) Marca a renegociação como revertida
+      await db.from('installment_renegotiations')
+        .update({ reverted_at: new Date().toISOString() })
+        .eq('id', reneg.id);
+
+      await db.from('contract_history').insert({
+        contract_id: contractId,
+        action: 'renegotiation_reverted',
+        description: `Renegociação de ${new Date(reneg.created_at).toLocaleString('pt-BR')} desfeita`,
+        performed_by: userId,
+      });
+
+      toast({ title: 'Renegociação desfeita. Recarregando…' });
+      setTimeout(() => window.location.reload(), 600);
+    } catch (e) {
+      toast({ title: 'Erro ao desfazer', description: (e as Error).message, variant: 'destructive' });
+      setUndoingId(null);
+    }
+  };
+
   /* ============ RECIBO ============ */
   const openReceipt = (row: InstallmentRow) => {
     const lastPayment = [...payments].reverse().find(p => p.installment_key === row.key);
