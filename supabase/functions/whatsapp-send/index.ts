@@ -22,6 +22,8 @@ interface SendBody {
   message_type?: 'text' | 'image' | 'document' | 'audio' | 'video';
   content?: string;
   media_url?: string;
+  media_mime?: string;
+  file_name?: string;
 }
 
 Deno.serve(async (req) => {
