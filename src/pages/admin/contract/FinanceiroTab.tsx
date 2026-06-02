@@ -39,6 +39,8 @@ interface RenegRow {
   total_paid_before: number;
   remaining_debt: number;
   reason: string | null;
+  payment_key_map: Record<string, string> | null;
+  reverted_at: string | null;
 }
 
 interface ReceiptRow {
