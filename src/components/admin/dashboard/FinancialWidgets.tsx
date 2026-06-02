@@ -62,6 +62,9 @@ interface OverdueClient {
   contractId: string;
   contractNumber: string | null;
   totalOverdue: number;
+  totalPending: number;
+  unscheduledBalance: number;
+  hasOverdue: boolean;
   overdueRows: Row[];
   pendingRows: Row[];
 }
