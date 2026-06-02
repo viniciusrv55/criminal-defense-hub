@@ -39,6 +39,7 @@ const ContractForm = () => {
   const { contract, client, loading, setClient, setContract } = useContract(id);
   const { areas } = usePracticeAreas();
   const groupsHook = useClientGroups();
+  const paymentMethodsHook = usePaymentMethods();
 
   const [tab, setTab] = useState<TabKey>('cliente');
   const [saving, setSaving] = useState(false);
@@ -312,7 +313,7 @@ const ContractForm = () => {
             client={client}
             userId={user?.id}
             senderName={profileName ?? user?.email ?? ''}
-            paymentMethods={usePaymentMethods().methods}
+            paymentMethods={paymentMethodsHook.methods}
           />
         </TabsContent>
 
