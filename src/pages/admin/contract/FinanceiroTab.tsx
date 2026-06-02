@@ -488,10 +488,8 @@ export const FinanceiroTab = ({
                   )}
                   {receiptForKey?.file_url && (
                     <>
-                      <Button asChild size="sm" variant="outline">
-                        <a href={receiptForKey.file_url} target="_blank" rel="noreferrer">
-                          <Download className="w-4 h-4" />
-                        </a>
+                      <Button size="sm" variant="outline" onClick={() => openReceiptFile(receiptForKey)}>
+                        <Download className="w-4 h-4" />
                       </Button>
                       <Button
                         size="sm"
