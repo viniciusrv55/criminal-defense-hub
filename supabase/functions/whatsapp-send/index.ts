@@ -17,6 +17,29 @@ function jsonError(error: string, status: number) {
   });
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function sanitizeFileName(name: string, defaultExt: string) {
+  const withoutQuery = name.split('?')[0].split('#')[0];
+  const base = decodeURIComponent(withoutQuery.split('/').pop() || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || `arquivo.${defaultExt}`;
+  const withoutTrailingDots = base.replace(/\.+$/g, '');
+  return new RegExp(`\\.${defaultExt}$`, 'i').test(withoutTrailingDots)
+    ? withoutTrailingDots
+    : `${withoutTrailingDots.replace(/\.[a-z0-9]{1,12}$/i, '')}.${defaultExt}`;
+}
+
 interface SendBody {
   conversation_id: string;
   message_type?: 'text' | 'image' | 'document' | 'audio' | 'video';
@@ -99,15 +122,26 @@ Deno.serve(async (req) => {
       const urlPath = (() => { try { return new URL(body.media_url ?? '').pathname; } catch { return body.media_url ?? ''; } })();
       const defaultExt = messageType === 'image' ? 'jpg' : messageType === 'video' ? 'mp4' : 'pdf';
       const defaultMime = messageType === 'image' ? 'image/jpeg' : messageType === 'video' ? 'video/mp4' : 'application/pdf';
-      let fileName = body.file_name || decodeURIComponent(urlPath.split('/').pop() || '') || `arquivo.${defaultExt}`;
-      if (!/\.[a-z0-9]{2,5}$/i.test(fileName)) fileName += `.${defaultExt}`;
+      const fileName = sanitizeFileName(body.file_name || urlPath, defaultExt);
+      const mimeType = body.media_mime || defaultMime;
+      let media: string = body.media_url ?? '';
+
+      // Para documentos, envia base64 em vez da URL assinada do Supabase. URLs com token
+      // fazem o WhatsApp Desktop interpretar o hash da query como extensão do arquivo.
+      if (messageType === 'document') {
+        const mediaRes = await fetch(media);
+        if (!mediaRes.ok) return jsonError('Não foi possível baixar o documento para envio', 400);
+        media = arrayBufferToBase64(await mediaRes.arrayBuffer());
+      }
+
       upstreamBody = {
         number,
         mediatype: messageType,
-        media: body.media_url,
+        media,
         caption: body.content ?? '',
         fileName,
-        mimetype: body.media_mime || defaultMime,
+        filename: fileName,
+        mimetype: mimeType,
       };
     }
 
