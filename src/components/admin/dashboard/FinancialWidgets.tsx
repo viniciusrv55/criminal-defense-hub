@@ -175,8 +175,8 @@ const FinancialWidgets = () => {
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-destructive/10"><AlertTriangle className="w-5 h-5 text-destructive" /></div>
             <div>
-              <h3 className="font-serif font-semibold text-foreground">Clientes em atraso</h3>
-              <p className="text-xs text-muted-foreground">{overdue.length} cliente(s) · {fmt(totalOverdue)}</p>
+              <h3 className="font-serif font-semibold text-foreground">Clientes com pendências</h3>
+              <p className="text-xs text-muted-foreground">{overdue.length} contrato(s) · atraso {fmt(totalOverdue)}</p>
             </div>
           </div>
         </div>
@@ -184,7 +184,7 @@ const FinancialWidgets = () => {
           {loading ? (
             <div className="p-6 text-center text-sm text-muted-foreground">Carregando...</div>
           ) : overdue.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">Nenhum cliente em atraso 🎉</div>
+            <div className="p-6 text-center text-sm text-muted-foreground">Nenhuma pendência 🎉</div>
           ) : overdue.map(c => {
             const open = openOverdue === c.contractId;
             return (
@@ -194,20 +194,37 @@ const FinancialWidgets = () => {
                   className="w-full px-5 py-3 flex items-center justify-between hover:bg-muted/40 transition-colors text-left"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{c.clientName}</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {c.contractNumber ? `Contrato ${c.contractNumber} · ` : ''}{c.overdueRows.length} parcela(s) em atraso
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-foreground truncate">{c.clientName}</p>
+                      {c.hasOverdue && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive font-medium">ATRASO</span>}
+                      {!c.hasOverdue && c.totalPending > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 font-medium">SALDO</span>}
+                      {c.unscheduledBalance > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-700 font-medium">RENEGOCIAR</span>}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {c.contractNumber ? `Contrato ${c.contractNumber} · ` : ''}
+                      {c.hasOverdue ? `${c.overdueRows.length} em atraso · ` : ''}
+                      saldo {fmt(c.totalPending)}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm font-semibold text-destructive">{fmt(c.totalOverdue)}</span>
+                    <div className="text-right">
+                      {c.hasOverdue && <p className="text-sm font-semibold text-destructive">{fmt(c.totalOverdue)}</p>}
+                      <p className={`text-[11px] ${c.hasOverdue ? 'text-muted-foreground' : 'text-amber-700 font-semibold'}`}>{fmt(c.totalPending)}</p>
+                    </div>
                     {open ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                   </div>
                 </button>
                 {open && (
                   <div className="px-5 pb-4 bg-muted/20 space-y-1">
+                    {c.unscheduledBalance > 0 && (
+                      <p className="text-[11px] text-orange-700 pt-2 bg-orange-500/10 px-2 py-1 rounded">
+                        ⚠ Saldo não parcelado de <strong>{fmt(c.unscheduledBalance)}</strong> — necessita renegociar ou agendar parcelas.
+                      </p>
+                    )}
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground pt-2">Pendências</p>
-                    {c.pendingRows.map(r => (
+                    {c.pendingRows.length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-1">Sem parcelas agendadas em aberto.</p>
+                    ) : c.pendingRows.map(r => (
                       <div key={r.key} className="flex items-center justify-between text-xs py-1">
                         <span className="text-foreground">{r.label} <span className="text-muted-foreground">· venc. {fmtDate(r.dueDate)}</span></span>
                         <span className={r.status === 'overdue' ? 'text-destructive font-medium' : 'text-muted-foreground'}>{fmt(r.remaining)}</span>
