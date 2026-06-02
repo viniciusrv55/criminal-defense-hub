@@ -22,6 +22,8 @@ interface SendBody {
   message_type?: 'text' | 'image' | 'document' | 'audio' | 'video';
   content?: string;
   media_url?: string;
+  media_mime?: string;
+  file_name?: string;
 }
 
 Deno.serve(async (req) => {
@@ -93,12 +95,19 @@ Deno.serve(async (req) => {
       upstreamBody = { number, audio: body.media_url, encoding: true };
     } else {
       path = `/message/sendMedia/${inst.instance_name}`;
+      // Deriva fileName explícito ou do path da URL (ignorando query string), garantindo extensão correta.
+      const urlPath = (() => { try { return new URL(body.media_url ?? '').pathname; } catch { return body.media_url ?? ''; } })();
+      const defaultExt = messageType === 'image' ? 'jpg' : messageType === 'video' ? 'mp4' : 'pdf';
+      const defaultMime = messageType === 'image' ? 'image/jpeg' : messageType === 'video' ? 'video/mp4' : 'application/pdf';
+      let fileName = body.file_name || decodeURIComponent(urlPath.split('/').pop() || '') || `arquivo.${defaultExt}`;
+      if (!/\.[a-z0-9]{2,5}$/i.test(fileName)) fileName += `.${defaultExt}`;
       upstreamBody = {
         number,
         mediatype: messageType,
         media: body.media_url,
         caption: body.content ?? '',
-        fileName: (body.media_url ?? '').split('/').pop() || `arquivo.${messageType === 'image' ? 'jpg' : messageType === 'video' ? 'mp4' : 'pdf'}`,
+        fileName,
+        mimetype: body.media_mime || defaultMime,
       };
     }
 

@@ -410,6 +410,7 @@ export const FinanceiroTab = ({
           message_type: 'document',
           media_url: receipt.file_url,
           media_mime: 'application/pdf',
+          file_name: receipt.file_name || 'recibo.pdf',
           content: caption,
         },
       });
