@@ -51,6 +51,7 @@ const Dashboard = () => {
           </div>
         ))}
       </div>
+      <FinancialWidgets />
     </AdminLayout>
   );
 };
