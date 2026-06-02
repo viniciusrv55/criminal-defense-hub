@@ -33,7 +33,7 @@ const DocumentTemplateForm = () => {
   const [team, setTeam] = useState<{ id: string; full_name: string }[]>([]);
 
   // grupos para inserir variáveis (organizados)
-  const groups = ['Cliente', 'Endereço', 'Contrato', 'Processo', 'Honorários', 'Outros'] as const;
+  const groups = ['Cliente', 'Endereço', 'Contrato', 'Processo', 'Honorários', 'Recibo', 'Outros'] as const;
 
   useEffect(() => { db.from('team_members').select('id, full_name').eq('active', true).order('full_name').then(({ data }: { data: { id: string; full_name: string }[] | null }) => setTeam(data ?? [])); }, []);
 
