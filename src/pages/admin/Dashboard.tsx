@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/supabase-helpers';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { FileText, Briefcase, Eye, Users } from 'lucide-react';
+import FinancialWidgets from '@/components/admin/dashboard/FinancialWidgets';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({ posts: 0, publishedPosts: 0, areas: 0, leads: 0 });
@@ -50,6 +51,7 @@ const Dashboard = () => {
           </div>
         ))}
       </div>
+      <FinancialWidgets />
     </AdminLayout>
   );
 };
