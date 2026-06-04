@@ -147,6 +147,8 @@ Deno.serve(async (req) => {
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Erro desconhecido';
+    const stack = e instanceof Error ? e.stack : undefined;
+    console.error('evolution-api error:', msg, stack);
     return jsonError(msg, 500);
   }
 });
