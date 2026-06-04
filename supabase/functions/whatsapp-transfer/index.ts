@@ -38,9 +38,9 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
     const token = authHeader.replace('Bearer ', '');
-    const { data: claims, error: claimsErr } = await userClient.auth.getClaims(token);
-    if (claimsErr || !claims?.claims) return jsonError('Unauthorized', 401);
-    const userId = claims.claims.sub as string;
+    const { data: userData, error: userErr } = await userClient.auth.getUser(token);
+    if (userErr || !userData.user) return jsonError('Unauthorized', 401);
+    const userId = userData.user.id;
 
     const body = (await req.json()) as Body;
     if (!body?.conversation_id) return jsonError('conversation_id obrigatório', 400);
@@ -94,6 +94,9 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
-    return jsonError(e instanceof Error ? e.message : 'Erro', 500);
+    const msg = e instanceof Error ? e.message : 'Erro';
+    const stack = e instanceof Error ? e.stack : undefined;
+    console.error('whatsapp-transfer error:', msg, stack);
+    return jsonError(msg, 500);
   }
 });
