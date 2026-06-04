@@ -79,6 +79,23 @@ export default function WhatsAppInstances() {
     return res.data;
   }
 
+  async function configureWebhook(instanceName: string) {
+    const events = ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'SEND_MESSAGE', 'CONNECTION_UPDATE'];
+    try {
+      await callEvolution('setWebhook', instanceName, {
+        webhook: { enabled: true, url: WEBHOOK_URL, byEvents: false, base64: false, events },
+      });
+    } catch {
+      await callEvolution('setWebhook', instanceName, {
+        enabled: true,
+        url: WEBHOOK_URL,
+        webhook_by_events: false,
+        base64: false,
+        events,
+      });
+    }
+  }
+
   async function createInstance() {
     if (!newName.trim()) {
       toast({ title: 'Nome obrigatório', variant: 'destructive' });
@@ -97,18 +114,7 @@ export default function WhatsAppInstances() {
       });
 
       // 2) Set webhook
-      try {
-        await callEvolution('setWebhook', instanceName, {
-          webhook: { url: WEBHOOK_URL, byEvents: false, base64: false, events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'] },
-        });
-      } catch (e) {
-        // alguns servidores Evolution usam shape antigo; tenta o legacy
-        try {
-          await callEvolution('setWebhook', instanceName, {
-            url: WEBHOOK_URL, webhook_by_events: false, events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
-          });
-        } catch {/* ignore */}
-      }
+      try { await configureWebhook(instanceName); } catch { /* segue mesmo se o servidor Evolution recusar o webhook */ }
 
       // 3) Save in DB
       const { error } = await supabase.from('whatsapp_instances').insert({
@@ -156,6 +162,7 @@ export default function WhatsAppInstances() {
   async function refreshState(inst: Instance) {
     setBusy(inst.id);
     try {
+      await configureWebhook(inst.instance_name);
       const data = await callEvolution<{ instance?: { state?: string }; state?: string }>('connectionState', inst.instance_name);
       const state = data?.instance?.state ?? data?.state ?? 'disconnected';
       const status =
@@ -166,7 +173,7 @@ export default function WhatsAppInstances() {
         status,
         last_connected_at: status === 'connected' ? new Date().toISOString() : inst.last_connected_at,
       }).eq('id', inst.id);
-      toast({ title: 'Status atualizado', description: `Estado: ${state}` });
+      toast({ title: 'Status e sincronização atualizados', description: `Estado: ${state}` });
       await load();
     } catch (e) {
       toast({ title: 'Erro', description: e instanceof Error ? e.message : 'Falha', variant: 'destructive' });
