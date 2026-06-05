@@ -3,6 +3,21 @@ project_id = "fskstajvuoviicfjfcai"
 [functions.evolution-webhook]
 verify_jwt = false
 
+[functions.evolution-api]
+verify_jwt = false
+
+[functions.whatsapp-send]
+verify_jwt = false
+
+[functions.whatsapp-open-conversation]
+verify_jwt = false
+
+[functions.whatsapp-transfer]
+verify_jwt = false
+
+[functions.cnj-lookup]
+verify_jwt = false
+
 [functions.ai-agent-reply]
 verify_jwt = false
 
