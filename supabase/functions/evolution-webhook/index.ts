@@ -50,7 +50,13 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-  const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
+  if (!SERVICE) {
+    return new Response(JSON.stringify({ ok: false, error: 'Service role key não configurada' }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
   const admin = createClient(SUPABASE_URL, SERVICE);
 
   let logId: string | null = null;

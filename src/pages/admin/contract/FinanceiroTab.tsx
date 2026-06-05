@@ -71,6 +71,18 @@ function statusBadge(s: Status) {
   return <span className={`text-[10px] px-2 py-0.5 rounded-full ${v.bg}`}>{v.label}</span>;
 }
 
+function safeReceiptFileName(label: string) {
+  const cleanLabel = label
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ª/g, 'a')
+    .replace(/º/g, 'o')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'parcela';
+  return `recibo-${cleanLabel}-${Date.now()}.pdf`;
+}
+
 function computeRows(fees: FeesData, payments: PaymentRow[]): InstallmentRow[] {
   const rows: InstallmentRow[] = [];
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -425,7 +437,7 @@ export const FinanceiroTab = ({
       }
       const pdfBlob = pdf.output('blob');
 
-      const safe = `recibo-${receiptOpen.row.label.replace(/\s+/g, '_').toLowerCase()}-${Date.now()}.pdf`;
+      const safe = safeReceiptFileName(receiptOpen.row.label);
       const path = `${contractId}/${safe}`;
       const { error: upErr } = await supabase.storage.from('contracts').upload(path, pdfBlob, { contentType: 'application/pdf' });
       if (upErr) throw upErr;

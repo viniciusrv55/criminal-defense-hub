@@ -58,7 +58,8 @@ Deno.serve(async (req) => {
 
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const ANON = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY');
+    if (!SERVICE) return jsonError('Service role key não configurada', 500);
 
     const userClient = createClient(SUPABASE_URL, ANON, {
       global: { headers: { Authorization: authHeader } },
