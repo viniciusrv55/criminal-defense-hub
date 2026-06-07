@@ -52,6 +52,11 @@ const ContractForm = () => {
   const [search, setSearch] = useState('');
   const { results, searching } = useClientSearch(search);
   const [docs, setDocs] = useState<ContractDocument[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; full_name: string }[]>([]);
+  useEffect(() => {
+    db.from('team_members').select('id,full_name').eq('active', true).order('full_name')
+      .then(({ data }: { data: { id: string; full_name: string }[] | null }) => setTeamMembers(data ?? []));
+  }, []);
 
   // Verifica se usuário é o advogado responsável (para liberar aba Segurança)
   const [isResponsibleAttorney, setIsResponsibleAttorney] = useState(false);
@@ -267,6 +272,28 @@ const ContractForm = () => {
               <Field label="Nome da mãe"><Input value={clientDraft.mother_name ?? ''} onChange={e => setClientDraft({ ...clientDraft, mother_name: e.target.value })} /></Field>
               <div className="sm:col-span-2"><Field label="Anamnese / Observações"><Textarea rows={4} value={clientDraft.notes ?? ''} onChange={e => setClientDraft({ ...clientDraft, notes: e.target.value })} placeholder="Histórico, contexto, informações relevantes do caso..." /></Field></div>
             </div>
+            <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border">
+              <Field label="Advogado responsável pelo caso">
+                <select
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  value={contractDraft.attorney_id ?? ''}
+                  onChange={e => setContractDraft({ ...contractDraft, attorney_id: e.target.value || null })}
+                >
+                  <option value="">Selecione...</option>
+                  {teamMembers.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                </select>
+              </Field>
+              <Field label="Área de atuação">
+                <select
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  value={contractDraft.practice_area_id ?? ''}
+                  onChange={e => setContractDraft({ ...contractDraft, practice_area_id: e.target.value || null })}
+                >
+                  <option value="">Selecione...</option>
+                  {areas.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+                </select>
+              </Field>
+            </div>
           </div>
         </TabsContent>
 
@@ -383,11 +410,19 @@ const ProcessFields = ({
     if (error) { toast({ title: 'Erro ao consultar CNJ', description: error.message, variant: 'destructive' }); return; }
     if (resp?.error) { toast({ title: 'CNJ', description: resp.error, variant: 'destructive' }); return; }
     const distDate = resp.distribution_date ? String(resp.distribution_date).slice(0, 10) : undefined;
+    const levelLabel = resp.level ? (String(resp.level).toUpperCase() === 'G1' ? 'Primeira Instância' : String(resp.level).toUpperCase() === 'G2' ? 'Segunda Instância' : String(resp.level)) : undefined;
     setPD({
-      court: resp.court, court_unit: resp.court_unit, class_name: resp.class_name,
-      subjects: resp.subjects, distribution_date: distDate, cause_value: resp.cause_value ? String(resp.cause_value) : data.cause_value,
+      court: resp.court,
+      court_unit: resp.court_unit,
+      class_name: resp.class_name,
+      subjects: resp.subjects,
+      distribution_date: distDate,
+      cause_value: resp.cause_value ? String(resp.cause_value) : data.cause_value,
+      phase: data.phase || levelLabel || data.phase,
+      request: data.request || resp.class_name || data.request,
+      notes: resp.last_movement ? `${data.notes ? data.notes + '\n\n' : ''}Última movimentação (DataJud): ${resp.last_movement}` : data.notes,
     });
-    toast({ title: 'Dados importados do CNJ' });
+    toast({ title: 'Dados importados do CNJ', description: 'Tribunal, órgão, classe, assuntos, fase, distribuição e valor da causa preenchidos.' });
   };
 
   return (

@@ -267,11 +267,18 @@ export default function AiAgents() {
                       </div>
                       <div>
                         <Label>Temperatura: {activeAgent.temperature}</Label>
-                        <Input type="number" step={0.1} min={0} max={2} value={activeAgent.temperature} onChange={(e) => patchAgent({ temperature: Number(e.target.value) })} />
-                      </div>
-                      <div>
-                        <Label>Máx. tokens</Label>
-                        <Input type="number" min={100} max={4000} value={activeAgent.max_tokens} onChange={(e) => patchAgent({ max_tokens: Number(e.target.value) })} />
+                        <Input
+                          type="number"
+                          step={0.1}
+                          min={0.1}
+                          max={1}
+                          value={activeAgent.temperature}
+                          onChange={(e) => {
+                            const v = Math.max(0.1, Math.min(1, Number(e.target.value) || 0.1));
+                            patchAgent({ temperature: v });
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Entre 0,1 (mais previsível) e 1,0 (mais criativo).</p>
                       </div>
                       <div className="flex items-center gap-3 pt-6">
                         <Switch checked={activeAgent.active} onCheckedChange={(v) => patchAgent({ active: v })} />
