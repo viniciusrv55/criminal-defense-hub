@@ -410,11 +410,19 @@ const ProcessFields = ({
     if (error) { toast({ title: 'Erro ao consultar CNJ', description: error.message, variant: 'destructive' }); return; }
     if (resp?.error) { toast({ title: 'CNJ', description: resp.error, variant: 'destructive' }); return; }
     const distDate = resp.distribution_date ? String(resp.distribution_date).slice(0, 10) : undefined;
+    const levelLabel = resp.level ? (String(resp.level).toUpperCase() === 'G1' ? 'Primeira Instância' : String(resp.level).toUpperCase() === 'G2' ? 'Segunda Instância' : String(resp.level)) : undefined;
     setPD({
-      court: resp.court, court_unit: resp.court_unit, class_name: resp.class_name,
-      subjects: resp.subjects, distribution_date: distDate, cause_value: resp.cause_value ? String(resp.cause_value) : data.cause_value,
+      court: resp.court,
+      court_unit: resp.court_unit,
+      class_name: resp.class_name,
+      subjects: resp.subjects,
+      distribution_date: distDate,
+      cause_value: resp.cause_value ? String(resp.cause_value) : data.cause_value,
+      phase: data.phase || levelLabel || data.phase,
+      request: data.request || resp.class_name || data.request,
+      notes: resp.last_movement ? `${data.notes ? data.notes + '\n\n' : ''}Última movimentação (DataJud): ${resp.last_movement}` : data.notes,
     });
-    toast({ title: 'Dados importados do CNJ' });
+    toast({ title: 'Dados importados do CNJ', description: 'Tribunal, órgão, classe, assuntos, fase, distribuição e valor da causa preenchidos.' });
   };
 
   return (
