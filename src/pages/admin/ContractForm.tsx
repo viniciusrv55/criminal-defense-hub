@@ -272,6 +272,28 @@ const ContractForm = () => {
               <Field label="Nome da mãe"><Input value={clientDraft.mother_name ?? ''} onChange={e => setClientDraft({ ...clientDraft, mother_name: e.target.value })} /></Field>
               <div className="sm:col-span-2"><Field label="Anamnese / Observações"><Textarea rows={4} value={clientDraft.notes ?? ''} onChange={e => setClientDraft({ ...clientDraft, notes: e.target.value })} placeholder="Histórico, contexto, informações relevantes do caso..." /></Field></div>
             </div>
+            <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border">
+              <Field label="Advogado responsável pelo caso">
+                <select
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  value={contractDraft.attorney_id ?? ''}
+                  onChange={e => setContractDraft({ ...contractDraft, attorney_id: e.target.value || null })}
+                >
+                  <option value="">Selecione...</option>
+                  {teamMembers.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                </select>
+              </Field>
+              <Field label="Área de atuação">
+                <select
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  value={contractDraft.practice_area_id ?? ''}
+                  onChange={e => setContractDraft({ ...contractDraft, practice_area_id: e.target.value || null })}
+                >
+                  <option value="">Selecione...</option>
+                  {areas.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+                </select>
+              </Field>
+            </div>
           </div>
         </TabsContent>
 
