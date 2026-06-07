@@ -52,6 +52,11 @@ const ContractForm = () => {
   const [search, setSearch] = useState('');
   const { results, searching } = useClientSearch(search);
   const [docs, setDocs] = useState<ContractDocument[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; full_name: string }[]>([]);
+  useEffect(() => {
+    db.from('team_members').select('id,full_name').eq('active', true).order('full_name')
+      .then(({ data }: { data: { id: string; full_name: string }[] | null }) => setTeamMembers(data ?? []));
+  }, []);
 
   // Verifica se usuário é o advogado responsável (para liberar aba Segurança)
   const [isResponsibleAttorney, setIsResponsibleAttorney] = useState(false);
