@@ -32,7 +32,6 @@ export function TransferNoteBanner({ conversationId }: { conversationId: string 
           .eq('conversation_id', conversationId)
           .order('transferred_at', { ascending: false })
           .limit(5),
-        // @ts-expect-error new table not yet in generated types
         supabase.from('whatsapp_transfer_acks').select('transfer_id').eq('user_id', user.id),
         supabase.from('team_members').select('id, full_name, user_id'),
         supabase.from('whatsapp_queues').select('id, name'),
@@ -56,7 +55,6 @@ export function TransferNoteBanner({ conversationId }: { conversationId: string 
   const t = visible[0];
 
   const ack = async () => {
-    // @ts-expect-error new table not yet in generated types
     await supabase.from('whatsapp_transfer_acks').insert({ transfer_id: t.id, user_id: user.id });
     setDismissed((prev) => new Set([...prev, t.id]));
   };
