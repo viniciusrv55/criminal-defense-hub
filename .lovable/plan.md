@@ -1,93 +1,44 @@
-# Plano de Implementação
+# Plano de melhorias — Atendimento, CNJ e IA
 
-Dividido em 3 frentes. Posso executar tudo de uma vez ou por blocos — me diga se quer alguma ordem específica.
+Estão misturadas várias frentes. Proponho atacar em 3 blocos, podemos fazer todos agora ou priorizar.
 
----
+## Bloco 1 — Atendimento / WhatsApp / Kanban
 
-## Frente 1 — Atendimento (Fila Geral, Kanban, Tempo Real)
+**Problema:** Quando IA faz handoff ou quando se transfere a conversa entre filas, a nota/contexto somem e o cliente não cai como lead "novo" no Kanban. Quem recebe não sabe o que aconteceu.
 
-### Diagnóstico atual
-- Sim: a **Fila Geral** (queue sem `team_member_id`) é a fila padrão que recebe leads novos via webhook da Evolution.
-- O Kanban de leads NÃO move conversas entre filas hoje. Mover lead no Kanban deveria refletir na fila do WhatsApp — não está conectado.
-- Não existe botão "Iniciar conversa" a partir do Lead nem campo livre de telefone no Atendimento.
-- Falta tempo real (Realtime do Supabase nas mensagens/conversas).
-- Sem suporte a emojis (picker), e mídia funciona parcialmente (já tem upload, mas falta áudio/gravação).
+**O que será feito:**
+1. **Handoff da IA cria Lead automaticamente** — quando `ai-agent-reply` detecta handoff, criar registro em `leads` com `kanban_status='new'`, vincular `whatsapp_conversation_id`, preencher `name/phone` do contato e gravar o resumo da IA no `lead.message` + `lead_history`.
+2. **Notificação para a fila** — ao criar o lead e/ou transferir conversa, marcar a conversa como `unread`/`needs_attention` e disparar evento realtime para a tela Atendimento (badge/contagem na fila).
+3. **Nota de transferência visível** — exibir as últimas notas de `whatsapp_conversation_transfers` no topo do chat (banner "Transferida por X: <nota>") até que o novo responsável a "marque como lida".
+4. **Aba "Notas internas" do contato** — listar transferências + notas de handoff cronologicamente dentro do drawer da conversa.
 
-### O que vou implementar
+## Bloco 2 — CNJ / DataJud (igualar ao Integra)
 
-**1.1 Realtime no Atendimento**
-- Subscribe em `whatsapp_messages` e `whatsapp_conversations` via `supabase.channel()` — admin e atendentes veem novas mensagens chegando sem refresh.
-- Auto-scroll para nova mensagem; indicador "digitando…" desabilitado por ora (Evolution API limita).
+**Problema:** Hoje retornamos só dados básicos. O Integra mostra publicações com texto completo, partes, advogados, andamentos com data.
 
-**1.2 Iniciar conversa a partir do Lead**
-- Botão **"Abrir conversa no WhatsApp"** no modal do Lead (`Leads.tsx`).
-- Cria/recupera `whatsapp_conversations` pelo telefone do lead, vincula `lead_id`, abre direto em `/admin/atendimento?conversation={id}`.
+**O que será feito:**
+1. **Edge function `cnj-lookup` retornar TUDO**: partes (autor/réu), advogados (nome + OAB), todos os assuntos, classe, órgão, valor, segredo de justiça, **lista completa de movimentos/andamentos** com data e descrição.
+2. **Nova tabela `process_movements`** (vinculada a `contracts.id`) para histórico persistente.
+3. **Nova edge function `cnj-sync` (cron diário)** — para cada contrato com `cnj_number`, consulta DataJud, compara movimentos e insere novos. Cria entrada em `lead_history`/notificação quando há andamento novo.
+4. **UI no contrato**: aba "Andamentos" com timeline (data, órgão, descrição) + botão "Atualizar agora". Aba "Partes e Advogados" com a lista vinda do DataJud.
+5. **Preenchimento automático ampliado** no `ContractForm`: além do que já preenche, popular partes (campo "parte adversa"), advogado adversário e abrir os movimentos na aba dedicada.
 
-**1.3 Iniciar conversa por telefone livre**
-- Botão **"Nova conversa"** no topo do Atendimento → modal pedindo telefone + nome opcional + instância → cria conversa vazia e abre.
+## Bloco 3 — Agente IA agenda horários
 
-**1.4 Picker de emoji + envio de áudio gravado**
-- Emoji picker (lib `emoji-mart`) no input de mensagem.
-- Botão de microfone → grava `audio/webm`, faz upload em `whatsapp-media` e envia via `whatsapp-send` como áudio.
+**Problema:** IA não consegue marcar reunião com advogado.
 
-**1.5 Kanban ↔ Fila vinculados (transferência entre filas com histórico de 30 dias)**
-- Nova tabela `kanban_stage_queue_map` mapeando `kanban_status` (etapa) → `queue_id` (fila WhatsApp).
-- Quando lead muda de etapa no Kanban: trigger/edge function transfere a conversa do lead para a nova fila, registra em `whatsapp_conversation_transfers`.
-- O **histórico de 30 dias** já é nativo (mensagens ficam no banco). A nova fila/atendente passa a ver toda a conversa.
-- Admin vê todas as filas; atendente vê apenas filas que é membro + filas que recebeu via transferência recente (já coberto pelo `can_access_conversation`).
-- Aviso visual na fila do atendente quando há lead na **etapa anterior à dele** ("X leads aguardando na etapa anterior"). Card discreto no topo do Atendimento.
+**O que será feito:**
+1. **Tool `schedule_appointment` no `ai-agent-reply`** — argumentos: `attorney_id?`, `practice_area_id?`, `date`, `time`, `duration_min`, `client_name`, `client_phone`, `notes`.
+2. **Tool `list_available_slots`** — recebe `attorney_id?` + `date_range`, lê `agenda_config` + `appointments` existentes, devolve slots livres respeitando horário de trabalho e duração padrão.
+3. **Validação anti-conflito** — usa o trigger `check_appointment_overlap` já existente; se der erro, IA recebe e tenta outro horário.
+4. **Configuração por agente** (em `ai_agents`): toggle "pode agendar" + escolher se agenda só com 1 advogado específico ou qualquer um da área.
+5. **Confirmação ao cliente** via WhatsApp com data/hora + nome do advogado.
 
 ---
 
-## Frente 2 — Honorários (Recibos)
+## Ordem sugerida
+1º Bloco 1 (urgente — atendimento está furado)
+2º Bloco 2 (CNJ — pediu paridade com Integra)
+3º Bloco 3 (agendamento IA — feature nova)
 
-### O que vou implementar
-- Na aba **Honorários** do contrato, ao **dar baixa em uma parcela** (status pago):
-  - Modal de confirmação já existente ganha botão **"Gerar e enviar recibo"**.
-  - Seleção do **modelo de recibo** (filtrado pelos templates disponíveis para o advogado responsável OU marcados como uso geral).
-  - Gera PDF/HTML a partir do template (usa o motor já existente do Gerador de Documentos), salva em `contract_documents` com `document_type = 'receipt'`.
-  - Botão **"Enviar"** com 2 checkboxes: ✅ Cliente (WhatsApp/Email) ✅ Advogado responsável (WhatsApp/Email).
-  - Histórico em `contract_history` ("Recibo enviado para…").
-
-### Estrutura de dados
-- Adicionar campo `paid_at`, `paid_method`, `receipt_document_id` na estrutura `fees.installments[]` (já é JSONB em `contracts.fees`).
-
----
-
-## Frente 3 — Gerador de Documentos (Modelo Recibo)
-
-### O que vou implementar
-- No `document_template_types` garantir que existe o tipo **"Recibo"** (insert idempotente).
-- No formulário do contrato (aba Honorários), antes do **Plano de Parcelas**, novo campo:
-  - **"Modelo de Recibo"** (select filtrado: templates do tipo "Recibo" + (`owner_id = advogado do contrato` OU `assigned_team_member_ids` contém o advogado OU marcado como geral)).
-  - Salvo em `contracts.fees.receipt_template_id`.
-- Adicionar flag `is_general` em `document_templates` (boolean, default false) para marcar templates de uso geral por todos os advogados.
-- Variáveis novas disponíveis no template de recibo: `{{parcela.numero}}`, `{{parcela.valor}}`, `{{parcela.data_pagamento}}`, `{{parcela.forma_pagamento}}`, `{{contrato.numero}}`, além das já existentes de cliente/advogado.
-
----
-
-## Migrações de banco (resumo)
-
-1. `kanban_stage_queue_map` (stage text, queue_id uuid) + seed inicial.
-2. `document_templates.is_general boolean default false`.
-3. Insert idempotente em `document_template_types` para "Recibo".
-4. Storage policy para gravações de áudio em `whatsapp-media` (já existe bucket).
-
-## Edge functions
-
-- Atualizar `whatsapp-transfer` para aceitar transferência por mudança de etapa do Kanban.
-- Nova `receipt-send` — gera HTML do recibo, salva em `contract_documents`, envia via `whatsapp-send` e/ou `brevo-send`.
-
-## Arquivos front-end principais a editar
-
-- `src/pages/admin/Atendimento.tsx` — realtime, emoji, áudio, nova conversa, alerta etapa anterior.
-- `src/pages/admin/Leads.tsx` — botão "Abrir conversa".
-- `src/pages/admin/Leads.tsx` (Kanban) — onChange status dispara transferência de fila.
-- `src/pages/admin/ContractForm.tsx` (aba Honorários) — select de modelo de recibo, modal de baixa com envio.
-- `src/pages/admin/DocumentTemplates.tsx` + form — flag "uso geral".
-
----
-
-## Pergunta antes de começar
-
-Quer que eu execute **tudo numa rodada só** (vai ser uma resposta longa com várias migrações) ou prefere **frente por frente** (começo pela 1 — Atendimento — que é a mais crítica)?
+**Posso tocar os 3 em sequência nesta mesma conversa, ou prefere que eu faça só o Bloco 1 agora e os outros depois?**
