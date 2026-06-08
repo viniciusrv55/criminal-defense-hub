@@ -30,14 +30,19 @@ interface Agent {
   handoff_after_messages: number | null;
   business_hours: { enabled?: boolean; tz?: string; days?: Record<string, { start: string; end: string }> } | null;
   tools_enabled: string[];
+  scheduling_attorney_id?: string | null;
 }
+interface TeamMember { id: string; full_name: string; }
 interface Knowledge { id: string; agent_id: string; title: string; content: string; sort_order: number; active: boolean; }
 interface Run { id: string; agent_id: string; status: string; model: string; prompt_tokens: number | null; completion_tokens: number | null; latency_ms: number | null; tool_calls: unknown; error: string | null; created_at: string; }
 
 const AVAILABLE_TOOLS = [
   { id: 'get_practice_areas', label: 'Listar áreas de atuação', desc: 'Permite ao agente consultar as áreas ativas do site.' },
   { id: 'create_lead', label: 'Criar lead', desc: 'Permite registrar um novo lead no CRM.' },
-  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA e transfere para a fila Geral.' },
+  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA, cria lead na coluna Novo e transfere para a fila Geral, com resumo da conversa.' },
+  { id: 'list_appointment_types', label: 'Listar tipos de consulta', desc: 'Retorna os tipos de compromisso cadastrados.' },
+  { id: 'get_available_slots', label: 'Consultar horários livres', desc: 'Permite à IA pesquisar horários disponíveis para agendar consultas.' },
+  { id: 'create_appointment', label: 'Agendar consulta', desc: 'Permite à IA marcar consulta. Pode ser com advogado específico via configuração.' },
 ];
 
 const MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'];
@@ -51,6 +56,7 @@ export default function AiAgents() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -68,16 +74,18 @@ export default function AiAgents() {
   useEffect(() => {
     void (async () => {
       setLoading(true);
-      const [qRes, aRes, kRes, rRes] = await Promise.all([
+      const [qRes, aRes, kRes, rRes, mRes] = await Promise.all([
         supabase.from('whatsapp_queues').select('id, name, team_member_id').eq('active', true).order('sort_order'),
         db.from('ai_agents').select('*').order('created_at', { ascending: false }),
         db.from('ai_agent_knowledge').select('*').order('sort_order'),
         db.from('ai_agent_runs').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('team_members').select('id, full_name').eq('active', true).order('full_name'),
       ]);
       setQueues((qRes.data ?? []) as Queue[]);
       setAgents((aRes.data ?? []) as Agent[]);
       setKnowledge((kRes.data ?? []) as Knowledge[]);
       setRuns((rRes.data ?? []) as Run[]);
+      setMembers((mRes.data ?? []) as TeamMember[]);
       if (aRes.data?.[0]) setActiveAgentId((aRes.data[0] as Agent).id);
       setLoading(false);
     })();
@@ -395,6 +403,22 @@ export default function AiAgents() {
                         </label>
                       );
                     })}
+                    {activeAgent.tools_enabled?.includes('create_appointment') && (
+                      <div className="p-3 border border-accent/40 bg-accent/5 rounded-lg space-y-2">
+                        <Label className="text-sm">Advogado padrão para agendamentos (opcional)</Label>
+                        <Select
+                          value={activeAgent.scheduling_attorney_id ?? '__any__'}
+                          onValueChange={(v) => patchAgent({ scheduling_attorney_id: v === '__any__' ? null : v })}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Qualquer advogado disponível" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__any__">Qualquer advogado disponível</SelectItem>
+                            {members.map((m) => (<SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">Se preenchido, a IA marcará todas as consultas com este advogado, salvo se o cliente pedir outro pelo nome.</p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="play" className="space-y-3 mt-4">

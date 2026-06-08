@@ -22,6 +22,7 @@ import emojiData from '@emoji-mart/data';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { TransferNoteBanner } from '@/components/admin/TransferNoteBanner';
 
 
 interface Queue { id: string; name: string; team_member_id: string | null; color: string; }
@@ -752,6 +753,7 @@ export default function Atendimento() {
                   </div>
                 </div>
 
+                <TransferNoteBanner conversationId={activeConv.id} />
                 <div className="flex-1 overflow-y-auto py-4 space-y-2">
                   {messages.map((m) => (<MessageBubble key={m.id} msg={m} />))}
                   <div ref={messagesEndRef} />

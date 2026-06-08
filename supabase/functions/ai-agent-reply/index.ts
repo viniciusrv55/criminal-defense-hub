@@ -99,7 +99,7 @@ const TOOL_DEFS: Record<string, Any> = {
     type: 'function',
     function: {
       name: 'create_appointment',
-      description: 'Cria um agendamento (consulta) vinculado à conversa atual.',
+      description: 'Cria um agendamento (consulta) vinculado à conversa atual. Use após confirmar nome, data/hora e (opcional) advogado.',
       parameters: {
         type: 'object',
         properties: {
@@ -107,6 +107,7 @@ const TOOL_DEFS: Record<string, Any> = {
           starts_at: { type: 'string', description: 'Data/hora ISO 8601 do início (ex 2026-05-20T14:00:00-03:00).' },
           duration_minutes: { type: 'number', description: 'Duração em minutos (default 30).' },
           appointment_type: { type: 'string', description: 'Nome do tipo (ex Consulta inicial).' },
+          attorney_name: { type: 'string', description: 'Nome (ou parte) do advogado preferido — opcional.' },
           notes: { type: 'string', description: 'Observações.' },
         },
         required: ['name', 'starts_at'],
@@ -184,11 +185,67 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
     return { ok: true, lead_id: lead.id };
   }
   if (name === 'request_human_handoff') {
+    const reason = args.reason ?? 'Solicitação do agente';
     await admin
       .from('whatsapp_conversations')
-      .update({ ai_paused_at: new Date().toISOString(), ai_handoff_reason: args.reason ?? 'Solicitação do agente' })
+      .update({ ai_paused_at: new Date().toISOString(), ai_handoff_reason: reason })
       .eq('id', ctx.conversationId);
-    // log transfer to general queue
+
+    // Fetch conversation + recent messages to build a summary for human agents
+    const { data: convFull } = await admin
+      .from('whatsapp_conversations')
+      .select('id, contact_name, contact_phone, lead_id, current_queue_id')
+      .eq('id', ctx.conversationId)
+      .maybeSingle();
+
+    const { data: recentMsgs } = await admin
+      .from('whatsapp_messages')
+      .select('direction, content, created_at')
+      .eq('conversation_id', ctx.conversationId)
+      .order('created_at', { ascending: false })
+      .limit(15);
+
+    const transcript = (recentMsgs ?? []).reverse()
+      .map((m: Any) => `${m.direction === 'inbound' ? 'Cliente' : 'IA'}: ${m.content ?? ''}`)
+      .join('\n')
+      .slice(0, 2000);
+
+    const summary = `Handoff IA — Motivo: ${reason}\n\nÚltimas mensagens:\n${transcript}`;
+
+    // Create lead if conversation does not yet have one, so it appears in Kanban "Novo"
+    let leadId = convFull?.lead_id ?? null;
+    if (!leadId && convFull?.contact_phone) {
+      const { data: newLead } = await admin
+        .from('leads')
+        .insert({
+          name: convFull.contact_name || `WhatsApp ${convFull.contact_phone}`,
+          phone: convFull.contact_phone,
+          message: summary,
+          status: 'new',
+          kanban_status: 'new',
+        })
+        .select('id')
+        .single();
+      leadId = newLead?.id ?? null;
+      if (leadId) {
+        await admin.from('whatsapp_conversations')
+          .update({ lead_id: leadId })
+          .eq('id', ctx.conversationId);
+        await admin.from('lead_history').insert({
+          lead_id: leadId,
+          action: 'ai_handoff',
+          description: `Conversa de WhatsApp transferida pela IA. ${reason}`,
+        });
+      }
+    } else if (leadId) {
+      await admin.from('lead_history').insert({
+        lead_id: leadId,
+        action: 'ai_handoff',
+        description: summary.slice(0, 1000),
+      });
+    }
+
+    // Transfer to General queue + mark conversation as needing attention (unread badge)
     const { data: gen } = await admin
       .from('whatsapp_queues')
       .select('id')
@@ -199,12 +256,20 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
     if (gen?.id) {
       await admin.from('whatsapp_conversation_transfers').insert({
         conversation_id: ctx.conversationId,
+        from_queue_id: convFull?.current_queue_id ?? null,
         to_queue_id: gen.id,
-        note: `Handoff IA: ${args.reason ?? ''}`,
+        note: summary,
       });
-      await admin.from('whatsapp_conversations').update({ current_queue_id: gen.id, assigned_team_member_id: null }).eq('id', ctx.conversationId);
+      await admin.from('whatsapp_conversations').update({
+        current_queue_id: gen.id,
+        assigned_team_member_id: null,
+        unread_count: 1,
+      }).eq('id', ctx.conversationId);
+    } else {
+      await admin.from('whatsapp_conversations').update({ unread_count: 1 }).eq('id', ctx.conversationId);
     }
-    return { ok: true, handed_off: true };
+
+    return { ok: true, handed_off: true, lead_id: leadId };
   }
   if (name === 'list_appointment_types') {
     const { data } = await admin.from('appointment_types').select('id, name, duration_minutes').eq('active', true).order('sort_order');
@@ -247,14 +312,27 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
       const { data: types } = await admin.from('appointment_types').select('id, name').eq('active', true);
       typeId = (types ?? []).find((t: Any) => t.name.toLowerCase().includes(String(args.appointment_type).toLowerCase()))?.id ?? null;
     }
-    // tenta achar advogado disponível
-    const weekday = starts.getDay();
-    const hhmm = starts.toTimeString().slice(0, 5);
-    const { data: avail } = await admin.from('appointment_availability').select('team_member_id').eq('weekday', weekday).eq('active', true).lte('start_time', hhmm).gte('end_time', hhmm);
+    // 1) Preferência: advogado citado no argumento ou pré-configurado no agente
     let attorneyId: string | null = null;
-    for (const a of (avail ?? [])) {
-      const { data: clash } = await admin.from('appointments').select('id').eq('attorney_id', a.team_member_id).neq('status', 'cancelled').lt('starts_at', ends.toISOString()).gt('ends_at', starts.toISOString()).maybeSingle();
-      if (!clash) { attorneyId = a.team_member_id; break; }
+    const preferredName = typeof args.attorney_name === 'string' ? args.attorney_name.trim() : '';
+    const preferredId = (ctx.agent as Any).scheduling_attorney_id as string | null | undefined;
+    if (preferredName) {
+      const { data: tm } = await admin.from('team_members').select('id, full_name').eq('active', true);
+      const m = (tm ?? []).find((t: Any) => t.full_name?.toLowerCase().includes(preferredName.toLowerCase()));
+      if (m) attorneyId = m.id;
+    } else if (preferredId) {
+      attorneyId = preferredId;
+    }
+
+    // 2) Caso não tenha advogado preferido, varre disponibilidade da semana
+    if (!attorneyId) {
+      const weekday = starts.getDay();
+      const hhmm = starts.toTimeString().slice(0, 5);
+      const { data: avail } = await admin.from('appointment_availability').select('team_member_id').eq('weekday', weekday).eq('active', true).lte('start_time', hhmm).gte('end_time', hhmm);
+      for (const a of (avail ?? [])) {
+        const { data: clash } = await admin.from('appointments').select('id').eq('attorney_id', a.team_member_id).neq('status', 'cancelled').lt('starts_at', ends.toISOString()).gt('ends_at', starts.toISOString()).maybeSingle();
+        if (!clash) { attorneyId = a.team_member_id; break; }
+      }
     }
     const { data: appt, error } = await admin.from('appointments').insert({
       title: `Consulta — ${args.name}`,
