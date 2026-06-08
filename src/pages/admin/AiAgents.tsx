@@ -403,6 +403,22 @@ export default function AiAgents() {
                         </label>
                       );
                     })}
+                    {activeAgent.tools_enabled?.includes('create_appointment') && (
+                      <div className="p-3 border border-accent/40 bg-accent/5 rounded-lg space-y-2">
+                        <Label className="text-sm">Advogado padrão para agendamentos (opcional)</Label>
+                        <Select
+                          value={activeAgent.scheduling_attorney_id ?? '__any__'}
+                          onValueChange={(v) => patchAgent({ scheduling_attorney_id: v === '__any__' ? null : v })}
+                        >
+                          <SelectTrigger><SelectValue placeholder="Qualquer advogado disponível" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__any__">Qualquer advogado disponível</SelectItem>
+                            {members.map((m) => (<SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">Se preenchido, a IA marcará todas as consultas com este advogado, salvo se o cliente pedir outro pelo nome.</p>
+                      </div>
+                    )}
                   </TabsContent>
 
                   <TabsContent value="play" className="space-y-3 mt-4">
