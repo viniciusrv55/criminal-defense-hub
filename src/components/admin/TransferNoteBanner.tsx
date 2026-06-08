@@ -8,7 +8,7 @@ interface Transfer {
   id: string;
   conversation_id: string;
   note: string | null;
-  created_at: string;
+  transferred_at: string;
   from_user_id: string | null;
   from_queue_id: string | null;
   to_queue_id: string | null;
@@ -28,10 +28,11 @@ export function TransferNoteBanner({ conversationId }: { conversationId: string 
     void (async () => {
       const [{ data: ts }, { data: acks }, { data: tm }, { data: qs }] = await Promise.all([
         supabase.from('whatsapp_conversation_transfers')
-          .select('id, conversation_id, note, created_at, from_user_id, from_queue_id, to_queue_id')
+          .select('id, conversation_id, note, transferred_at, from_user_id, from_queue_id, to_queue_id')
           .eq('conversation_id', conversationId)
-          .order('created_at', { ascending: false })
+          .order('transferred_at', { ascending: false })
           .limit(5),
+        // @ts-expect-error new table not yet in generated types
         supabase.from('whatsapp_transfer_acks').select('transfer_id').eq('user_id', user.id),
         supabase.from('team_members').select('id, full_name, user_id'),
         supabase.from('whatsapp_queues').select('id, name'),
@@ -55,6 +56,7 @@ export function TransferNoteBanner({ conversationId }: { conversationId: string 
   const t = visible[0];
 
   const ack = async () => {
+    // @ts-expect-error new table not yet in generated types
     await supabase.from('whatsapp_transfer_acks').insert({ transfer_id: t.id, user_id: user.id });
     setDismissed((prev) => new Set([...prev, t.id]));
   };
@@ -74,7 +76,7 @@ export function TransferNoteBanner({ conversationId }: { conversationId: string 
         {t.note && (
           <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{t.note}</p>
         )}
-        <p className="text-[10px] text-muted-foreground mt-1">{new Date(t.created_at).toLocaleString('pt-BR')}</p>
+        <p className="text-[10px] text-muted-foreground mt-1">{new Date(t.transferred_at).toLocaleString('pt-BR')}</p>
       </div>
       <Button size="sm" variant="outline" onClick={ack} className="gap-1">
         <Check className="w-3.5 h-3.5" /> Lido
