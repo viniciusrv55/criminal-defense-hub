@@ -555,6 +555,40 @@ const ProcessFields = ({
           {data.subjects?.length ? <p>Assuntos: {data.subjects.join(', ')}</p> : null}
         </div>
       )}
+
+      {Array.isArray((data as { parties?: Array<{ role?: string; name: string; document?: string | null; lawyers?: Array<{ name: string; oab?: string | null }> }> }).parties) && (data as { parties?: unknown[] }).parties!.length > 0 && (
+        <div className="sm:col-span-2 bg-card rounded-lg p-3 border border-border">
+          <p className="text-sm font-medium mb-2">Partes e advogados</p>
+          <div className="space-y-1.5 text-xs">
+            {((data as { parties: Array<{ role?: string; name: string; document?: string | null; lawyers?: Array<{ name: string; oab?: string | null }> }> }).parties).map((p, i) => (
+              <div key={i} className="border-l-2 border-accent pl-2">
+                <p><span className="font-medium">{p.role ?? 'Parte'}:</span> {p.name}{p.document ? ` — ${p.document}` : ''}</p>
+                {p.lawyers?.length ? (
+                  <p className="text-muted-foreground">Advogados: {p.lawyers.map((l) => `${l.name}${l.oab ? ` (OAB ${l.oab})` : ''}`).join('; ')}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {Array.isArray((data as { movements?: Array<{ date?: string | null; name: string; complement?: string | null; court_unit?: string | null }> }).movements) && (data as { movements?: unknown[] }).movements!.length > 0 && (
+        <div className="sm:col-span-2 bg-card rounded-lg p-3 border border-border">
+          <p className="text-sm font-medium mb-2">Andamentos ({(data as { movements: unknown[] }).movements.length})</p>
+          <div className="space-y-2 text-xs max-h-72 overflow-y-auto pr-2">
+            {((data as { movements: Array<{ date?: string | null; name: string; complement?: string | null; court_unit?: string | null }> }).movements).map((m, i) => (
+              <div key={i} className="flex gap-3 border-b border-border pb-1.5">
+                <span className="text-muted-foreground w-20 flex-shrink-0">{m.date ? new Date(m.date).toLocaleDateString('pt-BR') : '—'}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground">{m.name}</p>
+                  {m.complement && <p className="text-muted-foreground">{m.complement}</p>}
+                  {m.court_unit && <p className="text-muted-foreground text-[10px]">{m.court_unit}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
