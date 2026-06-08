@@ -30,7 +30,9 @@ interface Agent {
   handoff_after_messages: number | null;
   business_hours: { enabled?: boolean; tz?: string; days?: Record<string, { start: string; end: string }> } | null;
   tools_enabled: string[];
+  scheduling_attorney_id?: string | null;
 }
+interface TeamMember { id: string; full_name: string; }
 interface Knowledge { id: string; agent_id: string; title: string; content: string; sort_order: number; active: boolean; }
 interface Run { id: string; agent_id: string; status: string; model: string; prompt_tokens: number | null; completion_tokens: number | null; latency_ms: number | null; tool_calls: unknown; error: string | null; created_at: string; }
 
@@ -54,6 +56,7 @@ export default function AiAgents() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
   const [activeAgentId, setActiveAgentId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -71,16 +74,18 @@ export default function AiAgents() {
   useEffect(() => {
     void (async () => {
       setLoading(true);
-      const [qRes, aRes, kRes, rRes] = await Promise.all([
+      const [qRes, aRes, kRes, rRes, mRes] = await Promise.all([
         supabase.from('whatsapp_queues').select('id, name, team_member_id').eq('active', true).order('sort_order'),
         db.from('ai_agents').select('*').order('created_at', { ascending: false }),
         db.from('ai_agent_knowledge').select('*').order('sort_order'),
         db.from('ai_agent_runs').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('team_members').select('id, full_name').eq('active', true).order('full_name'),
       ]);
       setQueues((qRes.data ?? []) as Queue[]);
       setAgents((aRes.data ?? []) as Agent[]);
       setKnowledge((kRes.data ?? []) as Knowledge[]);
       setRuns((rRes.data ?? []) as Run[]);
+      setMembers((mRes.data ?? []) as TeamMember[]);
       if (aRes.data?.[0]) setActiveAgentId((aRes.data[0] as Agent).id);
       setLoading(false);
     })();
