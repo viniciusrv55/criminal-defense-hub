@@ -37,7 +37,10 @@ interface Run { id: string; agent_id: string; status: string; model: string; pro
 const AVAILABLE_TOOLS = [
   { id: 'get_practice_areas', label: 'Listar áreas de atuação', desc: 'Permite ao agente consultar as áreas ativas do site.' },
   { id: 'create_lead', label: 'Criar lead', desc: 'Permite registrar um novo lead no CRM.' },
-  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA e transfere para a fila Geral.' },
+  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA, cria lead na coluna Novo e transfere para a fila Geral, com resumo da conversa.' },
+  { id: 'list_appointment_types', label: 'Listar tipos de consulta', desc: 'Retorna os tipos de compromisso cadastrados.' },
+  { id: 'get_available_slots', label: 'Consultar horários livres', desc: 'Permite à IA pesquisar horários disponíveis para agendar consultas.' },
+  { id: 'create_appointment', label: 'Agendar consulta', desc: 'Permite à IA marcar consulta. Pode ser com advogado específico via configuração.' },
 ];
 
 const MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'];
