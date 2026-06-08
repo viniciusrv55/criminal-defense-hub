@@ -411,18 +411,60 @@ const ProcessFields = ({
     if (resp?.error) { toast({ title: 'CNJ', description: resp.error, variant: 'destructive' }); return; }
     const distDate = resp.distribution_date ? String(resp.distribution_date).slice(0, 10) : undefined;
     const levelLabel = resp.level ? (String(resp.level).toUpperCase() === 'G1' ? 'Primeira Instância' : String(resp.level).toUpperCase() === 'G2' ? 'Segunda Instância' : String(resp.level)) : undefined;
-    setPD({
-      court: resp.court,
-      court_unit: resp.court_unit,
-      class_name: resp.class_name,
-      subjects: resp.subjects,
-      distribution_date: distDate,
-      cause_value: resp.cause_value ? String(resp.cause_value) : data.cause_value,
-      phase: data.phase || levelLabel || data.phase,
-      request: data.request || resp.class_name || data.request,
-      notes: resp.last_movement ? `${data.notes ? data.notes + '\n\n' : ''}Última movimentação (DataJud): ${resp.last_movement}` : data.notes,
+
+    // Auto-fill adverse party from first non-author party (if not already filled)
+    const polo = (resp.parties ?? []) as Array<{ role?: string; name: string; document?: string | null; lawyers?: Array<{ name: string; oab?: string | null }> }>;
+    const adverse = polo.find((p) => (p.role ?? '').toUpperCase().includes('PASSIV')) ?? polo[1];
+    const adversePatch = !contractDraft.adverse_party?.name && adverse
+      ? { ...contractDraft.adverse_party, name: adverse.name, notes: adverse.lawyers?.length ? `Advogado(s): ${adverse.lawyers.map((l) => `${l.name}${l.oab ? ` (OAB ${l.oab})` : ''}`).join('; ')}` : contractDraft.adverse_party?.notes }
+      : contractDraft.adverse_party;
+
+    setContractDraft({
+      ...contractDraft,
+      adverse_party: adversePatch,
+      process_data: {
+        ...data,
+        court: resp.court,
+        court_unit: resp.court_unit,
+        class_name: resp.class_name,
+        subjects: resp.subjects,
+        distribution_date: distDate,
+        cause_value: resp.cause_value ? String(resp.cause_value) : data.cause_value,
+        phase: data.phase || levelLabel || data.phase,
+        request: data.request || resp.class_name || data.request,
+        secrecy: data.secrecy || !!resp.secrecy_level,
+        movements: resp.movements ?? [],
+        parties: resp.parties ?? [],
+      } as ProcessData & { movements?: unknown[]; parties?: unknown[] },
     });
-    toast({ title: 'Dados importados do CNJ', description: 'Tribunal, órgão, classe, assuntos, fase, distribuição e valor da causa preenchidos.' });
+
+    // Persist movements & parties on the contract row when already saved
+    if (contractDraft.id) {
+      await db.from('contracts').update({
+        process_parties: { parties: resp.parties ?? [], synced_at: new Date().toISOString() },
+        last_cnj_sync_at: new Date().toISOString(),
+      }).eq('id', contractDraft.id);
+
+      const rows = (resp.movements ?? []).map((m: { date?: string | null; code?: string | null; name: string; complement?: string | null; court_unit?: string | null }) => ({
+        contract_id: contractDraft.id,
+        movement_date: m.date ?? null,
+        code: m.code ?? null,
+        name: m.name,
+        complement: m.complement ?? null,
+        court_unit: m.court_unit ?? null,
+        source: 'datajud',
+        fingerprint: `${m.date ?? ''}|${m.code ?? ''}|${(m.name ?? '').slice(0, 120)}`,
+        raw: m,
+      }));
+      if (rows.length) {
+        await db.from('process_movements').upsert(rows, { onConflict: 'contract_id,fingerprint', ignoreDuplicates: true });
+      }
+    }
+
+    toast({
+      title: 'CNJ importado',
+      description: `${resp.movements_count ?? 0} andamento(s) e ${(resp.parties ?? []).length} parte(s) trazidos do DataJud.`,
+    });
   };
 
   return (
