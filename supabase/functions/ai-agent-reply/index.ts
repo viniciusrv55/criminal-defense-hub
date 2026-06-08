@@ -312,14 +312,27 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
       const { data: types } = await admin.from('appointment_types').select('id, name').eq('active', true);
       typeId = (types ?? []).find((t: Any) => t.name.toLowerCase().includes(String(args.appointment_type).toLowerCase()))?.id ?? null;
     }
-    // tenta achar advogado disponível
-    const weekday = starts.getDay();
-    const hhmm = starts.toTimeString().slice(0, 5);
-    const { data: avail } = await admin.from('appointment_availability').select('team_member_id').eq('weekday', weekday).eq('active', true).lte('start_time', hhmm).gte('end_time', hhmm);
+    // 1) Preferência: advogado citado no argumento ou pré-configurado no agente
     let attorneyId: string | null = null;
-    for (const a of (avail ?? [])) {
-      const { data: clash } = await admin.from('appointments').select('id').eq('attorney_id', a.team_member_id).neq('status', 'cancelled').lt('starts_at', ends.toISOString()).gt('ends_at', starts.toISOString()).maybeSingle();
-      if (!clash) { attorneyId = a.team_member_id; break; }
+    const preferredName = typeof args.attorney_name === 'string' ? args.attorney_name.trim() : '';
+    const preferredId = (ctx.agent as Any).scheduling_attorney_id as string | null | undefined;
+    if (preferredName) {
+      const { data: tm } = await admin.from('team_members').select('id, full_name').eq('active', true);
+      const m = (tm ?? []).find((t: Any) => t.full_name?.toLowerCase().includes(preferredName.toLowerCase()));
+      if (m) attorneyId = m.id;
+    } else if (preferredId) {
+      attorneyId = preferredId;
+    }
+
+    // 2) Caso não tenha advogado preferido, varre disponibilidade da semana
+    if (!attorneyId) {
+      const weekday = starts.getDay();
+      const hhmm = starts.toTimeString().slice(0, 5);
+      const { data: avail } = await admin.from('appointment_availability').select('team_member_id').eq('weekday', weekday).eq('active', true).lte('start_time', hhmm).gte('end_time', hhmm);
+      for (const a of (avail ?? [])) {
+        const { data: clash } = await admin.from('appointments').select('id').eq('attorney_id', a.team_member_id).neq('status', 'cancelled').lt('starts_at', ends.toISOString()).gt('ends_at', starts.toISOString()).maybeSingle();
+        if (!clash) { attorneyId = a.team_member_id; break; }
+      }
     }
     const { data: appt, error } = await admin.from('appointments').insert({
       title: `Consulta — ${args.name}`,
