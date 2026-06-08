@@ -99,7 +99,7 @@ const TOOL_DEFS: Record<string, Any> = {
     type: 'function',
     function: {
       name: 'create_appointment',
-      description: 'Cria um agendamento (consulta) vinculado à conversa atual.',
+      description: 'Cria um agendamento (consulta) vinculado à conversa atual. Use após confirmar nome, data/hora e (opcional) advogado.',
       parameters: {
         type: 'object',
         properties: {
@@ -107,6 +107,7 @@ const TOOL_DEFS: Record<string, Any> = {
           starts_at: { type: 'string', description: 'Data/hora ISO 8601 do início (ex 2026-05-20T14:00:00-03:00).' },
           duration_minutes: { type: 'number', description: 'Duração em minutos (default 30).' },
           appointment_type: { type: 'string', description: 'Nome do tipo (ex Consulta inicial).' },
+          attorney_name: { type: 'string', description: 'Nome (ou parte) do advogado preferido — opcional.' },
           notes: { type: 'string', description: 'Observações.' },
         },
         required: ['name', 'starts_at'],
