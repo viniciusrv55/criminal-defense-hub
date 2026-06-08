@@ -131,6 +131,7 @@ export type Database = {
           model: string
           name: string
           queue_id: string
+          scheduling_attorney_id: string | null
           system_prompt: string
           temperature: number
           tools_enabled: string[]
@@ -148,6 +149,7 @@ export type Database = {
           model?: string
           name: string
           queue_id: string
+          scheduling_attorney_id?: string | null
           system_prompt?: string
           temperature?: number
           tools_enabled?: string[]
@@ -165,6 +167,7 @@ export type Database = {
           model?: string
           name?: string
           queue_id?: string
+          scheduling_attorney_id?: string | null
           system_prompt?: string
           temperature?: number
           tools_enabled?: string[]
@@ -1085,10 +1088,12 @@ export type Database = {
           fees: Json
           group_id: string | null
           id: string
+          last_cnj_sync_at: string | null
           notes: string | null
           party_type: string | null
           practice_area_id: string | null
           process_data: Json
+          process_parties: Json
           process_type: string | null
           status: string
           updated_at: string
@@ -1106,10 +1111,12 @@ export type Database = {
           fees?: Json
           group_id?: string | null
           id?: string
+          last_cnj_sync_at?: string | null
           notes?: string | null
           party_type?: string | null
           practice_area_id?: string | null
           process_data?: Json
+          process_parties?: Json
           process_type?: string | null
           status?: string
           updated_at?: string
@@ -1127,10 +1134,12 @@ export type Database = {
           fees?: Json
           group_id?: string | null
           id?: string
+          last_cnj_sync_at?: string | null
           notes?: string | null
           party_type?: string | null
           practice_area_id?: string | null
           process_data?: Json
+          process_parties?: Json
           process_type?: string | null
           status?: string
           updated_at?: string
@@ -1792,6 +1801,56 @@ export type Database = {
         }
         Relationships: []
       }
+      process_movements: {
+        Row: {
+          code: string | null
+          complement: string | null
+          contract_id: string
+          court_unit: string | null
+          created_at: string
+          fingerprint: string
+          id: string
+          movement_date: string | null
+          name: string
+          raw: Json | null
+          source: string | null
+        }
+        Insert: {
+          code?: string | null
+          complement?: string | null
+          contract_id: string
+          court_unit?: string | null
+          created_at?: string
+          fingerprint: string
+          id?: string
+          movement_date?: string | null
+          name: string
+          raw?: Json | null
+          source?: string | null
+        }
+        Update: {
+          code?: string | null
+          complement?: string | null
+          contract_id?: string
+          court_unit?: string | null
+          created_at?: string
+          fingerprint?: string
+          id?: string
+          movement_date?: string | null
+          name?: string
+          raw?: Json | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_movements_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2311,6 +2370,35 @@ export type Database = {
             columns: ["team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      whatsapp_transfer_acks: {
+        Row: {
+          acked_at: string
+          id: string
+          transfer_id: string
+          user_id: string
+        }
+        Insert: {
+          acked_at?: string
+          id?: string
+          transfer_id: string
+          user_id: string
+        }
+        Update: {
+          acked_at?: string
+          id?: string
+          transfer_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_transfer_acks_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversation_transfers"
             referencedColumns: ["id"]
           },
         ]
