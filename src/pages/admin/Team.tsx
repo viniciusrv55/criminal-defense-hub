@@ -188,7 +188,7 @@ const Team = () => {
           <h2 className="font-medium text-foreground mb-1">Mapeamento Kanban → Fila WhatsApp</h2>
           <p className="text-xs text-muted-foreground mb-4">Quando um lead muda de etapa no Kanban, sua conversa do WhatsApp é transferida automaticamente para a fila escolhida.</p>
           <div className="grid sm:grid-cols-5 gap-3">
-            {KANBAN_STAGES.map(s => {
+            {stages.map(s => {
               const current = stageMap.find(x => x.stage === s.key)?.queue_id ?? '';
               return (
                 <div key={s.key} className="space-y-1">
@@ -243,7 +243,7 @@ const Team = () => {
                 <div className="mt-4 pt-4 border-t border-border">
                   <p className="text-xs text-muted-foreground mb-3">Selecione em quais etapas do Kanban este membro pode atuar (mover/editar leads). Mesmo com a permissão, ele só pode mexer em leads onde está como responsável.</p>
                   <div className="grid sm:grid-cols-5 gap-2">
-                    {KANBAN_STAGES.map(s => {
+                    {stages.map(s => {
                       const on = hasPerm(m.id, s.key);
                       return (
                         <button
