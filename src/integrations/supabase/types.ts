@@ -1079,6 +1079,8 @@ export type Database = {
         Row: {
           additional_data: Json
           adverse_party: Json
+          archived_at: string | null
+          archived_by: string | null
           attorney_id: string | null
           client_id: string
           comarca_id: string | null
@@ -1092,6 +1094,7 @@ export type Database = {
           notes: string | null
           party_type: string | null
           practice_area_id: string | null
+          process_completed: boolean
           process_data: Json
           process_parties: Json
           process_type: string | null
@@ -1102,6 +1105,8 @@ export type Database = {
         Insert: {
           additional_data?: Json
           adverse_party?: Json
+          archived_at?: string | null
+          archived_by?: string | null
           attorney_id?: string | null
           client_id: string
           comarca_id?: string | null
@@ -1115,6 +1120,7 @@ export type Database = {
           notes?: string | null
           party_type?: string | null
           practice_area_id?: string | null
+          process_completed?: boolean
           process_data?: Json
           process_parties?: Json
           process_type?: string | null
@@ -1125,6 +1131,8 @@ export type Database = {
         Update: {
           additional_data?: Json
           adverse_party?: Json
+          archived_at?: string | null
+          archived_by?: string | null
           attorney_id?: string | null
           client_id?: string
           comarca_id?: string | null
@@ -1138,6 +1146,7 @@ export type Database = {
           notes?: string | null
           party_type?: string | null
           practice_area_id?: string | null
+          process_completed?: boolean
           process_data?: Json
           process_parties?: Json
           process_type?: string | null

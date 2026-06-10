@@ -769,13 +769,19 @@ const DocumentsTab = ({ contractId, client, contract, docs, onChange, userId }: 
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    db.from('document_templates').select('id, title, content_html, type_id').eq('active', true)
-      .then(({ data }: { data: { id: string; title: string; content_html: string; type_id: string }[] | null }) => setTemplates(data ?? []));
     db.from('document_template_types').select('id, name')
       .then(({ data }: { data: { id: string; name: string }[] | null }) => {
         const map: Record<string, string> = {};
-        (data ?? []).forEach(t => { map[t.id] = t.name; });
+        const receiptIds = new Set<string>();
+        (data ?? []).forEach(t => {
+          map[t.id] = t.name;
+          if (t.name.toLowerCase().includes('recibo')) receiptIds.add(t.id);
+        });
         setTypes(map);
+        db.from('document_templates').select('id, title, content_html, type_id').eq('active', true)
+          .then(({ data: tpls }: { data: { id: string; title: string; content_html: string; type_id: string }[] | null }) => {
+            setTemplates((tpls ?? []).filter(t => !receiptIds.has(t.type_id)));
+          });
       });
   }, []);
 

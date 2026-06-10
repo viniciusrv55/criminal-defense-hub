@@ -28,13 +28,8 @@ interface StagePerm {
   can_act: boolean;
 }
 
-const KANBAN_STAGES = [
-  { key: 'new', label: 'Novos' },
-  { key: 'contacted', label: 'Contatado' },
-  { key: 'in_progress', label: 'Em Atendimento' },
-  { key: 'proposal', label: 'Proposta' },
-  { key: 'closed', label: 'Finalizado' },
-];
+interface KanbanCol { key: string; label: string; sort_order: number; active: boolean; }
+
 
 interface Queue { id: string; name: string; }
 interface StageMap { stage: string; queue_id: string; }
@@ -45,6 +40,7 @@ const Team = () => {
   const [perms, setPerms] = useState<StagePerm[]>([]);
   const [queues, setQueues] = useState<Queue[]>([]);
   const [stageMap, setStageMap] = useState<StageMap[]>([]);
+  const [stages, setStages] = useState<KanbanCol[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,10 +51,12 @@ const Team = () => {
     const { data: kp } = await db.from('kanban_stage_permissions').select('*');
     const { data: qs } = await db.from('whatsapp_queues').select('id,name').eq('active', true).order('sort_order');
     const { data: sm } = await db.from('kanban_stage_queue_map').select('stage,queue_id');
+    const { data: kc } = await db.from('kanban_columns').select('key,label,sort_order,active').eq('active', true).order('sort_order');
     setMembers(tm ?? []);
     setPerms(kp ?? []);
     setQueues(qs ?? []);
     setStageMap(sm ?? []);
+    setStages(kc ?? []);
     setLoading(false);
   };
 
@@ -190,7 +188,7 @@ const Team = () => {
           <h2 className="font-medium text-foreground mb-1">Mapeamento Kanban → Fila WhatsApp</h2>
           <p className="text-xs text-muted-foreground mb-4">Quando um lead muda de etapa no Kanban, sua conversa do WhatsApp é transferida automaticamente para a fila escolhida.</p>
           <div className="grid sm:grid-cols-5 gap-3">
-            {KANBAN_STAGES.map(s => {
+            {stages.map(s => {
               const current = stageMap.find(x => x.stage === s.key)?.queue_id ?? '';
               return (
                 <div key={s.key} className="space-y-1">
@@ -245,7 +243,7 @@ const Team = () => {
                 <div className="mt-4 pt-4 border-t border-border">
                   <p className="text-xs text-muted-foreground mb-3">Selecione em quais etapas do Kanban este membro pode atuar (mover/editar leads). Mesmo com a permissão, ele só pode mexer em leads onde está como responsável.</p>
                   <div className="grid sm:grid-cols-5 gap-2">
-                    {KANBAN_STAGES.map(s => {
+                    {stages.map(s => {
                       const on = hasPerm(m.id, s.key);
                       return (
                         <button
