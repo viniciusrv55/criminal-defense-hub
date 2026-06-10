@@ -28,13 +28,8 @@ interface StagePerm {
   can_act: boolean;
 }
 
-const KANBAN_STAGES = [
-  { key: 'new', label: 'Novos' },
-  { key: 'contacted', label: 'Contatado' },
-  { key: 'in_progress', label: 'Em Atendimento' },
-  { key: 'proposal', label: 'Proposta' },
-  { key: 'closed', label: 'Finalizado' },
-];
+interface KanbanCol { key: string; label: string; sort_order: number; active: boolean; }
+
 
 interface Queue { id: string; name: string; }
 interface StageMap { stage: string; queue_id: string; }
@@ -45,6 +40,7 @@ const Team = () => {
   const [perms, setPerms] = useState<StagePerm[]>([]);
   const [queues, setQueues] = useState<Queue[]>([]);
   const [stageMap, setStageMap] = useState<StageMap[]>([]);
+  const [stages, setStages] = useState<KanbanCol[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,10 +51,12 @@ const Team = () => {
     const { data: kp } = await db.from('kanban_stage_permissions').select('*');
     const { data: qs } = await db.from('whatsapp_queues').select('id,name').eq('active', true).order('sort_order');
     const { data: sm } = await db.from('kanban_stage_queue_map').select('stage,queue_id');
+    const { data: kc } = await db.from('kanban_columns').select('key,label,sort_order,active').eq('active', true).order('sort_order');
     setMembers(tm ?? []);
     setPerms(kp ?? []);
     setQueues(qs ?? []);
     setStageMap(sm ?? []);
+    setStages(kc ?? []);
     setLoading(false);
   };
 
