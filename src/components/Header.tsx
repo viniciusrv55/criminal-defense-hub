@@ -10,7 +10,7 @@ const Header = () => {
   const { settings } = useSiteSettings();
 
   const navLinks = [
-    { href: "/", label: "Início" },
+    { href: "/", label: "Página Inicial" },
     { href: "/#sobre", label: "Sobre" },
     { href: "/areas-de-atuacao", label: "Áreas de Atuação" },
     { href: "/blog", label: "Blog" },
