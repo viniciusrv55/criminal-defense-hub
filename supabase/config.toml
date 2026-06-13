@@ -33,3 +33,7 @@ verify_jwt = false
 [functions.campaign-worker]
 verify_jwt = false
 
+
+
+[functions.admin-create-team-member]
+verify_jwt = false
