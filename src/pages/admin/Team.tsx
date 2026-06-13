@@ -86,26 +86,22 @@ const Team = () => {
       return;
     }
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: { data: { full_name: form.full_name }, emailRedirectTo: `${window.location.origin}/admin` },
+    const { data, error } = await supabase.functions.invoke('admin-create-team-member', {
+      body: {
+        full_name: form.full_name,
+        email: form.email,
+        password: form.password,
+        role_title: form.role_title,
+        specialty: form.specialty,
+        phone: form.phone,
+      },
     });
-    if (authError || !authData.user) {
-      toast({ title: 'Erro ao criar usuário', description: authError?.message, variant: 'destructive' });
+
+    const errMsg = (data as { error?: string } | null)?.error ?? error?.message;
+    if (errMsg) {
+      toast({ title: 'Erro ao cadastrar', description: errMsg, variant: 'destructive' });
       return;
     }
-
-    await db.from('user_roles').insert({ user_id: authData.user.id, role: 'team_member' });
-    const { error: tmError } = await db.from('team_members').insert({
-      user_id: authData.user.id,
-      full_name: form.full_name,
-      email: form.email,
-      role_title: form.role_title || null,
-      specialty: form.specialty || null,
-      phone: form.phone || null,
-    });
-    if (tmError) { toast({ title: 'Erro', description: tmError.message, variant: 'destructive' }); return; }
 
     toast({ title: 'Membro cadastrado!' });
     setShowAdd(false);
