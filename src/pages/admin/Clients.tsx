@@ -23,6 +23,7 @@ const empty: Partial<Client> = {
 
 export default function Clients() {
   const [list, setList] = useState<Client[]>([]);
+  const [members, setMembers] = useState<{ id: string; full_name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -32,8 +33,12 @@ export default function Clients() {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await db.from('clients').select('*').order('created_at', { ascending: false }).limit(500);
+    const [{ data }, { data: mems }] = await Promise.all([
+      db.from('clients').select('*').order('created_at', { ascending: false }).limit(500),
+      db.from('team_members').select('id, full_name').eq('active', true).order('full_name'),
+    ]);
     setList((data ?? []) as Client[]);
+    setMembers((mems ?? []) as { id: string; full_name: string }[]);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -186,6 +191,22 @@ export default function Clients() {
               <div>
                 <Label>Estado</Label>
                 <Input value={editing.state ?? ''} onChange={e => setEditing({ ...editing, state: e.target.value })} />
+              </div>
+              <div className="col-span-2">
+                <Label>Advogado responsável</Label>
+                <Select
+                  value={(editing as { assigned_attorney_id?: string }).assigned_attorney_id ?? '__none__'}
+                  onValueChange={v => setEditing({ ...editing, assigned_attorney_id: v === '__none__' ? null : v } as Partial<Client>)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Sem advogado fixo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem advogado fixo</SelectItem>
+                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Quando o cliente entrar em contato pelo WhatsApp, o agente de IA reconhece e transfere direto para este advogado.
+                </p>
               </div>
               <div className="col-span-2">
                 <Label>Observações</Label>

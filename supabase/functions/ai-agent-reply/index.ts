@@ -417,6 +417,48 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     .maybeSingle();
   if (!conv) return { ok: false, error: 'Conversa não encontrada' };
 
+  // === Cliente cadastrado? Se sim, transfere direto para o advogado responsável e pausa IA ===
+  if (!opts.dryRun && conv.contact_phone) {
+    try {
+      const digits = String(conv.contact_phone).replace(/\D/g, '');
+      const tail = digits.slice(-10); // últimos 10 dígitos (DDD+número), ignora DDI
+      if (tail.length >= 8) {
+        const { data: clientMatches } = await admin
+          .from('clients')
+          .select('id, full_name, assigned_attorney_id, phones')
+          .not('assigned_attorney_id', 'is', null)
+          .limit(200);
+        const match = (clientMatches ?? []).find((c: Any) => {
+          const phones = Array.isArray(c.phones) ? c.phones : [];
+          return phones.some((p: Any) => {
+            const v = String(p?.value ?? p ?? '').replace(/\D/g, '');
+            return v && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
+          });
+        });
+        if (match?.assigned_attorney_id) {
+          await admin.from('whatsapp_conversations').update({
+            assigned_team_member_id: match.assigned_attorney_id,
+            ai_enabled: false,
+            ai_paused_at: new Date().toISOString(),
+            status: 'open',
+          }).eq('id', conversationId);
+          await admin.from('whatsapp_conversation_notes').insert({
+            conversation_id: conversationId,
+            note: `Cliente cadastrado (${match.full_name}) — transferido automaticamente para o advogado responsável.`,
+          }).then(() => {}, () => {});
+          await admin.from('ai_agent_runs').insert({
+            agent_id: null, conversation_id: conversationId, status: 'handoff',
+            error: 'cliente_cadastrado_auto_transfer', model: 'n/a',
+          }).then(() => {}, () => {});
+          return { ok: true, handoff: true, reason: 'client_assigned_attorney' };
+        }
+      }
+    } catch (e) {
+      console.error('[client-lookup]', e);
+    }
+  }
+
+
   let agent: Agent | null = null;
   if (opts.overrideAgentId) {
     const { data } = await admin.from('ai_agents').select('*').eq('id', opts.overrideAgentId).maybeSingle();

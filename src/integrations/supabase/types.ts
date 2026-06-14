@@ -844,6 +844,7 @@ export type Database = {
       clients: {
         Row: {
           address: string | null
+          assigned_attorney_id: string | null
           birth_date: string | null
           cep: string | null
           city: string | null
@@ -880,6 +881,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          assigned_attorney_id?: string | null
           birth_date?: string | null
           cep?: string | null
           city?: string | null
@@ -916,6 +918,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          assigned_attorney_id?: string | null
           birth_date?: string | null
           cep?: string | null
           city?: string | null
@@ -951,6 +954,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "clients_assigned_attorney_id_fkey"
+            columns: ["assigned_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clients_group_id_fkey"
             columns: ["group_id"]
