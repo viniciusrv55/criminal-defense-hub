@@ -193,6 +193,22 @@ export default function Clients() {
                 <Input value={editing.state ?? ''} onChange={e => setEditing({ ...editing, state: e.target.value })} />
               </div>
               <div className="col-span-2">
+                <Label>Advogado responsável</Label>
+                <Select
+                  value={(editing as { assigned_attorney_id?: string }).assigned_attorney_id ?? '__none__'}
+                  onValueChange={v => setEditing({ ...editing, assigned_attorney_id: v === '__none__' ? null : v } as Partial<Client>)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Sem advogado fixo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Sem advogado fixo</SelectItem>
+                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Quando o cliente entrar em contato pelo WhatsApp, o agente de IA reconhece e transfere direto para este advogado.
+                </p>
+              </div>
+              <div className="col-span-2">
                 <Label>Observações</Label>
                 <Textarea rows={3} value={editing.notes ?? ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} />
               </div>
