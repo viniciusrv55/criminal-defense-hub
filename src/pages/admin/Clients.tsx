@@ -23,6 +23,7 @@ const empty: Partial<Client> = {
 
 export default function Clients() {
   const [list, setList] = useState<Client[]>([]);
+  const [members, setMembers] = useState<{ id: string; full_name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -32,8 +33,12 @@ export default function Clients() {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await db.from('clients').select('*').order('created_at', { ascending: false }).limit(500);
+    const [{ data }, { data: mems }] = await Promise.all([
+      db.from('clients').select('*').order('created_at', { ascending: false }).limit(500),
+      db.from('team_members').select('id, full_name').eq('active', true).order('full_name'),
+    ]);
     setList((data ?? []) as Client[]);
+    setMembers((mems ?? []) as { id: string; full_name: string }[]);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
