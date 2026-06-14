@@ -88,12 +88,14 @@ const App = () => (
             <Route path="/admin/filas" element={<ProtectedRoute><Queues /></ProtectedRoute>} />
             <Route path="/admin/plataforma" element={<SuperAdminRoute><PlatformSettings /></SuperAdminRoute>} />
 
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </HelmetProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            </ErrorBoundary>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </HelmetProvider>
+  </ErrorBoundary>
 );
 
 export default App;
