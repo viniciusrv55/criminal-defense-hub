@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Save, X, Trash2, Edit, ShieldCheck } from 'lucide-react';
+import { UserPlus, Save, X, Trash2, ShieldCheck, Wrench } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { db } from '@/lib/supabase-helpers';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,6 +88,7 @@ const Team = () => {
 
     const { data, error } = await supabase.functions.invoke('admin-create-team-member', {
       body: {
+        action: 'create',
         full_name: form.full_name,
         email: form.email,
         password: form.password,
@@ -106,6 +107,27 @@ const Team = () => {
     toast({ title: 'Membro cadastrado!' });
     setShowAdd(false);
     setForm({ full_name: '', email: '', password: '', role_title: '', specialty: '', phone: '' });
+    fetchAll();
+  };
+
+  const repairAccess = async (m: TeamMember) => {
+    const { data, error } = await supabase.functions.invoke('admin-create-team-member', {
+      body: {
+        action: 'repair_access',
+        user_id: m.user_id,
+        full_name: m.full_name,
+        email: m.email,
+        role_title: m.role_title,
+        specialty: m.specialty,
+        phone: m.phone,
+      },
+    });
+    const errMsg = (data as { error?: string } | null)?.error ?? error?.message;
+    if (errMsg) {
+      toast({ title: 'Erro ao reparar acesso', description: errMsg, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Acesso reparado', description: 'E-mail confirmado e permissões recriadas para este membro.' });
     fetchAll();
   };
 
@@ -230,6 +252,9 @@ const Team = () => {
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => setEditingId(editingId === m.id ? null : m.id)}>
                     <ShieldCheck className="w-4 h-4 mr-1" /> Permissões
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => repairAccess(m)}>
+                    <Wrench className="w-4 h-4 mr-1" /> Reparar acesso
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => removeMember(m)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
                 </div>
