@@ -141,7 +141,7 @@ export const FinanceiroTab = ({
   const [renegSaving, setRenegSaving] = useState(false);
 
   const [receiptOpen, setReceiptOpen] = useState<{ row: InstallmentRow; payment: PaymentRow } | null>(null);
-  const [templates, setTemplates] = useState<{ id: string; title: string; content_html: string }[]>([]);
+  const [templates, setTemplates] = useState<{ id: string; title: string; content_html: string; logo_url?: string | null; header_image_url?: string | null; footer_image_url?: string | null; background_image_url?: string | null; letterhead_enabled?: boolean }[]>([]);
   const [templateId, setTemplateId] = useState<string>('');
   const [generatingReceipt, setGeneratingReceipt] = useState(false);
   const [sendingReceipt, setSendingReceipt] = useState<string | null>(null); // receipt id
@@ -168,8 +168,10 @@ export const FinanceiroTab = ({
       const { data: types } = await db.from('document_template_types').select('id, name').eq('name', 'Recibo');
       const typeId = types?.[0]?.id;
       if (!typeId) { setTemplates([]); return; }
-      const { data } = await db.from('document_templates').select('id, title, content_html').eq('type_id', typeId).eq('active', true);
-      setTemplates((data ?? []) as { id: string; title: string; content_html: string }[]);
+      const { data } = await db.from('document_templates')
+        .select('id, title, content_html, logo_url, header_image_url, footer_image_url, background_image_url, letterhead_enabled')
+        .eq('type_id', typeId).eq('active', true);
+      setTemplates((data ?? []) as typeof templates);
       if (data?.[0]) setTemplateId((data[0] as { id: string }).id);
     })();
   }, []);
