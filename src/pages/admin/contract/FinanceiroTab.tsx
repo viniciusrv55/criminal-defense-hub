@@ -141,7 +141,7 @@ export const FinanceiroTab = ({
   const [renegSaving, setRenegSaving] = useState(false);
 
   const [receiptOpen, setReceiptOpen] = useState<{ row: InstallmentRow; payment: PaymentRow } | null>(null);
-  const [templates, setTemplates] = useState<{ id: string; title: string; content_html: string }[]>([]);
+  const [templates, setTemplates] = useState<{ id: string; title: string; content_html: string; logo_url?: string | null; header_image_url?: string | null; footer_image_url?: string | null; background_image_url?: string | null; letterhead_enabled?: boolean }[]>([]);
   const [templateId, setTemplateId] = useState<string>('');
   const [generatingReceipt, setGeneratingReceipt] = useState(false);
   const [sendingReceipt, setSendingReceipt] = useState<string | null>(null); // receipt id
@@ -168,8 +168,10 @@ export const FinanceiroTab = ({
       const { data: types } = await db.from('document_template_types').select('id, name').eq('name', 'Recibo');
       const typeId = types?.[0]?.id;
       if (!typeId) { setTemplates([]); return; }
-      const { data } = await db.from('document_templates').select('id, title, content_html').eq('type_id', typeId).eq('active', true);
-      setTemplates((data ?? []) as { id: string; title: string; content_html: string }[]);
+      const { data } = await db.from('document_templates')
+        .select('id, title, content_html, logo_url, header_image_url, footer_image_url, background_image_url, letterhead_enabled')
+        .eq('type_id', typeId).eq('active', true);
+      setTemplates((data ?? []) as typeof templates);
       if (data?.[0]) setTemplateId((data[0] as { id: string }).id);
     })();
   }, []);
@@ -406,11 +408,30 @@ export const FinanceiroTab = ({
       };
       const filledHtml = applyVariables(tpl.content_html, { client, contract, receipt: receiptCtx });
 
-      // Renderiza num container off-screen para o html2canvas capturar
+      // Renderiza num container off-screen para o html2canvas capturar (com papel timbrado se houver)
+      const useLetterhead = !!tpl.letterhead_enabled;
+      const bg = useLetterhead && tpl.background_image_url
+        ? `background-image:url('${tpl.background_image_url}');background-size:cover;background-repeat:no-repeat;background-position:center;`
+        : 'background:#fff;';
+      const headerHtml = useLetterhead && (tpl.header_image_url || tpl.logo_url)
+        ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px;">
+             ${tpl.logo_url ? `<img src="${tpl.logo_url}" alt="logo" style="max-height:80px;max-width:200px;object-fit:contain;" crossorigin="anonymous" />` : '<div></div>'}
+             ${tpl.header_image_url ? `<img src="${tpl.header_image_url}" alt="cabeçalho" style="max-height:80px;max-width:60%;object-fit:contain;" crossorigin="anonymous" />` : ''}
+           </div>`
+        : '';
+      const footerHtml = useLetterhead && tpl.footer_image_url
+        ? `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #ddd;text-align:center;">
+             <img src="${tpl.footer_image_url}" alt="rodapé" style="max-height:80px;max-width:100%;object-fit:contain;" crossorigin="anonymous" />
+           </div>`
+        : '';
       const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;padding:48px;background:#fff;color:#000;font-family:Inter,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;';
-      wrapper.innerHTML = filledHtml;
+      wrapper.style.cssText = `position:fixed;left:-10000px;top:0;width:794px;padding:48px;${bg}color:#000;font-family:Inter,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;`;
+      wrapper.innerHTML = headerHtml + `<div style="position:relative;">${filledHtml}</div>` + footerHtml;
       document.body.appendChild(wrapper);
+      // Aguarda imagens carregarem
+      await Promise.all(Array.from(wrapper.querySelectorAll('img')).map(img =>
+        img.complete ? Promise.resolve() : new Promise<void>(res => { img.onload = () => res(); img.onerror = () => res(); })
+      ));
 
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
         import('html2canvas'),

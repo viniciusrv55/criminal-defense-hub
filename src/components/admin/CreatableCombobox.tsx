@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { Check, ChevronsUpDown, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -15,16 +15,19 @@ interface CreatableComboboxProps {
   onChange: (value: string | null) => void;
   /** Called when user types a new value and clicks "Cadastrar". Should persist and return the new id. */
   onCreate?: (label: string) => Promise<string | null>;
+  /** Called when user clicks the trash icon on an option. Should remove and return true on success. */
+  onDelete?: (id: string) => Promise<boolean>;
   disabled?: boolean;
   allowClear?: boolean;
 }
 
 export function CreatableCombobox({
-  value, options, placeholder = 'Selecione...', emptyText = 'Sem opções', onChange, onCreate, disabled, allowClear,
+  value, options, placeholder = 'Selecione...', emptyText = 'Sem opções', onChange, onCreate, onDelete, disabled, allowClear,
 }: CreatableComboboxProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const selected = options.find(o => o.value === value);
   const showCreate = !!onCreate && search.trim().length > 0 && !options.some(o => o.label.toLowerCase() === search.trim().toLowerCase());
@@ -39,6 +42,17 @@ export function CreatableCombobox({
       setSearch('');
       setOpen(false);
     }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!onDelete) return;
+    if (!confirm('Remover este item da lista?')) return;
+    setDeletingId(id);
+    const ok = await onDelete(id);
+    setDeletingId(null);
+    if (ok && value === id) onChange(null);
   };
 
   return (
@@ -62,9 +76,20 @@ export function CreatableCombobox({
             {options.length > 0 && (
               <CommandGroup>
                 {options.map(o => (
-                  <CommandItem key={o.value} value={o.label} onSelect={() => { onChange(o.value); setOpen(false); }}>
+                  <CommandItem key={o.value} value={o.label} onSelect={() => { onChange(o.value); setOpen(false); }} className="group">
                     <Check className={cn('mr-2 h-4 w-4', value === o.value ? 'opacity-100' : 'opacity-0')} />
-                    {o.label}
+                    <span className="flex-1">{o.label}</span>
+                    {onDelete && (
+                      <button
+                        type="button"
+                        aria-label="Remover"
+                        onClick={(e) => handleDelete(e, o.value)}
+                        disabled={deletingId === o.value}
+                        className="ml-2 opacity-0 group-hover:opacity-100 hover:text-destructive p-1 rounded transition-opacity disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </CommandItem>
                 ))}
               </CommandGroup>

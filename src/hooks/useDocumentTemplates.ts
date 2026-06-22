@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { db } from '@/lib/supabase-helpers';
 import { useAuth } from './useAuth';
+import { toast } from '@/hooks/use-toast';
 
 export interface DocTemplateType { id: string; name: string; active: boolean; sort_order: number }
 
@@ -16,6 +17,11 @@ export interface DocTemplate {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  logo_url?: string | null;
+  header_image_url?: string | null;
+  footer_image_url?: string | null;
+  background_image_url?: string | null;
+  letterhead_enabled?: boolean;
 }
 
 export function useDocTemplateTypes() {
@@ -31,11 +37,24 @@ export function useDocTemplateTypes() {
 
   const create = async (name: string) => {
     const { data, error } = await db.from('document_template_types').insert({ name }).select().single();
-    if (error || !data) return null;
+    if (error || !data) {
+      if (error) toast({ title: 'Não foi possível criar', description: error.message, variant: 'destructive' });
+      return null;
+    }
     setTypes(prev => [...prev, data as DocTemplateType]);
     return (data as DocTemplateType).id;
   };
-  return { types, loading, create, refresh: fetch };
+  const remove = async (id: string) => {
+    const { error } = await db.from('document_template_types').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Não foi possível remover', description: error.message.includes('row-level') ? 'Apenas administradores podem remover tipos.' : error.message, variant: 'destructive' });
+      return false;
+    }
+    setTypes(prev => prev.filter(t => t.id !== id));
+    toast({ title: 'Tipo removido' });
+    return true;
+  };
+  return { types, loading, create, remove, refresh: fetch };
 }
 
 /** Lista todos os modelos visíveis para o usuário (RLS já filtra). */

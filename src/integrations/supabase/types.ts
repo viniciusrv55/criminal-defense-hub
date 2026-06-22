@@ -1226,12 +1226,17 @@ export type Database = {
         Row: {
           active: boolean
           assigned_team_member_ids: string[]
+          background_image_url: string | null
           content_html: string
           created_at: string
           created_by: string | null
           doc_date: string | null
+          footer_image_url: string | null
+          header_image_url: string | null
           id: string
           is_general: boolean
+          letterhead_enabled: boolean
+          logo_url: string | null
           owner_id: string
           title: string
           type_id: string
@@ -1240,12 +1245,17 @@ export type Database = {
         Insert: {
           active?: boolean
           assigned_team_member_ids?: string[]
+          background_image_url?: string | null
           content_html?: string
           created_at?: string
           created_by?: string | null
           doc_date?: string | null
+          footer_image_url?: string | null
+          header_image_url?: string | null
           id?: string
           is_general?: boolean
+          letterhead_enabled?: boolean
+          logo_url?: string | null
           owner_id: string
           title: string
           type_id: string
@@ -1254,12 +1264,17 @@ export type Database = {
         Update: {
           active?: boolean
           assigned_team_member_ids?: string[]
+          background_image_url?: string | null
           content_html?: string
           created_at?: string
           created_by?: string | null
           doc_date?: string | null
+          footer_image_url?: string | null
+          header_image_url?: string | null
           id?: string
           is_general?: boolean
+          letterhead_enabled?: boolean
+          logo_url?: string | null
           owner_id?: string
           title?: string
           type_id?: string
