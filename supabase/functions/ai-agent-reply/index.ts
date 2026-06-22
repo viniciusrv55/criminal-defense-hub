@@ -417,6 +417,44 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     .maybeSingle();
   if (!conv) return { ok: false, error: 'Conversa não encontrada' };
 
+  // === Contato é um membro da equipe? Encaminha para fila geral e NÃO aciona IA ===
+  if (!opts.dryRun && conv.contact_phone) {
+    try {
+      const digits = String(conv.contact_phone).replace(/\D/g, '');
+      const tail = digits.slice(-10);
+      if (tail.length >= 8) {
+        const { data: teamMatches } = await admin
+          .from('team_members')
+          .select('id, full_name, phone')
+          .eq('active', true)
+          .not('phone', 'is', null);
+        const teamMatch = (teamMatches ?? []).find((t: Any) => {
+          const v = String(t.phone ?? '').replace(/\D/g, '');
+          return v && v.length >= 8 && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
+        });
+        if (teamMatch) {
+          const { data: gen } = await admin
+            .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).limit(1).maybeSingle();
+          await admin.from('whatsapp_conversations').update({
+            current_queue_id: gen?.id ?? conv.current_queue_id,
+            assigned_team_member_id: null,
+            ai_enabled: false,
+            ai_paused_at: new Date().toISOString(),
+            status: 'open',
+            unread_count: 1,
+          }).eq('id', conversationId);
+          await admin.from('whatsapp_conversation_notes').insert({
+            conversation_id: conversationId,
+            note: `Número pertence a membro da equipe (${teamMatch.full_name}) — IA desativada e enviado para fila geral.`,
+          }).then(() => {}, () => {});
+          return { ok: true, handoff: true, reason: 'team_member_phone' };
+        }
+      }
+    } catch (e) {
+      console.error('[team-lookup]', e);
+    }
+  }
+
   // === Cliente cadastrado? Se sim, transfere direto para o advogado responsável e pausa IA ===
   if (!opts.dryRun && conv.contact_phone) {
     try {
@@ -457,6 +495,7 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
       console.error('[client-lookup]', e);
     }
   }
+
 
 
   let agent: Agent | null = null;
