@@ -44,33 +44,35 @@ const TOOL_DEFS: Record<string, Any> = {
     type: 'function',
     function: {
       name: 'create_lead',
-      description: 'Cria/atualiza um lead no CRM com nome, email e telefone do cliente. SEMPRE colete nome e email no início da conversa.',
+      description: 'Registra o contato como lead no CRM com nome e telefone (o telefone já é capturado automaticamente da conversa). SEMPRE pergunte o NOME do cliente logo no início e chame esta função assim que tiver o nome — não fique de conversa fiada. O resumo do caso é opcional (use só se o cliente espontaneamente contar do que precisa).',
       parameters: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'Nome completo do cliente.' },
-          email: { type: 'string', description: 'Email do cliente (opcional, mas peça).' },
+          name: { type: 'string', description: 'Nome do cliente.' },
+          email: { type: 'string', description: 'Email (opcional, não insista).' },
           practice_area: { type: 'string', description: 'Área de atuação relacionada (opcional).' },
-          message: { type: 'string', description: 'Resumo do caso/dor do cliente.' },
+          message: { type: 'string', description: 'Breve contexto do que o cliente precisa (opcional).' },
         },
-        required: ['name', 'message'],
+        required: ['name'],
         additionalProperties: false,
       },
+
     },
   },
   request_human_handoff: {
     type: 'function',
     function: {
       name: 'request_human_handoff',
-      description: 'Transfere a conversa para um atendente humano e pausa a IA. Use quando o cliente pedir ou o caso for sensível.',
+      description: 'Encaminha a conversa para a FILA GERAL de atendimento humano e pausa a IA. Use SEMPRE que o cliente pedir para falar com um atendente, advogado, humano, ou demonstrar que quer falar com alguém da equipe. Não tente continuar a conversa por conta própria — apenas chame esta função. Antes de chamar, responda com uma única mensagem curta e simpática avisando que ele foi encaminhado para a fila de atendimento e que em breve um atendente irá responder.',
       parameters: {
         type: 'object',
-        properties: { reason: { type: 'string', description: 'Motivo do handoff.' } },
+        properties: { reason: { type: 'string', description: 'Motivo curto do encaminhamento.' } },
         required: ['reason'],
         additionalProperties: false,
       },
     },
   },
+
   list_appointment_types: {
     type: 'function',
     function: {
@@ -172,7 +174,7 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
         name: args.name,
         email: args.email ?? null,
         phone: ctx.contactPhone,
-        message: args.message,
+        message: args.message ?? null,
         practice_area_id: areaId,
         status: 'new',
         kanban_status: 'new',
@@ -180,6 +182,7 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
       .select('id')
       .single();
     if (error) return { ok: false, error: error.message };
+
     // link conversation
     await admin.from('whatsapp_conversations').update({ lead_id: lead.id }).eq('id', ctx.conversationId);
     return { ok: true, lead_id: lead.id };
@@ -417,6 +420,44 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     .maybeSingle();
   if (!conv) return { ok: false, error: 'Conversa não encontrada' };
 
+  // === Contato é um membro da equipe? Encaminha para fila geral e NÃO aciona IA ===
+  if (!opts.dryRun && conv.contact_phone) {
+    try {
+      const digits = String(conv.contact_phone).replace(/\D/g, '');
+      const tail = digits.slice(-10);
+      if (tail.length >= 8) {
+        const { data: teamMatches } = await admin
+          .from('team_members')
+          .select('id, full_name, phone')
+          .eq('active', true)
+          .not('phone', 'is', null);
+        const teamMatch = (teamMatches ?? []).find((t: Any) => {
+          const v = String(t.phone ?? '').replace(/\D/g, '');
+          return v && v.length >= 8 && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
+        });
+        if (teamMatch) {
+          const { data: gen } = await admin
+            .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).limit(1).maybeSingle();
+          await admin.from('whatsapp_conversations').update({
+            current_queue_id: gen?.id ?? conv.current_queue_id,
+            assigned_team_member_id: null,
+            ai_enabled: false,
+            ai_paused_at: new Date().toISOString(),
+            status: 'open',
+            unread_count: 1,
+          }).eq('id', conversationId);
+          await admin.from('whatsapp_conversation_notes').insert({
+            conversation_id: conversationId,
+            note: `Número pertence a membro da equipe (${teamMatch.full_name}) — IA desativada e enviado para fila geral.`,
+          }).then(() => {}, () => {});
+          return { ok: true, handoff: true, reason: 'team_member_phone' };
+        }
+      }
+    } catch (e) {
+      console.error('[team-lookup]', e);
+    }
+  }
+
   // === Cliente cadastrado? Se sim, transfere direto para o advogado responsável e pausa IA ===
   if (!opts.dryRun && conv.contact_phone) {
     try {
@@ -457,6 +498,7 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
       console.error('[client-lookup]', e);
     }
   }
+
 
 
   let agent: Agent | null = null;
@@ -567,6 +609,10 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
 
     if (msg.tool_calls?.length) {
       llmMessages.push(msg);
+      // Captura mensagem inline emitida junto com a tool_call (ex: aviso de handoff)
+      const inlineText = (msg.content ?? '').trim();
+      if (inlineText && !finalText) finalText = inlineText;
+      let didHandoff = false;
       for (const tc of msg.tool_calls) {
         const fname = tc.function?.name;
         let fargs: Any = {};
@@ -576,9 +622,16 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           ? { dry_run: true, would_call: fname, args: fargs }
           : await executeTool(admin, fname, fargs, { conversationId, agent, contactPhone: conv.contact_phone });
         llmMessages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+        if (fname === 'request_human_handoff') didHandoff = true;
+      }
+      // Após handoff, encerra o loop — IA já pausada
+      if (didHandoff) {
+        if (!finalText) finalText = 'Sem problemas! Já encaminhei você para a nossa equipe de atendimento. Em instantes alguém vai te responder por aqui. 🙂';
+        break;
       }
       continue;
     }
+
 
     finalText = (msg.content ?? '').trim();
     break;
