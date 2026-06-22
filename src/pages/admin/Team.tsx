@@ -190,9 +190,24 @@ const Team = () => {
             <div className="space-y-2"><Label className="text-foreground">Nome *</Label><Input value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} className="bg-background" /></div>
             <div className="space-y-2"><Label className="text-foreground">E-mail *</Label><Input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} className="bg-background" /></div>
             <div className="space-y-2"><Label className="text-foreground">Senha inicial *</Label><Input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} className="bg-background" /></div>
-            <div className="space-y-2"><Label className="text-foreground">Cargo</Label><Input value={form.role_title} onChange={e => setForm({ ...form, role_title: e.target.value })} placeholder="Advogado, Estagiário, Recepção..." className="bg-background" /></div>
-            <div className="space-y-2"><Label className="text-foreground">Especialidade</Label><Input value={form.specialty} onChange={e => setForm({ ...form, specialty: e.target.value })} className="bg-background" /></div>
-            <div className="space-y-2"><Label className="text-foreground">Telefone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} className="bg-background" /></div>
+            <div className="space-y-2">
+              <Label className="text-foreground">Cargo</Label>
+              <select
+                value={form.role_title}
+                onChange={e => setForm({ ...form, role_title: e.target.value, specialty: e.target.value === 'Advogado' ? form.specialty : '' })}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              >
+                <option value="">Selecione...</option>
+                <option value="Advogado">Advogado</option>
+                <option value="Estagiário">Estagiário</option>
+                <option value="Atendimento">Atendimento</option>
+              </select>
+            </div>
+            {form.role_title === 'Advogado' && (
+              <div className="space-y-2"><Label className="text-foreground">Especialidade</Label><Input value={form.specialty} onChange={e => setForm({ ...form, specialty: e.target.value })} className="bg-background" /></div>
+            )}
+            <div className="space-y-2"><Label className="text-foreground">Telefone</Label><Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="(00) 00000-0000 — usado para filtrar se quem chama é da equipe" className="bg-background" /></div>
+
           </div>
           <div className="flex gap-3">
             <Button type="submit" className="bg-accent text-accent-foreground hover:bg-accent/90"><Save className="w-4 h-4 mr-2" />Cadastrar</Button>
