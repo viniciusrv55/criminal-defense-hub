@@ -39,6 +39,7 @@ import Queues from "./pages/admin/Queues";
 import Clients from "./pages/admin/Clients";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import SuperAdminRoute from "./components/admin/SuperAdminRoute";
+import AdminOnlyRoute from "./components/admin/AdminOnlyRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
@@ -68,24 +69,25 @@ const App = () => (
             <Route path="/admin/blog/:id" element={<ProtectedRoute><BlogPostForm /></ProtectedRoute>} />
             <Route path="/admin/areas" element={<ProtectedRoute><PracticeAreasAdmin /></ProtectedRoute>} />
             <Route path="/admin/leads" element={<ProtectedRoute><Leads /></ProtectedRoute>} />
-            <Route path="/admin/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/admin/advogados-destaque" element={<ProtectedRoute><FeaturedAttorneysAdmin /></ProtectedRoute>} />
-            <Route path="/admin/attorneys" element={<ProtectedRoute><Attorneys /></ProtectedRoute>} />
-            <Route path="/admin/equipe" element={<ProtectedRoute><Team /></ProtectedRoute>} />
+            <Route path="/admin/settings" element={<AdminOnlyRoute><Settings /></AdminOnlyRoute>} />
+            <Route path="/admin/advogados-destaque" element={<AdminOnlyRoute><FeaturedAttorneysAdmin /></AdminOnlyRoute>} />
+            <Route path="/admin/areas" element={<AdminOnlyRoute><PracticeAreasAdmin /></AdminOnlyRoute>} />
+            <Route path="/admin/attorneys" element={<AdminOnlyRoute><Attorneys /></AdminOnlyRoute>} />
+            <Route path="/admin/equipe" element={<SuperAdminRoute><Team /></SuperAdminRoute>} />
             <Route path="/admin/contratos" element={<ProtectedRoute><Contracts /></ProtectedRoute>} />
             <Route path="/admin/clientes" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
             <Route path="/admin/contratos/:id" element={<ProtectedRoute><ContractForm /></ProtectedRoute>} />
             <Route path="/admin/documentos" element={<ProtectedRoute><DocumentTemplates /></ProtectedRoute>} />
             <Route path="/admin/documentos/:id" element={<ProtectedRoute><DocumentTemplateForm /></ProtectedRoute>} />
             <Route path="/admin/atendimento" element={<ProtectedRoute><Atendimento /></ProtectedRoute>} />
-            <Route path="/admin/agentes-ia" element={<ProtectedRoute><AiAgents /></ProtectedRoute>} />
+            <Route path="/admin/agentes-ia" element={<AdminOnlyRoute><AiAgents /></AdminOnlyRoute>} />
             <Route path="/admin/agenda" element={<ProtectedRoute><Agenda /></ProtectedRoute>} />
-            <Route path="/admin/agenda/config" element={<ProtectedRoute><AgendaConfig /></ProtectedRoute>} />
-            <Route path="/admin/campanhas" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
-            <Route path="/admin/campanhas/templates" element={<ProtectedRoute><CampaignTemplates /></ProtectedRoute>} />
-            <Route path="/admin/campanhas/publicos" element={<ProtectedRoute><CampaignAudiences /></ProtectedRoute>} />
-            <Route path="/admin/whatsapp" element={<ProtectedRoute><WhatsAppInstances /></ProtectedRoute>} />
-            <Route path="/admin/filas" element={<ProtectedRoute><Queues /></ProtectedRoute>} />
+            <Route path="/admin/agenda/config" element={<AdminOnlyRoute><AgendaConfig /></AdminOnlyRoute>} />
+            <Route path="/admin/campanhas" element={<AdminOnlyRoute><Campaigns /></AdminOnlyRoute>} />
+            <Route path="/admin/campanhas/templates" element={<AdminOnlyRoute><CampaignTemplates /></AdminOnlyRoute>} />
+            <Route path="/admin/campanhas/publicos" element={<AdminOnlyRoute><CampaignAudiences /></AdminOnlyRoute>} />
+            <Route path="/admin/whatsapp" element={<AdminOnlyRoute><WhatsAppInstances /></AdminOnlyRoute>} />
+            <Route path="/admin/filas" element={<AdminOnlyRoute><Queues /></AdminOnlyRoute>} />
             <Route path="/admin/plataforma" element={<SuperAdminRoute><PlatformSettings /></SuperAdminRoute>} />
 
               <Route path="*" element={<NotFound />} />
