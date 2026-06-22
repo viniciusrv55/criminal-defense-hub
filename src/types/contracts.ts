@@ -32,6 +32,7 @@ export interface Client {
   group_id: string | null;
   profile_type: string | null;
   lead_id: string | null;
+  assigned_attorney_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
