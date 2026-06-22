@@ -828,18 +828,30 @@ const DocumentsTab = ({ contractId, client, contract, docs, onChange, userId }: 
 
   return (
     <>
-      <div className="bg-muted/50 border border-border rounded-lg p-3 text-xs text-muted-foreground">
-        ℹ️ Selecione um modelo cadastrado em <strong>Gerador de Documentos</strong>. As variáveis serão preenchidas com os dados do cliente e do contrato e o arquivo será exportado em <strong>.docx</strong>.
-      </div>
-      <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-end">
-        <Field label="Modelo">
-          <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm" value={templateId ?? ''} onChange={e => setTemplateId(e.target.value || null)}>
-            <option value="">Selecione um modelo...</option>
-            {templates.map(t => <option key={t.id} value={t.id}>{(types[t.type_id] ? types[t.type_id] + ' — ' : '') + t.title}</option>)}
-          </select>
-        </Field>
-        <Button onClick={generate} disabled={generating || !templateId} className="bg-accent text-accent-foreground hover:bg-accent/90"><FileText className="w-4 h-4 mr-2" />{generating ? 'Gerando...' : 'Gerar .docx'}</Button>
-      </div>
+      {templates.length === 0 ? (
+        <div className="bg-amber-500/10 border border-amber-500/40 rounded-lg p-4 text-sm text-foreground">
+          ⚠️ Nenhum modelo de contrato/documento cadastrado.
+          <p className="text-xs text-muted-foreground mt-1">
+            Antes de gerar um contrato você precisa cadastrar um modelo em{' '}
+            <a href="/admin/documentos/new" className="text-accent underline">Gerador de Documentos → Novo modelo</a>.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="bg-muted/50 border border-border rounded-lg p-3 text-xs text-muted-foreground">
+            ℹ️ Selecione um modelo cadastrado em <strong>Gerador de Documentos</strong>. As variáveis serão preenchidas com os dados do cliente e do contrato e o arquivo será exportado em <strong>.docx</strong>.
+          </div>
+          <div className="grid sm:grid-cols-[1fr_auto] gap-4 items-end">
+            <Field label="Modelo">
+              <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm" value={templateId ?? ''} onChange={e => setTemplateId(e.target.value || null)}>
+                <option value="">Selecione um modelo...</option>
+                {templates.map(t => <option key={t.id} value={t.id}>{(types[t.type_id] ? types[t.type_id] + ' — ' : '') + t.title}</option>)}
+              </select>
+            </Field>
+            <Button onClick={generate} disabled={generating || !templateId} className="bg-accent text-accent-foreground hover:bg-accent/90"><FileText className="w-4 h-4 mr-2" />{generating ? 'Gerando...' : 'Gerar .docx'}</Button>
+          </div>
+        </>
+      )}
 
       <div className="pt-4 border-t border-border">
         <h3 className="font-medium text-foreground text-sm mb-3">Documentos gerados</h3>
