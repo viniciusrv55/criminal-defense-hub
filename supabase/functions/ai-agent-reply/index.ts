@@ -174,7 +174,7 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
         name: args.name,
         email: args.email ?? null,
         phone: ctx.contactPhone,
-        message: args.message,
+        message: args.message ?? null,
         practice_area_id: areaId,
         status: 'new',
         kanban_status: 'new',
@@ -182,6 +182,7 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
       .select('id')
       .single();
     if (error) return { ok: false, error: error.message };
+
     // link conversation
     await admin.from('whatsapp_conversations').update({ lead_id: lead.id }).eq('id', ctx.conversationId);
     return { ok: true, lead_id: lead.id };
