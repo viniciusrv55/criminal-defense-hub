@@ -693,7 +693,13 @@ export default function Atendimento() {
                         </div>
                         <div className="flex items-center justify-between gap-2 mt-0.5">
                           <p className="text-xs text-muted-foreground truncate">
-                            {c.last_message_preview ?? '—'}
+                            {(() => {
+                              const { sender, body } = parseSenderPrefix(c.last_message_preview);
+                              if (sender) {
+                                return (<><span className="font-semibold text-foreground">{sender}:</span> {body || '—'}</>);
+                              }
+                              return c.last_message_preview ?? '—';
+                            })()}
                           </p>
                           {c.unread_count > 0 && (
                             <Badge className="bg-accent text-[hsl(0_0%_8%)] h-4 min-w-4 px-1 text-[10px]">
