@@ -609,6 +609,10 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
 
     if (msg.tool_calls?.length) {
       llmMessages.push(msg);
+      // Captura mensagem inline emitida junto com a tool_call (ex: aviso de handoff)
+      const inlineText = (msg.content ?? '').trim();
+      if (inlineText && !finalText) finalText = inlineText;
+      let didHandoff = false;
       for (const tc of msg.tool_calls) {
         const fname = tc.function?.name;
         let fargs: Any = {};
@@ -618,9 +622,16 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           ? { dry_run: true, would_call: fname, args: fargs }
           : await executeTool(admin, fname, fargs, { conversationId, agent, contactPhone: conv.contact_phone });
         llmMessages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+        if (fname === 'request_human_handoff') didHandoff = true;
+      }
+      // Após handoff, encerra o loop — IA já pausada
+      if (didHandoff) {
+        if (!finalText) finalText = 'Sem problemas! Já encaminhei você para a nossa equipe de atendimento. Em instantes alguém vai te responder por aqui. 🙂';
+        break;
       }
       continue;
     }
+
 
     finalText = (msg.content ?? '').trim();
     break;
