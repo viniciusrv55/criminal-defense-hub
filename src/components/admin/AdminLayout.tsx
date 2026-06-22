@@ -17,8 +17,9 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, profileName, user, isSuperAdmin } = useAuth();
+  const { signOut, profileName, user, isSuperAdmin, isAdmin } = useAuth();
   const { settings } = useSiteSettings();
+  const admin = isAdmin();
 
   const navGroups: { label: string; items: { href: string; label: string; icon: typeof LayoutDashboard }[] }[] = [
     {
@@ -40,35 +41,40 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       items: [
         { href: '/admin/leads', label: 'Atendimento Kanban', icon: KanbanSquare },
         { href: '/admin/atendimento', label: 'Conversas', icon: MessageSquare },
-        { href: '/admin/filas', label: 'Filas', icon: Inbox },
-        { href: '/admin/agentes-ia', label: 'Agentes IA', icon: Bot },
-        { href: '/admin/whatsapp', label: 'WhatsApp', icon: Smartphone },
+        ...(admin ? [
+          { href: '/admin/filas', label: 'Filas', icon: Inbox },
+          { href: '/admin/agentes-ia', label: 'Agentes IA', icon: Bot },
+          { href: '/admin/whatsapp', label: 'WhatsApp', icon: Smartphone },
+        ] : []),
       ],
     },
     {
       label: 'Agenda',
       items: [
         { href: '/admin/agenda', label: 'Calendário', icon: Calendar },
-        { href: '/admin/agenda/config', label: 'Tipos & Disponibilidade', icon: CalendarCog },
+        ...(admin ? [{ href: '/admin/agenda/config', label: 'Tipos & Disponibilidade', icon: CalendarCog }] : []),
       ],
     },
     {
       label: 'Conteúdo',
       items: [
         { href: '/admin/blog', label: 'Blog', icon: FileText },
-        { href: '/admin/areas', label: 'Áreas de Atuação', icon: Briefcase },
-        { href: '/admin/advogados-destaque', label: 'Advogados em Destaque', icon: UserCheck },
+        ...(admin ? [
+          { href: '/admin/areas', label: 'Áreas de Atuação', icon: Briefcase },
+          { href: '/admin/advogados-destaque', label: 'Advogados em Destaque', icon: UserCheck },
+        ] : []),
       ],
     },
     {
       label: 'Administração',
       items: [
         ...(isSuperAdmin() ? [{ href: '/admin/equipe', label: 'Equipe', icon: UserCheck }] : []),
-        { href: '/admin/settings', label: 'Configurações', icon: Settings },
+        ...(admin ? [{ href: '/admin/settings', label: 'Configurações', icon: Settings }] : []),
         ...(isSuperAdmin() ? [{ href: '/admin/plataforma', label: 'Plataforma', icon: ShieldAlert }] : []),
       ],
     },
-  ];
+  ].filter(g => g.items.length > 0);
+
 
   const handleLogout = async () => { await signOut(); navigate('/admin/login'); };
 
