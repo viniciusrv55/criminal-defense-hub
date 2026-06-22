@@ -32,18 +32,21 @@ Deno.serve(async (req) => {
 
   try {
     const { cnj } = await req.json();
+    const json = (payload: unknown, status = 200) =>
+      new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
     if (!cnj || typeof cnj !== 'string') {
-      return new Response(JSON.stringify({ error: 'CNJ obrigatório' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return json({ error: 'CNJ obrigatório' });
     }
 
     const apiKey = Deno.env.get('CNJ_DATAJUD_API_KEY');
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'API key DataJud não configurada' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return json({ error: 'API key DataJud não configurada' });
     }
 
     const alias = getTribunalAlias(cnj);
     if (!alias) {
-      return new Response(JSON.stringify({ error: 'Não foi possível identificar o tribunal a partir do CNJ' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return json({ error: 'Não foi possível identificar o tribunal a partir do CNJ' });
     }
 
     const cleanCnj = cnj.replace(/\D/g, '');
@@ -58,13 +61,13 @@ Deno.serve(async (req) => {
 
     if (!resp.ok) {
       const txt = await resp.text();
-      return new Response(JSON.stringify({ error: `DataJud ${resp.status}: ${txt.slice(0, 200)}` }), { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return json({ error: `DataJud ${resp.status}: ${txt.slice(0, 200)}`, tried: alias, fallback: resp.status >= 500 });
     }
 
     const data = await resp.json();
     const hit = data?.hits?.hits?.[0]?._source;
     if (!hit) {
-      return new Response(JSON.stringify({ error: 'Processo não encontrado no DataJud', tried: alias }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return json({ error: 'Processo não encontrado no DataJud', tried: alias });
     }
 
     // Movements (sorted desc by date)
