@@ -216,6 +216,7 @@ const ContractForm = () => {
                   emptyText="Nenhum grupo cadastrado"
                   onChange={v => setClientDraft({ ...clientDraft, group_id: v })}
                   onCreate={async (name) => groupsHook.create(name)}
+                  onDelete={async (id) => groupsHook.remove(id)}
                   allowClear
                 />
               </Field>
@@ -477,6 +478,7 @@ const ProcessFields = ({
           emptyText="Nenhum subgrupo. Cadastre digitando o nome."
           onChange={v => setContractDraft({ ...contractDraft, group_id: v })}
           onCreate={async (name) => clientGroupId ? groupsHook.create(name, { parent_id: clientGroupId }) : null}
+          onDelete={async (id) => groupsHook.remove(id)}
           disabled={!clientGroupId}
           allowClear
         />
@@ -506,6 +508,7 @@ const ProcessFields = ({
           emptyText="Nenhuma comarca cadastrada"
           onChange={v => setContractDraft({ ...contractDraft, comarca_id: v, vara_id: null })}
           onCreate={async (name) => comarcasHook.create(name)}
+          onDelete={async (id) => comarcasHook.remove(id)}
           allowClear
         />
       </Field>
@@ -517,6 +520,7 @@ const ProcessFields = ({
           emptyText="Nenhuma vara para esta comarca"
           onChange={v => setContractDraft({ ...contractDraft, vara_id: v })}
           onCreate={async (label) => varasHook.create(label)}
+          onDelete={async (id) => varasHook.remove(id)}
           disabled={!contractDraft.comarca_id}
           allowClear
         />
