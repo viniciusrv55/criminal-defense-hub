@@ -39,6 +39,7 @@ import Queues from "./pages/admin/Queues";
 import Clients from "./pages/admin/Clients";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import SuperAdminRoute from "./components/admin/SuperAdminRoute";
+import AdminOnlyRoute from "./components/admin/AdminOnlyRoute";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
