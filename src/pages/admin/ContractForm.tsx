@@ -725,6 +725,7 @@ const FeesFields = ({ data, onChange }: { data: FeesData; onChange: (d: FeesData
               if (id) set({ payment_method: name });
               return id;
             }}
+            onDelete={async (id) => pmHook.remove(id)}
             allowClear
           />
         </Field>
