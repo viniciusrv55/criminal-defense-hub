@@ -36,15 +36,7 @@ const Header = () => {
             {settings.logo_url ? (
               <img src={settings.logo_url} alt="Lindomberto Moraes" className="h-12 w-auto object-contain" />
             ) : (
-              <>
-                <div className="p-2 rounded-lg bg-primary/20 group-hover:bg-primary/30 transition-colors">
-                  <Scale className="w-6 h-6 text-gold" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-lg font-serif font-semibold text-foreground">Lindomberto Moraes</span>
-                  <span className="text-xs text-muted-foreground tracking-wider uppercase">Advocacia Criminal</span>
-                </div>
-              </>
+              <div className="h-12" aria-hidden />
             )}
           </Link>
 
