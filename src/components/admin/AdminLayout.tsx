@@ -117,18 +117,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               {settings.logo_url ? (
                 <img src={settings.logo_url} alt="Logo" className="h-11 w-auto object-contain" />
               ) : (
-                <>
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-accent/20 blur-md rounded-full" />
-                    <div className="relative p-2.5 rounded-lg border border-accent/40 bg-gradient-to-br from-accent/15 to-transparent">
-                      <Scale className="w-5 h-5 text-accent" />
-                    </div>
-                  </div>
-                  <div className="flex flex-col leading-tight">
-                    <span className="font-serif text-base tracking-wide text-[hsl(0_0%_98%)]">Lindomberto Moraes</span>
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-accent/80">Painel Jurídico</span>
-                  </div>
-                </>
+                <div className="h-11" aria-hidden />
               )}
             </Link>
             <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1 text-[hsl(0_0%_60%)] hover:text-accent">
