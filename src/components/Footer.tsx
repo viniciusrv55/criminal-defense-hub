@@ -11,13 +11,11 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           <div className="lg:col-span-1">
             <Link to="/" className="flex items-center gap-3 mb-6">
-              <div className="p-2 rounded-lg bg-primary/20">
-                <Scale className="w-6 h-6 text-gold" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-lg font-serif font-semibold text-foreground">Lindomberto Moraes</span>
-                <span className="text-xs text-muted-foreground tracking-wider uppercase">Advocacia Criminal</span>
-              </div>
+              {settings.logo_url ? (
+                <img src={settings.logo_url} alt="Lindomberto Moraes" className="h-12 w-auto object-contain" />
+              ) : (
+                <div className="h-12" aria-hidden />
+              )}
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed">
               {settings.footer_description || 'Defesa criminal especializada com ética, sigilo e dedicação. Atuamos em todo o Brasil com atendimento humanizado.'}
