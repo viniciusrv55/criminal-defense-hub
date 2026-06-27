@@ -88,20 +88,22 @@ const ContractForm = () => {
   };
 
   const saveClient = async (): Promise<string | null> => {
-    if (!clientDraft.full_name?.trim()) {
-      toast({ title: 'Nome do cliente é obrigatório', variant: 'destructive' }); return null;
+    // Não cria mais cliente aqui — apenas atualiza campos auxiliares (group/profile/mother/father/notes)
+    // dos clientes já cadastrados. Os dados pessoais devem ser editados em /admin/clientes.
+    if (!clientDraft.id) {
+      toast({ title: 'Selecione um cliente cadastrado', description: 'Cadastre o cliente em "Clientes" antes de criar o contrato.', variant: 'destructive' });
+      return null;
     }
-    const payload = { ...clientDraft, created_by: clientDraft.created_by ?? user?.id };
-    if (clientDraft.id) {
-      const { error } = await db.from('clients').update(payload).eq('id', clientDraft.id);
-      if (error) { toast({ title: 'Erro ao salvar cliente', description: error.message, variant: 'destructive' }); return null; }
-      return clientDraft.id;
-    }
-    const { data, error } = await db.from('clients').insert(payload).select().single();
-    if (error) { toast({ title: 'Erro ao criar cliente', description: error.message, variant: 'destructive' }); return null; }
-    setClient(data as Client);
-    setClientDraft(data as Client);
-    return (data as Client).id;
+    const auxiliary: Partial<Client> = {
+      group_id: clientDraft.group_id,
+      profile_type: clientDraft.profile_type,
+      mother_name: clientDraft.mother_name,
+      father_name: clientDraft.father_name,
+      notes: clientDraft.notes,
+    };
+    const { error } = await db.from('clients').update(auxiliary).eq('id', clientDraft.id);
+    if (error) { toast({ title: 'Erro ao salvar cliente', description: error.message, variant: 'destructive' }); return null; }
+    return clientDraft.id;
   };
 
   const saveContract = async (clientId: string): Promise<string | null> => {
@@ -121,6 +123,10 @@ const ContractForm = () => {
   };
 
   const handleSave = async (exit = false) => {
+    if (!clientDraft.id) {
+      toast({ title: 'Selecione um cliente', description: 'Pesquise pelo CPF/CNPJ ou nome. Se ainda não existir, cadastre em "Clientes".', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     const cId = await saveClient();
     if (!cId) { setSaving(false); return; }
@@ -131,6 +137,7 @@ const ContractForm = () => {
     if (exit) navigate('/admin/contratos');
     else if (isNew) navigate(`/admin/contratos/${ctId}`, { replace: true });
   };
+
 
   const visibleTabs = TAB_ORDER.filter(t => t !== 'seguranca' || canSeeSecurity);
 
@@ -173,130 +180,154 @@ const ContractForm = () => {
 
         {/* CLIENTE */}
         <TabsContent value="cliente" className="space-y-6">
-          {isNew && !clientDraft.id && (
-            <div className="bg-card rounded-xl border border-border p-4">
-              <Label className="text-foreground text-sm">Buscar cliente existente (nome ou CPF/CNPJ)</Label>
-              <div className="relative mt-2">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Digite ao menos 2 letras..." className="pl-9 bg-background" />
-              </div>
-              {searching && <p className="text-xs text-muted-foreground mt-2">Buscando...</p>}
-              {results.length > 0 && (
-                <div className="mt-3 space-y-1 max-h-60 overflow-y-auto">
-                  {results.map(c => (
-                    <button key={c.id} type="button" onClick={() => pickClient(c)} className="w-full text-left p-2 rounded-lg hover:bg-muted transition-colors text-sm">
-                      <span className="font-medium text-foreground">{c.full_name}</span>
-                      <span className="text-muted-foreground ml-2">{c.cpf || c.cnpj || ''}</span>
-                    </button>
-                  ))}
+          {!clientDraft.id && (
+            <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+              <div>
+                <Label className="text-foreground text-sm">Buscar cliente cadastrado (CPF, CNPJ ou nome) *</Label>
+                <div className="relative mt-2">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Digite ao menos 2 letras..." className="pl-9 bg-background" />
                 </div>
-              )}
-              <div className="mt-4 pt-4 border-t border-border text-xs text-muted-foreground flex items-center gap-2">
-                <UserPlus className="w-3.5 h-3.5" /> Ou preencha os dados abaixo para criar um novo cliente
+                {searching && <p className="text-xs text-muted-foreground mt-2">Buscando...</p>}
+                {results.length > 0 && (
+                  <div className="mt-3 space-y-1 max-h-60 overflow-y-auto">
+                    {results.map(c => (
+                      <button key={c.id} type="button" onClick={() => pickClient(c)} className="w-full text-left p-2 rounded-lg hover:bg-muted transition-colors text-sm">
+                        <span className="font-medium text-foreground">{c.full_name}</span>
+                        <span className="text-muted-foreground ml-2">{c.cpf || c.cnpj || ''}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="pt-3 border-t border-border text-xs text-muted-foreground flex items-center justify-between gap-2 flex-wrap">
+                <span className="flex items-center gap-2"><UserPlus className="w-3.5 h-3.5" /> Cliente ainda não cadastrado?</span>
+                <Button type="button" variant="outline" size="sm" onClick={() => navigate('/admin/clientes')}>
+                  Cadastrar cliente
+                </Button>
               </div>
             </div>
           )}
 
-          <div className="bg-card rounded-xl border border-border p-6 space-y-4">
-            <div className="flex gap-6">
-              <label className="flex items-center gap-2 text-sm">
-                <input type="radio" checked={clientDraft.person_type === 'pf'} onChange={() => setClientDraft({ ...clientDraft, person_type: 'pf' })} /> Pessoa física
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="radio" checked={clientDraft.person_type === 'pj'} onChange={() => setClientDraft({ ...clientDraft, person_type: 'pj' })} /> Pessoa jurídica
-              </label>
-            </div>
+          {clientDraft.id && (
+            <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <h3 className="font-semibold text-foreground">Dados do cliente</h3>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => navigate('/admin/clientes')}>
+                    Editar no cadastro de cliente
+                  </Button>
+                  {isNew && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => { setClient(null); setClientDraft(emptyClient()); setContractDraft(prev => ({ ...prev, client_id: undefined })); }}>
+                      Trocar cliente
+                    </Button>
+                  )}
+                </div>
+              </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Field label="Grupo">
-                <CreatableCombobox
-                  value={clientDraft.group_id ?? null}
-                  options={groupsHook.groups.filter(g => !g.parent_id).map(g => ({ value: g.id, label: g.name }))}
-                  placeholder="Selecione ou cadastre..."
-                  emptyText="Nenhum grupo cadastrado"
-                  onChange={v => setClientDraft({ ...clientDraft, group_id: v })}
-                  onCreate={async (name) => groupsHook.create(name)}
-                  onDelete={async (id) => groupsHook.remove(id)}
-                  allowClear
-                />
-              </Field>
-              <Field label="Perfil">
-                <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm" value={clientDraft.profile_type ?? ''} onChange={e => setClientDraft({ ...clientDraft, profile_type: e.target.value })}>
-                  <option value="">Selecione...</option>
-                  {PROFILE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </Field>
-              <Field label={clientDraft.person_type === 'pj' ? 'Razão social *' : 'Nome completo *'}>
-                <Input value={clientDraft.full_name ?? ''} onChange={e => setClientDraft({ ...clientDraft, full_name: e.target.value })} />
-              </Field>
-              <Field label="Nacionalidade"><Input value={clientDraft.nationality ?? ''} onChange={e => setClientDraft({ ...clientDraft, nationality: e.target.value })} /></Field>
+              <div className="text-xs text-muted-foreground bg-muted/40 border border-border rounded-md p-3">
+                <Lock className="w-3.5 h-3.5 inline mr-1" />
+                Os dados pessoais abaixo são herdados do cadastro do cliente. Para alterá-los, use o menu <strong>Clientes</strong>.
+              </div>
 
-              {clientDraft.person_type === 'pf' ? (
-                <>
-                  <Field label="Profissão"><Input value={clientDraft.profession ?? ''} onChange={e => setClientDraft({ ...clientDraft, profession: e.target.value })} /></Field>
-                  <Field label="Estado civil"><Input value={clientDraft.marital_status ?? ''} onChange={e => setClientDraft({ ...clientDraft, marital_status: e.target.value })} /></Field>
-                  <Field label="Nascimento"><Input type="date" value={clientDraft.birth_date ?? ''} onChange={e => setClientDraft({ ...clientDraft, birth_date: e.target.value })} /></Field>
-                  <Field label="CPF"><Input value={clientDraft.cpf ?? ''} onChange={e => setClientDraft({ ...clientDraft, cpf: e.target.value })} /></Field>
-                  <Field label="RG"><Input value={clientDraft.rg ?? ''} onChange={e => setClientDraft({ ...clientDraft, rg: e.target.value })} /></Field>
-                  <Field label="PIS"><Input value={clientDraft.pis ?? ''} onChange={e => setClientDraft({ ...clientDraft, pis: e.target.value })} /></Field>
-                </>
-              ) : (
-                <>
-                  <Field label="Nome fantasia"><Input value={clientDraft.trade_name ?? ''} onChange={e => setClientDraft({ ...clientDraft, trade_name: e.target.value })} /></Field>
-                  <Field label="CNPJ"><Input value={clientDraft.cnpj ?? ''} onChange={e => setClientDraft({ ...clientDraft, cnpj: e.target.value })} /></Field>
-                  <Field label="Inscrição estadual"><Input value={clientDraft.state_registration ?? ''} onChange={e => setClientDraft({ ...clientDraft, state_registration: e.target.value })} /></Field>
-                </>
-              )}
-            </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Tipo">
+                  <Input readOnly value={clientDraft.person_type === 'pj' ? 'Pessoa Jurídica' : 'Pessoa Física'} className="bg-muted/40" />
+                </Field>
+                <Field label={clientDraft.person_type === 'pj' ? 'Razão social' : 'Nome completo'}>
+                  <Input readOnly value={clientDraft.full_name ?? ''} className="bg-muted/40" />
+                </Field>
 
-            <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border">
-              <Field label="E-mail principal">
-                <Input type="email" value={clientDraft.emails?.[0]?.value ?? ''} onChange={e => setClientDraft({ ...clientDraft, emails: [{ label: 'principal', value: e.target.value }] })} />
-              </Field>
-              <Field label="Celular">
-                <Input value={clientDraft.phones?.[0]?.value ?? ''} onChange={e => setClientDraft({ ...clientDraft, phones: [{ label: 'celular', value: e.target.value }] })} />
-              </Field>
-              <Field label="Contato secundário (nome)"><Input value={clientDraft.contact_name ?? ''} onChange={e => setClientDraft({ ...clientDraft, contact_name: e.target.value })} /></Field>
-              <Field label="Telefone do contato"><Input value={clientDraft.contact_phone ?? ''} onChange={e => setClientDraft({ ...clientDraft, contact_phone: e.target.value })} /></Field>
-            </div>
+                {clientDraft.person_type === 'pj' ? (
+                  <>
+                    <Field label="Nome fantasia"><Input readOnly value={clientDraft.trade_name ?? ''} className="bg-muted/40" /></Field>
+                    <Field label="CNPJ"><Input readOnly value={clientDraft.cnpj ?? ''} className="bg-muted/40" /></Field>
+                    <Field label="Inscrição estadual"><Input readOnly value={clientDraft.state_registration ?? ''} className="bg-muted/40" /></Field>
+                  </>
+                ) : (
+                  <>
+                    <Field label="CPF"><Input readOnly value={clientDraft.cpf ?? ''} className="bg-muted/40" /></Field>
+                    <Field label="RG"><Input readOnly value={clientDraft.rg ?? ''} className="bg-muted/40" /></Field>
+                    <Field label="Nascimento"><Input readOnly value={clientDraft.birth_date ?? ''} className="bg-muted/40" /></Field>
+                    <Field label="Estado civil"><Input readOnly value={clientDraft.marital_status ?? ''} className="bg-muted/40" /></Field>
+                    <Field label="Nacionalidade"><Input readOnly value={clientDraft.nationality ?? ''} className="bg-muted/40" /></Field>
+                    <Field label="Profissão"><Input readOnly value={clientDraft.profession ?? ''} className="bg-muted/40" /></Field>
+                  </>
+                )}
+              </div>
 
-            <div className="grid sm:grid-cols-3 gap-4 pt-4 border-t border-border">
-              <Field label="CEP"><Input value={clientDraft.cep ?? ''} onChange={e => setClientDraft({ ...clientDraft, cep: e.target.value })} /></Field>
-              <Field label="Estado"><Input value={clientDraft.state ?? ''} onChange={e => setClientDraft({ ...clientDraft, state: e.target.value })} /></Field>
-              <Field label="Cidade"><Input value={clientDraft.city ?? ''} onChange={e => setClientDraft({ ...clientDraft, city: e.target.value })} /></Field>
-              <Field label="Bairro"><Input value={clientDraft.neighborhood ?? ''} onChange={e => setClientDraft({ ...clientDraft, neighborhood: e.target.value })} /></Field>
-              <div className="sm:col-span-2"><Field label="Endereço"><Input value={clientDraft.address ?? ''} onChange={e => setClientDraft({ ...clientDraft, address: e.target.value })} /></Field></div>
-            </div>
+              <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border">
+                <Field label="E-mail principal"><Input readOnly value={clientDraft.emails?.[0]?.value ?? ''} className="bg-muted/40" /></Field>
+                <Field label="Celular"><Input readOnly value={clientDraft.phones?.[0]?.value ?? ''} className="bg-muted/40" /></Field>
+              </div>
 
-            <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border">
-              <Field label="Nome do pai"><Input value={clientDraft.father_name ?? ''} onChange={e => setClientDraft({ ...clientDraft, father_name: e.target.value })} /></Field>
-              <Field label="Nome da mãe"><Input value={clientDraft.mother_name ?? ''} onChange={e => setClientDraft({ ...clientDraft, mother_name: e.target.value })} /></Field>
-              <div className="sm:col-span-2"><Field label="Anamnese / Observações"><Textarea rows={4} value={clientDraft.notes ?? ''} onChange={e => setClientDraft({ ...clientDraft, notes: e.target.value })} placeholder="Histórico, contexto, informações relevantes do caso..." /></Field></div>
-            </div>
-            <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border">
-              <Field label="Advogado responsável pelo caso">
-                <select
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                  value={contractDraft.attorney_id ?? ''}
-                  onChange={e => setContractDraft({ ...contractDraft, attorney_id: e.target.value || null })}
-                >
-                  <option value="">Selecione...</option>
-                  {teamMembers.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-                </select>
-              </Field>
-              <Field label="Área de atuação">
-                <select
-                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                  value={contractDraft.practice_area_id ?? ''}
-                  onChange={e => setContractDraft({ ...contractDraft, practice_area_id: e.target.value || null })}
+              <div className="grid sm:grid-cols-3 gap-4 pt-4 border-t border-border">
+                <Field label="CEP"><Input readOnly value={clientDraft.cep ?? ''} className="bg-muted/40" /></Field>
+                <Field label="Estado"><Input readOnly value={clientDraft.state ?? ''} className="bg-muted/40" /></Field>
+                <Field label="Cidade"><Input readOnly value={clientDraft.city ?? ''} className="bg-muted/40" /></Field>
+                <Field label="Bairro"><Input readOnly value={clientDraft.neighborhood ?? ''} className="bg-muted/40" /></Field>
+                <div className="sm:col-span-2"><Field label="Endereço"><Input readOnly value={clientDraft.address ?? ''} className="bg-muted/40" /></Field></div>
+              </div>
+
+              {/* Campos exclusivos do contrato — editáveis */}
+              <div className="pt-4 border-t border-border space-y-4">
+                <h4 className="text-sm font-semibold text-foreground">Dados específicos deste contrato</h4>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <Field label="Grupo">
+                    <CreatableCombobox
+                      value={clientDraft.group_id ?? null}
+                      options={groupsHook.groups.filter(g => !g.parent_id).map(g => ({ value: g.id, label: g.name }))}
+                      placeholder="Selecione ou cadastre..."
+                      emptyText="Nenhum grupo cadastrado"
+                      onChange={v => setClientDraft({ ...clientDraft, group_id: v })}
+                      onCreate={async (name) => groupsHook.create(name)}
+                      onDelete={async (id) => groupsHook.remove(id)}
+                      allowClear
+                    />
+                  </Field>
+                  <Field label="Perfil">
+                    <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm" value={clientDraft.profile_type ?? ''} onChange={e => setClientDraft({ ...clientDraft, profile_type: e.target.value })}>
+                      <option value="">Selecione...</option>
+                      {PROFILE_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </Field>
+                  {clientDraft.person_type === 'pf' && (
+                    <>
+                      <Field label="Nome do pai"><Input value={clientDraft.father_name ?? ''} onChange={e => setClientDraft({ ...clientDraft, father_name: e.target.value })} /></Field>
+                      <Field label="Nome da mãe"><Input value={clientDraft.mother_name ?? ''} onChange={e => setClientDraft({ ...clientDraft, mother_name: e.target.value })} /></Field>
+                    </>
+                  )}
+                  <div className="sm:col-span-2"><Field label="Anamnese / Observações"><Textarea rows={4} value={clientDraft.notes ?? ''} onChange={e => setClientDraft({ ...clientDraft, notes: e.target.value })} placeholder="Histórico, contexto, informações relevantes do caso..." /></Field></div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border">
+                  <Field label="Advogado responsável pelo caso">
+                    <select
+                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                      value={contractDraft.attorney_id ?? ''}
+                      onChange={e => setContractDraft({ ...contractDraft, attorney_id: e.target.value || null })}
+                    >
+                      <option value="">Selecione...</option>
+                      {teamMembers.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Área de atuação">
+                    <select
+                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                      value={contractDraft.practice_area_id ?? ''}
+                      onChange={e => setContractDraft({ ...contractDraft, practice_area_id: e.target.value || null })}
+
                 >
                   <option value="">Selecione...</option>
                   {areas.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
                 </select>
               </Field>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </TabsContent>
+
 
         {/* PROCESSO */}
         <TabsContent value="processo" className="bg-card rounded-xl border border-border p-6 space-y-4">
