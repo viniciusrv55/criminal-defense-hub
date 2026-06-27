@@ -322,9 +322,12 @@ const ContractForm = () => {
                   {areas.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
                 </select>
               </Field>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </TabsContent>
+
 
         {/* PROCESSO */}
         <TabsContent value="processo" className="bg-card rounded-xl border border-border p-6 space-y-4">
