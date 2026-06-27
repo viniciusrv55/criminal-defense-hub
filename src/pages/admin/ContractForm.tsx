@@ -88,20 +88,22 @@ const ContractForm = () => {
   };
 
   const saveClient = async (): Promise<string | null> => {
-    if (!clientDraft.full_name?.trim()) {
-      toast({ title: 'Nome do cliente é obrigatório', variant: 'destructive' }); return null;
+    // Não cria mais cliente aqui — apenas atualiza campos auxiliares (group/profile/mother/father/notes)
+    // dos clientes já cadastrados. Os dados pessoais devem ser editados em /admin/clientes.
+    if (!clientDraft.id) {
+      toast({ title: 'Selecione um cliente cadastrado', description: 'Cadastre o cliente em "Clientes" antes de criar o contrato.', variant: 'destructive' });
+      return null;
     }
-    const payload = { ...clientDraft, created_by: clientDraft.created_by ?? user?.id };
-    if (clientDraft.id) {
-      const { error } = await db.from('clients').update(payload).eq('id', clientDraft.id);
-      if (error) { toast({ title: 'Erro ao salvar cliente', description: error.message, variant: 'destructive' }); return null; }
-      return clientDraft.id;
-    }
-    const { data, error } = await db.from('clients').insert(payload).select().single();
-    if (error) { toast({ title: 'Erro ao criar cliente', description: error.message, variant: 'destructive' }); return null; }
-    setClient(data as Client);
-    setClientDraft(data as Client);
-    return (data as Client).id;
+    const auxiliary: Partial<Client> = {
+      group_id: clientDraft.group_id,
+      profile_type: clientDraft.profile_type,
+      mother_name: clientDraft.mother_name,
+      father_name: clientDraft.father_name,
+      notes: clientDraft.notes,
+    };
+    const { error } = await db.from('clients').update(auxiliary).eq('id', clientDraft.id);
+    if (error) { toast({ title: 'Erro ao salvar cliente', description: error.message, variant: 'destructive' }); return null; }
+    return clientDraft.id;
   };
 
   const saveContract = async (clientId: string): Promise<string | null> => {
@@ -121,6 +123,10 @@ const ContractForm = () => {
   };
 
   const handleSave = async (exit = false) => {
+    if (!clientDraft.id) {
+      toast({ title: 'Selecione um cliente', description: 'Pesquise pelo CPF/CNPJ ou nome. Se ainda não existir, cadastre em "Clientes".', variant: 'destructive' });
+      return;
+    }
     setSaving(true);
     const cId = await saveClient();
     if (!cId) { setSaving(false); return; }
@@ -131,6 +137,7 @@ const ContractForm = () => {
     if (exit) navigate('/admin/contratos');
     else if (isNew) navigate(`/admin/contratos/${ctId}`, { replace: true });
   };
+
 
   const visibleTabs = TAB_ORDER.filter(t => t !== 'seguranca' || canSeeSecurity);
 
