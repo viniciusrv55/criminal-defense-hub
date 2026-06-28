@@ -83,8 +83,21 @@ const ContractForm = () => {
     setClient(c);
     setClientDraft(c);
     setSearch('');
-    // Quando seleciona cliente existente, herda o group_id no contrato
-    setContractDraft(prev => ({ ...prev, client_id: c.id, group_id: prev.group_id ?? c.group_id ?? null }));
+    // Herda dados do cliente: grupo, advogado responsável e (via especialidade do advogado) área de atuação
+    setContractDraft(prev => {
+      const nextAttorney = prev.attorney_id ?? c.assigned_attorney_id ?? null;
+      const member = teamMembers.find(m => m.id === nextAttorney);
+      const matchedArea = member?.specialty
+        ? areas.find(a => a.title.toLowerCase().trim() === member.specialty!.toLowerCase().trim())
+        : null;
+      return {
+        ...prev,
+        client_id: c.id,
+        group_id: prev.group_id ?? c.group_id ?? null,
+        attorney_id: nextAttorney,
+        practice_area_id: prev.practice_area_id ?? matchedArea?.id ?? null,
+      };
+    });
   };
 
   const saveClient = async (): Promise<string | null> => {
