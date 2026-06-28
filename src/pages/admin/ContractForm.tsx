@@ -52,10 +52,10 @@ const ContractForm = () => {
   const [search, setSearch] = useState('');
   const { results, searching } = useClientSearch(search);
   const [docs, setDocs] = useState<ContractDocument[]>([]);
-  const [teamMembers, setTeamMembers] = useState<{ id: string; full_name: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ id: string; full_name: string; specialty: string | null }[]>([]);
   useEffect(() => {
-    db.from('team_members').select('id,full_name').eq('active', true).order('full_name')
-      .then(({ data }: { data: { id: string; full_name: string }[] | null }) => setTeamMembers(data ?? []));
+    db.from('team_members').select('id,full_name,specialty').eq('active', true).order('full_name')
+      .then(({ data }: { data: { id: string; full_name: string; specialty: string | null }[] | null }) => setTeamMembers(data ?? []));
   }, []);
 
   // Verifica se usuário é o advogado responsável (para liberar aba Segurança)
@@ -83,8 +83,21 @@ const ContractForm = () => {
     setClient(c);
     setClientDraft(c);
     setSearch('');
-    // Quando seleciona cliente existente, herda o group_id no contrato
-    setContractDraft(prev => ({ ...prev, client_id: c.id, group_id: prev.group_id ?? c.group_id ?? null }));
+    // Herda dados do cliente: grupo, advogado responsável e (via especialidade do advogado) área de atuação
+    setContractDraft(prev => {
+      const nextAttorney = prev.attorney_id ?? c.assigned_attorney_id ?? null;
+      const member = teamMembers.find(m => m.id === nextAttorney);
+      const matchedArea = member?.specialty
+        ? areas.find(a => a.title.toLowerCase().trim() === member.specialty!.toLowerCase().trim())
+        : null;
+      return {
+        ...prev,
+        client_id: c.id,
+        group_id: prev.group_id ?? c.group_id ?? null,
+        attorney_id: nextAttorney,
+        practice_area_id: prev.practice_area_id ?? matchedArea?.id ?? null,
+      };
+    });
   };
 
   const saveClient = async (): Promise<string | null> => {
@@ -301,28 +314,24 @@ const ContractForm = () => {
                 </div>
 
                 <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border">
-                  <Field label="Advogado responsável pelo caso">
-                    <select
-                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                      value={contractDraft.attorney_id ?? ''}
-                      onChange={e => setContractDraft({ ...contractDraft, attorney_id: e.target.value || null })}
-                    >
-                      <option value="">Selecione...</option>
-                      {teamMembers.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Área de atuação">
-                    <select
-                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                      value={contractDraft.practice_area_id ?? ''}
-                      onChange={e => setContractDraft({ ...contractDraft, practice_area_id: e.target.value || null })}
-
-                >
-                  <option value="">Selecione...</option>
-                  {areas.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
-                </select>
-              </Field>
+                  {(() => {
+                    const member = teamMembers.find(m => m.id === contractDraft.attorney_id);
+                    const area = areas.find(a => a.id === contractDraft.practice_area_id);
+                    return (
+                      <>
+                        <Field label="Advogado responsável pelo caso">
+                          <Input readOnly value={member?.full_name ?? '— defina no cadastro do cliente —'} className="bg-muted/40" />
+                          <p className="text-xs text-muted-foreground mt-1">Herdado do cadastro do cliente. Para alterar, edite em <strong>Clientes</strong>.</p>
+                        </Field>
+                        <Field label="Área de atuação">
+                          <Input readOnly value={area?.title ?? (member?.specialty ?? '— defina a especialidade do advogado —')} className="bg-muted/40" />
+                          <p className="text-xs text-muted-foreground mt-1">Herdada da especialidade do advogado responsável (cadastro de Equipe).</p>
+                        </Field>
+                      </>
+                    );
+                  })()}
                 </div>
+
               </div>
             </div>
           )}
