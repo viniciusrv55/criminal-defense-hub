@@ -841,8 +841,10 @@ const DocumentsTab = ({ contractId, client, contract, docs, onChange, userId }: 
     const filledHtml = applyVariables(tpl.content_html, { client, contract });
     const blob = await htmlToDocxBlob(filledHtml, tpl.title);
 
-    const safeTitle = tpl.title.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
-    const fileName = `${safeTitle}-${client.full_name.replace(/\s+/g, '_')}-${Date.now()}.docx`;
+    const asciiSafe = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 80) || 'arquivo';
+    const safeTitle = asciiSafe(tpl.title).toLowerCase();
+    const safeClient = asciiSafe(client.full_name);
+    const fileName = `${safeTitle}-${safeClient}-${Date.now()}.docx`;
     const path = `${contractId}/${fileName}`;
     const { error: upErr } = await supabase.storage.from('contracts').upload(path, blob, {
       contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
