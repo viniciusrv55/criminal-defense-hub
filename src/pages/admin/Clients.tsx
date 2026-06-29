@@ -303,12 +303,14 @@ export default function Clients() {
                     </div>
                     <div>
                       <Label>Estado civil</Label>
-                      <Select value={editing.marital_status ?? ''} onValueChange={v => set({ marital_status: v })}>
-                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>
-                          {MARITAL_OPTIONS.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <select
+                        className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                        value={editing.marital_status ?? ''}
+                        onChange={e => set({ marital_status: e.target.value || null })}
+                      >
+                        <option value="">Selecione...</option>
+                        {MARITAL_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
                     </div>
                     <div>
                       <Label>Nacionalidade</Label>
