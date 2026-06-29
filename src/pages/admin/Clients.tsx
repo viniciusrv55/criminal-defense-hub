@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/supabase-helpers';
@@ -257,13 +256,14 @@ export default function Clients() {
             <div className="space-y-5">
               <div>
                 <Label>Tipo</Label>
-                <Select value={editing.person_type ?? 'pf'} onValueChange={v => set({ person_type: v as 'pf' | 'pj' })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pf">Pessoa Física</SelectItem>
-                    <SelectItem value="pj">Pessoa Jurídica</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  value={editing.person_type ?? 'pf'}
+                  onChange={e => set({ person_type: e.target.value as 'pf' | 'pj' })}
+                >
+                  <option value="pf">Pessoa Física</option>
+                  <option value="pj">Pessoa Jurídica</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -372,16 +372,14 @@ export default function Clients() {
 
               <div className="pt-4 border-t">
                 <Label>Advogado responsável</Label>
-                <Select
-                  value={editing.assigned_attorney_id ?? '__none__'}
-                  onValueChange={v => set({ assigned_attorney_id: v === '__none__' ? null : v })}
+                <select
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  value={editing.assigned_attorney_id ?? ''}
+                  onChange={e => set({ assigned_attorney_id: e.target.value || null })}
                 >
-                  <SelectTrigger><SelectValue placeholder="Sem advogado fixo" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Sem advogado fixo</SelectItem>
-                    {members.map(m => <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                  <option value="">Sem advogado fixo</option>
+                  {members.map(m => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                </select>
                 <p className="text-xs text-muted-foreground mt-1">
                   Quando o cliente entrar em contato pelo WhatsApp, o agente de IA reconhece e transfere para este advogado.
                 </p>
