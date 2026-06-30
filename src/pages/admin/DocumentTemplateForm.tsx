@@ -14,6 +14,7 @@ import { useDocTemplate, useDocTemplateTypes, useCurrentTeamMember } from '@/hoo
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
+import { logError } from '@/lib/error-logger';
 
 // Mínimo obrigatório para um modelo de "Recibo"
 const RECEIPT_REQUIRED_TOKENS = ['[NOMECLIENTE]', '[CPFCLIENTE]', '[PARCELAVALORPAGO]'] as const;
