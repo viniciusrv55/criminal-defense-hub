@@ -71,6 +71,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         ...(isSuperAdmin() ? [{ href: '/admin/equipe', label: 'Equipe', icon: UserCheck }] : []),
         ...(admin ? [{ href: '/admin/settings', label: 'Configurações', icon: Settings }] : []),
         ...(isSuperAdmin() ? [{ href: '/admin/plataforma', label: 'Plataforma', icon: ShieldAlert }] : []),
+        ...(isSuperAdmin() ? [{ href: '/admin/logs', label: 'Logs de Erros', icon: AlertTriangle }] : []),
       ],
     },
   ].filter(g => g.items.length > 0);
