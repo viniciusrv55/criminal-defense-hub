@@ -90,6 +90,7 @@ const App = () => (
             <Route path="/admin/whatsapp" element={<AdminOnlyRoute><WhatsAppInstances /></AdminOnlyRoute>} />
             <Route path="/admin/filas" element={<AdminOnlyRoute><Queues /></AdminOnlyRoute>} />
             <Route path="/admin/plataforma" element={<SuperAdminRoute><PlatformSettings /></SuperAdminRoute>} />
+            <Route path="/admin/logs" element={<SuperAdminRoute><ErrorLogs /></SuperAdminRoute>} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>
