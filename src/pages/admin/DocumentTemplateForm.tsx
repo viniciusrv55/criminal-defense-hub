@@ -70,7 +70,9 @@ const DocumentTemplateForm = () => {
     }
   }, [template, isNew, me]);
 
-  const canEdit = isAdmin() || (me && ownerId === me.id) || isNew;
+  // Qualquer membro autenticado pode editar. Se não for dono/admin/assignado, salvar cria uma cópia automaticamente.
+  const canEdit = !!user;
+  const isOwnerOrAdmin = isAdmin() || (me && ownerId === me.id) || (me && assignedIds.includes(me.id)) || isNew;
 
   // É modelo de Recibo?
   const isReceiptType = !!typeId && typesHook.types.find(t => t.id === typeId)?.name?.toLowerCase().includes('recibo');
