@@ -211,7 +211,13 @@ const DocumentTemplateForm = () => {
           )}
         </div>
 
-        {isReceiptType && (
+        {!isOwnerOrAdmin && !!template?.id && (
+          <div className="rounded-lg p-3 text-xs border bg-amber-500/10 border-amber-500/40 text-foreground">
+            Você não é o dono deste modelo. Ao salvar, criaremos uma <strong>cópia como seu modelo</strong> (o original ficará intacto).
+          </div>
+        )}
+
+
           <div className={`rounded-lg p-3 text-xs border ${missingReceiptTokens.length ? 'bg-destructive/10 border-destructive/40 text-destructive' : 'bg-green-500/10 border-green-500/40 text-foreground'}`}>
             <strong>Modelo de Recibo</strong> — variáveis obrigatórias: {RECEIPT_REQUIRED_TOKENS.join(', ')}.
             {missingReceiptTokens.length > 0
