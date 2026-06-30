@@ -14,6 +14,7 @@ import { useDocTemplate, useDocTemplateTypes, useCurrentTeamMember } from '@/hoo
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
+import { logError } from '@/lib/error-logger';
 
 // Mínimo obrigatório para um modelo de "Recibo"
 const RECEIPT_REQUIRED_TOKENS = ['[NOMECLIENTE]', '[CPFCLIENTE]', '[PARCELAVALORPAGO]'] as const;
@@ -69,7 +70,9 @@ const DocumentTemplateForm = () => {
     }
   }, [template, isNew, me]);
 
-  const canEdit = isAdmin() || (me && ownerId === me.id) || isNew;
+  // Qualquer membro autenticado pode editar. Se não for dono/admin/assignado, salvar cria uma cópia automaticamente.
+  const canEdit = !!user;
+  const isOwnerOrAdmin = isAdmin() || (me && ownerId === me.id) || (me && assignedIds.includes(me.id)) || isNew;
 
   // É modelo de Recibo?
   const isReceiptType = !!typeId && typesHook.types.find(t => t.id === typeId)?.name?.toLowerCase().includes('recibo');
@@ -90,25 +93,39 @@ const DocumentTemplateForm = () => {
       return;
     }
     setSaving(true);
+    // Para não-admin: se está tentando atualizar um modelo que não é seu (e não está nos assignados),
+    // criamos uma cópia (clone) com ele como dono — evita erro de RLS e mantém o trabalho do usuário.
+    const isOwner = me && ownerId === me.id;
+    const isAssigned = me && assignedIds.includes(me.id);
+    const mustClone = !!template?.id && !isAdmin() && !isOwner && !isAssigned;
+    const effectiveOwnerId = mustClone && me ? me.id : ownerId;
     const payload = {
-      type_id: typeId, title, content_html: content, doc_date: docDate || null,
-      owner_id: ownerId, assigned_team_member_ids: assignedIds, created_by: user?.id,
+      type_id: typeId, title: mustClone ? `${title} (cópia)` : title, content_html: content, doc_date: docDate || null,
+      owner_id: effectiveOwnerId, assigned_team_member_ids: mustClone ? [] : assignedIds, created_by: user?.id,
       letterhead_enabled: letterheadEnabled,
       logo_url: logoUrl || null,
       header_image_url: headerImageUrl || null,
       footer_image_url: footerImageUrl || null,
       background_image_url: backgroundImageUrl || null,
     };
-    if (template?.id) {
+    if (template?.id && !mustClone) {
       const { error } = await db.from('document_templates').update(payload).eq('id', template.id);
-      if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); setSaving(false); return; }
+      if (error) {
+        logError({ action: 'update', screen: 'DocumentTemplateForm', table: 'document_templates', error, payload: { id: template.id } });
+        toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+        setSaving(false); return;
+      }
     } else {
       const { data, error } = await db.from('document_templates').insert(payload).select().single();
-      if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); setSaving(false); return; }
+      if (error) {
+        logError({ action: 'insert', screen: 'DocumentTemplateForm', table: 'document_templates', error, payload });
+        toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+        setSaving(false); return;
+      }
       if (!exit) { navigate(`/admin/documentos/${(data as { id: string }).id}`, { replace: true }); }
     }
     setSaving(false);
-    toast({ title: 'Modelo salvo!' });
+    toast({ title: mustClone ? 'Modelo duplicado como seu' : 'Modelo salvo!', description: mustClone ? 'Você não era dono do modelo original; criamos uma cópia editável para você.' : undefined });
     if (exit) navigate('/admin/documentos');
   };
 
@@ -193,6 +210,12 @@ const DocumentTemplateForm = () => {
             </div>
           )}
         </div>
+
+        {!isOwnerOrAdmin && !!template?.id && (
+          <div className="rounded-lg p-3 text-xs border bg-amber-500/10 border-amber-500/40 text-foreground">
+            Você não é o dono deste modelo. Ao salvar, criaremos uma <strong>cópia como seu modelo</strong> (o original ficará intacto).
+          </div>
+        )}
 
         {isReceiptType && (
           <div className={`rounded-lg p-3 text-xs border ${missingReceiptTokens.length ? 'bg-destructive/10 border-destructive/40 text-destructive' : 'bg-green-500/10 border-green-500/40 text-foreground'}`}>

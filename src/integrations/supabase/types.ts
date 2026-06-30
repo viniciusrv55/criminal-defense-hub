@@ -1290,6 +1290,57 @@ export type Database = {
           },
         ]
       }
+      error_logs: {
+        Row: {
+          action: string | null
+          created_at: string
+          error_code: string | null
+          error_details: string | null
+          error_message: string | null
+          id: string
+          payload: Json | null
+          route: string | null
+          screen: string | null
+          table_name: string | null
+          user_agent: string | null
+          user_email: string | null
+          user_id: string | null
+          user_name: string | null
+        }
+        Insert: {
+          action?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_details?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          route?: string | null
+          screen?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Update: {
+          action?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_details?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          route?: string | null
+          screen?: string | null
+          table_name?: string | null
+          user_agent?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       featured_attorneys: {
         Row: {
           active: boolean

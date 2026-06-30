@@ -5,7 +5,7 @@ import { useSiteSettings } from '@/hooks/useSiteSettings';
 import {
   LayoutDashboard, FileText, Briefcase, LogOut, Menu, X, Scale,
   Settings, UserCheck, FileSignature, ExternalLink, Smartphone, ShieldAlert, MessageSquare, Bot, Calendar, CalendarCog,
-  UsersRound, KanbanSquare, Inbox,
+  UsersRound, KanbanSquare, Inbox, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -71,6 +71,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         ...(isSuperAdmin() ? [{ href: '/admin/equipe', label: 'Equipe', icon: UserCheck }] : []),
         ...(admin ? [{ href: '/admin/settings', label: 'Configurações', icon: Settings }] : []),
         ...(isSuperAdmin() ? [{ href: '/admin/plataforma', label: 'Plataforma', icon: ShieldAlert }] : []),
+        ...(isSuperAdmin() ? [{ href: '/admin/logs', label: 'Logs de Erros', icon: AlertTriangle }] : []),
       ],
     },
   ].filter(g => g.items.length > 0);

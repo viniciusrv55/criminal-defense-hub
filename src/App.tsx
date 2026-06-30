@@ -37,6 +37,7 @@ import CampaignTemplates from "./pages/admin/CampaignTemplates";
 import CampaignAudiences from "./pages/admin/CampaignAudiences";
 import Queues from "./pages/admin/Queues";
 import Clients from "./pages/admin/Clients";
+import ErrorLogs from "./pages/admin/ErrorLogs";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import SuperAdminRoute from "./components/admin/SuperAdminRoute";
 import AdminOnlyRoute from "./components/admin/AdminOnlyRoute";
@@ -89,6 +90,7 @@ const App = () => (
             <Route path="/admin/whatsapp" element={<AdminOnlyRoute><WhatsAppInstances /></AdminOnlyRoute>} />
             <Route path="/admin/filas" element={<AdminOnlyRoute><Queues /></AdminOnlyRoute>} />
             <Route path="/admin/plataforma" element={<SuperAdminRoute><PlatformSettings /></SuperAdminRoute>} />
+            <Route path="/admin/logs" element={<SuperAdminRoute><ErrorLogs /></SuperAdminRoute>} />
 
               <Route path="*" element={<NotFound />} />
             </Routes>
