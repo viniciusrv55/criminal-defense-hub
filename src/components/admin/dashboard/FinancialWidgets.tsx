@@ -223,14 +223,28 @@ const FinancialWidgets = () => {
                         ⚠ Saldo não parcelado de <strong>{fmt(c.unscheduledBalance)}</strong> — necessita renegociar ou agendar parcelas.
                       </p>
                     )}
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground pt-2">Pendências</p>
+                    <div className="flex items-center justify-between pt-2">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pendências</p>
+                      <Link
+                        to={`/admin/contratos/${c.contractId}?tab=financeiro`}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                      >
+                        Abrir financeiro <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
                     {c.pendingRows.length === 0 ? (
                       <p className="text-xs text-muted-foreground py-1">Sem parcelas agendadas em aberto.</p>
                     ) : c.pendingRows.map(r => (
-                      <div key={r.key} className="flex items-center justify-between text-xs py-1">
+                      <button
+                        type="button"
+                        key={r.key}
+                        onClick={() => navigate(`/admin/contratos/${c.contractId}?tab=financeiro`)}
+                        className="w-full flex items-center justify-between text-xs py-1 hover:bg-muted/40 rounded px-1 text-left transition-colors"
+                        title="Abrir financeiro para dar baixa"
+                      >
                         <span className="text-foreground">{r.label} <span className="text-muted-foreground">· venc. {fmtDate(r.dueDate)}</span></span>
                         <span className={r.status === 'overdue' ? 'text-destructive font-medium' : 'text-muted-foreground'}>{fmt(r.remaining)}</span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
