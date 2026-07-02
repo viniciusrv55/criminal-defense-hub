@@ -83,6 +83,7 @@ interface WeekPayment {
 }
 
 const FinancialWidgets = () => {
+  const navigate = useNavigate();
   const [overdue, setOverdue] = useState<OverdueClient[]>([]);
   const [weekPays, setWeekPays] = useState<WeekPayment[]>([]);
   const [loading, setLoading] = useState(true);
