@@ -187,7 +187,7 @@ const ContractForm = () => {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={v => setTab(v as TabKey)} className="space-y-6">
+      <Tabs value={tab} onValueChange={v => { setTab(v as TabKey); const sp = new URLSearchParams(searchParams); sp.set('tab', v); setSearchParams(sp, { replace: true }); }} className="space-y-6">
         <TabsList className="bg-card border border-border h-auto flex-wrap justify-start">
           <TabsTrigger value="cliente">Cliente</TabsTrigger>
           <TabsTrigger value="processo">Processo</TabsTrigger>
