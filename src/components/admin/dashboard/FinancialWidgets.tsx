@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { db } from '@/lib/supabase-helpers';
-import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 import type { Contract, Client, FeesData } from '@/types/contracts';
 
 interface Payment {
