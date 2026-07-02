@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { db } from '@/lib/supabase-helpers';
 import { ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react';
 import type { Contract, Client, FeesData } from '@/types/contracts';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Payment {
   id: string;
@@ -84,6 +85,7 @@ interface WeekPayment {
 
 const FinancialWidgets = () => {
   const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const [overdue, setOverdue] = useState<OverdueClient[]>([]);
   const [weekPays, setWeekPays] = useState<WeekPayment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,12 +94,16 @@ const FinancialWidgets = () => {
 
   useEffect(() => {
     (async () => {
+      const admin = isAdmin();
+      const { data: mem } = await db.from('team_members').select('id').eq('user_id', user?.id).eq('active', true).maybeSingle();
+      const meTeamId = mem?.id ?? null;
       const [{ data: cs }, { data: cls }, { data: ps }] = await Promise.all([
         db.from('contracts').select('*').neq('status', 'cancelled'),
         db.from('clients').select('id,full_name'),
         db.from('installment_payments').select('*'),
       ]);
-      const contracts = (cs ?? []) as Contract[];
+      const allContracts = (cs ?? []) as Contract[];
+      const contracts = admin ? allContracts : allContracts.filter(c => c.attorney_id === meTeamId);
       const clients = (cls ?? []) as Pick<Client, 'id' | 'full_name'>[];
       const payments = (ps ?? []) as Payment[];
       const clientMap = new Map(clients.map(c => [c.id, c.full_name]));
@@ -164,7 +170,7 @@ const FinancialWidgets = () => {
       setWeekPays(wp);
       setLoading(false);
     })();
-  }, []);
+  }, [user?.id, isAdmin]);
 
   const totalOverdue = useMemo(() => overdue.reduce((s, c) => s + c.totalOverdue, 0), [overdue]);
   const totalWeek = useMemo(() => weekPays.reduce((s, p) => s + p.amount, 0), [weekPays]);
