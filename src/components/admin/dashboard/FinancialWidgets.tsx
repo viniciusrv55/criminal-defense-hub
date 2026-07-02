@@ -170,7 +170,7 @@ const FinancialWidgets = () => {
       setWeekPays(wp);
       setLoading(false);
     })();
-  }, []);
+  }, [user?.id, isAdmin]);
 
   const totalOverdue = useMemo(() => overdue.reduce((s, c) => s + c.totalOverdue, 0), [overdue]);
   const totalWeek = useMemo(() => weekPays.reduce((s, p) => s + p.amount, 0), [weekPays]);
