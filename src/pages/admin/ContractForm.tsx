@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,16 @@ const ContractForm = () => {
   const groupsHook = useClientGroups();
   const paymentMethodsHook = usePaymentMethods();
 
-  const [tab, setTab] = useState<TabKey>('cliente');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = (TAB_ORDER as readonly string[]).includes(searchParams.get('tab') ?? '')
+    ? (searchParams.get('tab') as TabKey)
+    : 'cliente';
+  const [tab, setTab] = useState<TabKey>(initialTab);
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && (TAB_ORDER as readonly string[]).includes(t) && t !== tab) setTab(t as TabKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
   const [saving, setSaving] = useState(false);
 
   const [clientDraft, setClientDraft] = useState<Partial<Client>>(emptyClient());
@@ -178,7 +187,7 @@ const ContractForm = () => {
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={v => setTab(v as TabKey)} className="space-y-6">
+      <Tabs value={tab} onValueChange={v => { setTab(v as TabKey); const sp = new URLSearchParams(searchParams); sp.set('tab', v); setSearchParams(sp, { replace: true }); }} className="space-y-6">
         <TabsList className="bg-card border border-border h-auto flex-wrap justify-start">
           <TabsTrigger value="cliente">Cliente</TabsTrigger>
           <TabsTrigger value="processo">Processo</TabsTrigger>
