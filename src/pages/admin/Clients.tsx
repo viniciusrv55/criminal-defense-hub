@@ -390,11 +390,11 @@ export default function Clients() {
             <p className="text-sm text-muted-foreground">Cadastre o cliente aqui antes de criar contratos. Os dados são puxados automaticamente.</p>
           </div>
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button variant="outline" onClick={downloadImportModel}><Download className="w-4 h-4 mr-2" /> Modelo .xls</Button>
+            <Button variant="outline" onClick={downloadImportModel}><Download className="w-4 h-4 mr-2" /> Modelo .xlsx</Button>
             <Button variant="outline" asChild>
               <label className="cursor-pointer">
-                <Upload className="w-4 h-4 mr-2" /> Importar .xls
-                <input type="file" accept=".xls,.html,.csv,.txt" className="hidden" onChange={e => { importModel(e.target.files?.[0] ?? null); e.currentTarget.value = ''; }} />
+                <Upload className="w-4 h-4 mr-2" /> Importar planilha
+                <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e => { startImport(e.target.files?.[0] ?? null); e.currentTarget.value = ''; }} />
               </label>
             </Button>
             <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" /> Novo cliente</Button>
