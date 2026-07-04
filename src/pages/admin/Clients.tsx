@@ -75,6 +75,11 @@ export default function Clients() {
   const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Importador
+  const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
+  const [importFileName, setImportFileName] = useState<string>('');
+  const [importing, setImporting] = useState(false);
+
   const isPJ = editing.person_type === 'pj';
 
   const load = async () => {
