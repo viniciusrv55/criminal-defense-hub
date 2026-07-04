@@ -189,9 +189,9 @@ const DashboardCharts = () => {
           <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
             <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="day">Por dia (30d)</SelectItem>
-              <SelectItem value="week">Por semana (12s)</SelectItem>
-              <SelectItem value="month">Por mês (12m)</SelectItem>
+              <SelectItem value="day">Hoje</SelectItem>
+              <SelectItem value="week">Últimos 7 dias</SelectItem>
+              <SelectItem value="month">Mês atual</SelectItem>
               <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
