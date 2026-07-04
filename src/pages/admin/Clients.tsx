@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +10,46 @@ import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Download, Plus, Pencil, Trash2, Search, Upload, Users } from 'lucide-react';
+import { logError } from '@/lib/error-logger';
+import { Download, Plus, Pencil, Trash2, Search, Upload, Users, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { Client } from '@/types/contracts';
+
+// ---------- Importador XLS ----------
+// Cabeçalhos aceitos (case/acentos-insensitive). O primeiro é o "canônico" do modelo.
+const IMPORT_COLUMNS: Record<string, string[]> = {
+  full_name:          ['Nome', 'Nome completo', 'Razao social', 'Razão social', 'Cliente'],
+  person_type:        ['Tipo', 'Tipo de pessoa', 'PF/PJ'],
+  cpf:                ['CPF'],
+  cnpj:               ['CNPJ'],
+  rg:                 ['RG'],
+  birth_date:         ['Data de nascimento', 'Nascimento', 'Data nasc'],
+  marital_status:     ['Estado civil'],
+  nationality:        ['Nacionalidade'],
+  profession:         ['Profissão', 'Profissao'],
+  email:              ['Email', 'E-mail'],
+  phone:              ['Telefone', 'Celular', 'Whatsapp', 'WhatsApp'],
+  cep:                ['CEP'],
+  state:              ['Estado', 'UF'],
+  city:               ['Cidade'],
+  neighborhood:       ['Bairro'],
+  address:            ['Endereço', 'Endereco', 'Logradouro'],
+  attorney_name:      ['Advogado responsável', 'Advogado responsavel', 'Advogado'],
+  notes:              ['Observações', 'Observacoes', 'Notas'],
+};
+
+const stripAccents = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const norm = (s: unknown) => stripAccents(String(s ?? '').trim().toLowerCase());
+const digits = (s: unknown) => String(s ?? '').replace(/\D/g, '');
+
+interface ImportRow {
+  line: number;
+  data: Partial<Client> & { attorney_name?: string; email?: string; phone?: string };
+  errors: string[];
+  warnings: string[];
+  duplicate?: 'cpf' | 'cnpj' | 'phone' | null;
+}
+
+
 
 const empty: Partial<Client> = {
   person_type: 'pf',
