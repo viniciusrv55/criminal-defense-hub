@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,8 +10,46 @@ import { Badge } from '@/components/ui/badge';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Download, Plus, Pencil, Trash2, Search, Upload, Users } from 'lucide-react';
+import { logError } from '@/lib/error-logger';
+import { Download, Plus, Pencil, Trash2, Search, Upload, Users, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { Client } from '@/types/contracts';
+
+// ---------- Importador XLS ----------
+// Cabeçalhos aceitos (case/acentos-insensitive). O primeiro é o "canônico" do modelo.
+const IMPORT_COLUMNS: Record<string, string[]> = {
+  full_name:          ['Nome', 'Nome completo', 'Razao social', 'Razão social', 'Cliente'],
+  person_type:        ['Tipo', 'Tipo de pessoa', 'PF/PJ'],
+  cpf:                ['CPF'],
+  cnpj:               ['CNPJ'],
+  rg:                 ['RG'],
+  birth_date:         ['Data de nascimento', 'Nascimento', 'Data nasc'],
+  marital_status:     ['Estado civil'],
+  nationality:        ['Nacionalidade'],
+  profession:         ['Profissão', 'Profissao'],
+  email:              ['Email', 'E-mail'],
+  phone:              ['Telefone', 'Celular', 'Whatsapp', 'WhatsApp'],
+  cep:                ['CEP'],
+  state:              ['Estado', 'UF'],
+  city:               ['Cidade'],
+  neighborhood:       ['Bairro'],
+  address:            ['Endereço', 'Endereco', 'Logradouro'],
+  attorney_name:      ['Advogado responsável', 'Advogado responsavel', 'Advogado'],
+  notes:              ['Observações', 'Observacoes', 'Notas'],
+};
+
+const stripAccents = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const norm = (s: unknown) => stripAccents(String(s ?? '').trim().toLowerCase());
+const digits = (s: unknown) => String(s ?? '').replace(/\D/g, '');
+
+interface ImportRow {
+  line: number;
+  data: Partial<Client> & { attorney_name?: string; email?: string; phone?: string };
+  errors: string[];
+  warnings: string[];
+  duplicate?: 'cpf' | 'cnpj' | 'phone' | null;
+}
+
+
 
 const empty: Partial<Client> = {
   person_type: 'pf',
@@ -35,6 +74,11 @@ export default function Clients() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Importador
+  const [importPreview, setImportPreview] = useState<ImportRow[] | null>(null);
+  const [importFileName, setImportFileName] = useState<string>('');
+  const [importing, setImporting] = useState(false);
 
   const isPJ = editing.person_type === 'pj';
 
@@ -143,49 +187,197 @@ export default function Clients() {
 
   const attorneyName = (id?: string | null) => members.find(m => m.id === id)?.full_name ?? '—';
 
+  // ============ Modelo XLSX ============
   const downloadImportModel = () => {
-    const sampleAttorney = members[0]?.full_name ?? 'Nome do advogado responsável';
-    const html = ` <html><head><meta charset="utf-8" /></head><body><table><thead><tr><th>Nome</th><th>Telefone</th><th>Advogado responsável</th></tr></thead><tbody><tr><td>Maria Silva</td><td>(11) 99999-9999</td><td>${sampleAttorney}</td></tr></tbody></table></body></html>`.replace('\u0000', '');
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'modelo-importacao-clientes.xls';
-    a.click();
-    URL.revokeObjectURL(url);
+    const sampleAttorney = members[0]?.full_name ?? '';
+    const headers = Object.entries(IMPORT_COLUMNS).map(([, aliases]) => aliases[0]);
+    const example: (string | number)[][] = [
+      headers,
+      [
+        'Maria Silva', 'PF', '123.456.789-00', '', '12.345.678-9',
+        '1985-03-14', 'Casada', 'Brasileira', 'Advogada',
+        'maria@email.com', '(11) 99999-9999',
+        '01310-100', 'SP', 'São Paulo', 'Bela Vista', 'Av. Paulista, 1000',
+        sampleAttorney, 'Cliente indicada por João',
+      ],
+      [
+        'ACME Comércio LTDA', 'PJ', '', '12.345.678/0001-90', '',
+        '', '', '', '',
+        'contato@acme.com.br', '(11) 3000-0000',
+        '04538-133', 'SP', 'São Paulo', 'Itaim Bibi', 'R. Exemplo, 200',
+        sampleAttorney, '',
+      ],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(example);
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(14, h.length + 2) }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Clientes');
+    XLSX.writeFile(wb, 'modelo-importacao-clientes.xlsx');
   };
 
-  const parseRows = (text: string) => {
-    const doc = new DOMParser().parseFromString(text, 'text/html');
-    const tableRows = Array.from(doc.querySelectorAll('tr')).slice(1).map(row => Array.from(row.querySelectorAll('td')).map(td => td.textContent?.trim() ?? ''));
-    if (tableRows.length) return tableRows;
-    return text.split(/\r?\n/).slice(1).map(line => line.split(/\t|;/).map(cell => cell.trim()));
+  // ============ Parse do arquivo enviado ============
+  const parseWorkbook = async (file: File): Promise<Record<string, unknown>[]> => {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    if (!sheet) return [];
+    return XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '', raw: false });
   };
 
-  const importModel = async (file: File | null) => {
+  const resolveHeaderMap = (sample: Record<string, unknown>): Record<string, string> => {
+    // header original (como veio no xlsx) -> canonical key
+    const map: Record<string, string> = {};
+    const keys = Object.keys(sample);
+    for (const [canonical, aliases] of Object.entries(IMPORT_COLUMNS)) {
+      const nAliases = aliases.map(norm);
+      const hit = keys.find(k => nAliases.includes(norm(k)));
+      if (hit) map[hit] = canonical;
+    }
+    return map;
+  };
+
+  const parseDate = (v: unknown): string | null => {
+    if (!v) return null;
+    if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+    const s = String(v).trim();
+    const iso = /^\d{4}-\d{2}-\d{2}$/;
+    const br = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    if (iso.test(s)) return s;
+    const m = br.exec(s);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+  };
+
+  const buildImportRows = (raw: Record<string, unknown>[]): ImportRow[] => {
+    if (!raw.length) return [];
+    const headerMap = resolveHeaderMap(raw[0]);
+    const canonicalFound = new Set(Object.values(headerMap));
+    if (!canonicalFound.has('full_name')) {
+      toast({ title: 'Coluna obrigatória ausente', description: 'A planilha precisa ter a coluna "Nome".', variant: 'destructive' });
+      return [];
+    }
+
+    // índice atual pra dedupe
+    const byCpf = new Map(list.filter(c => c.cpf).map(c => [digits(c.cpf), c]));
+    const byCnpj = new Map(list.filter(c => c.cnpj).map(c => [digits(c.cnpj), c]));
+    const byPhone = new Map<string, Client>();
+    list.forEach(c => c.phones?.forEach(p => { const d = digits(p.value); if (d) byPhone.set(d, c); }));
+
+    return raw.map((row, idx): ImportRow => {
+      const get = (canon: string): string => {
+        const originalHeader = Object.entries(headerMap).find(([, c]) => c === canon)?.[0];
+        return originalHeader ? String(row[originalHeader] ?? '').trim() : '';
+      };
+      const errors: string[] = [];
+      const warnings: string[] = [];
+
+      const full_name = get('full_name');
+      if (!full_name) errors.push('Nome vazio');
+
+      const typeRaw = norm(get('person_type'));
+      const cpf = digits(get('cpf'));
+      const cnpj = digits(get('cnpj'));
+      let person_type: 'pf' | 'pj' = 'pf';
+      if (typeRaw.startsWith('pj') || typeRaw.includes('juridic')) person_type = 'pj';
+      else if (typeRaw.startsWith('pf') || typeRaw.includes('fisic')) person_type = 'pf';
+      else if (cnpj && !cpf) person_type = 'pj';
+
+      if (person_type === 'pf' && cpf && cpf.length !== 11) warnings.push('CPF com tamanho inválido');
+      if (person_type === 'pj' && cnpj && cnpj.length !== 14) warnings.push('CNPJ com tamanho inválido');
+
+      const email = get('email');
+      if (email && !/^\S+@\S+\.\S+$/.test(email)) warnings.push('E-mail inválido');
+
+      const phone = get('phone');
+      const phoneDigits = digits(phone);
+      if (phone && phoneDigits.length < 10) warnings.push('Telefone com menos de 10 dígitos');
+
+      const attorney_name = get('attorney_name');
+      let assigned_attorney_id: string | null = null;
+      if (attorney_name) {
+        const match = members.find(m => norm(m.full_name) === norm(attorney_name));
+        if (match) assigned_attorney_id = match.id;
+        else warnings.push(`Advogado "${attorney_name}" não encontrado`);
+      }
+
+      const birth_date = parseDate(get('birth_date'));
+      if (get('birth_date') && !birth_date) warnings.push('Data de nascimento inválida');
+
+      let duplicate: 'cpf' | 'cnpj' | 'phone' | null = null;
+      if (person_type === 'pf' && cpf && byCpf.has(cpf)) duplicate = 'cpf';
+      else if (person_type === 'pj' && cnpj && byCnpj.has(cnpj)) duplicate = 'cnpj';
+      else if (phoneDigits && byPhone.has(phoneDigits)) duplicate = 'phone';
+
+      const data: ImportRow['data'] = {
+        person_type,
+        full_name,
+        cpf: person_type === 'pf' ? (cpf || null) : null,
+        cnpj: person_type === 'pj' ? (cnpj || null) : null,
+        rg: get('rg') || null,
+        birth_date: person_type === 'pf' ? birth_date : null,
+        marital_status: get('marital_status') || null,
+        nationality: get('nationality') || null,
+        profession: get('profession') || null,
+        cep: digits(get('cep')) || null,
+        state: (get('state') || '').toUpperCase().slice(0, 2) || null,
+        city: get('city') || null,
+        neighborhood: get('neighborhood') || null,
+        address: get('address') || null,
+        notes: get('notes') || null,
+        assigned_attorney_id,
+        email: email || undefined,
+        phone: phone || undefined,
+        attorney_name: attorney_name || undefined,
+      };
+
+      return { line: idx + 2, data, errors, warnings, duplicate };
+    });
+  };
+
+  const startImport = async (file: File | null) => {
     if (!file) return;
-    const text = await file.text();
-    const rows = parseRows(text).filter(cols => cols[0] && cols[1]);
-    if (!rows.length) {
-      toast({ title: 'Planilha vazia', description: 'Use o modelo .xls com Nome, Telefone e Advogado responsável.', variant: 'destructive' });
+    setImportFileName(file.name);
+    try {
+      const raw = await parseWorkbook(file);
+      const rows = buildImportRows(raw);
+      if (!rows.length) return;
+      setImportPreview(rows);
+    } catch (err) {
+      logError({ action: 'import.parse', screen: 'Clients', error: err, payload: { file: file.name } });
+      toast({ title: 'Não foi possível ler a planilha', description: (err as Error).message, variant: 'destructive' });
+    }
+  };
+
+  const confirmImport = async () => {
+    if (!importPreview) return;
+    const valid = importPreview.filter(r => r.errors.length === 0 && !r.duplicate);
+    if (!valid.length) {
+      toast({ title: 'Nada a importar', description: 'Todas as linhas estão com erro ou são duplicadas.', variant: 'destructive' });
       return;
     }
-    const payload = rows.map(([name, importedPhone, attorney]) => {
-      const match = members.find(m => m.full_name.toLowerCase().trim() === (attorney ?? '').toLowerCase().trim());
+    setImporting(true);
+    const payload = valid.map(r => {
+      const { email: e, phone: p, attorney_name: _a, ...rest } = r.data;
       return {
-        person_type: 'pf',
-        full_name: name,
-        phones: [{ label: 'Principal', value: importedPhone }],
-        emails: [],
-        assigned_attorney_id: match?.id ?? null,
+        ...rest,
+        emails: e ? [{ label: 'Principal', value: e }] : [],
+        phones: p ? [{ label: 'Principal', value: p }] : [],
         created_by: user?.id,
       };
     });
     const { error } = await db.from('clients').insert(payload);
-    if (error) { toast({ title: 'Erro ao importar', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Clientes importados', description: `${payload.length} cliente(s) adicionados.` });
+    setImporting(false);
+    if (error) {
+      logError({ action: 'import.insert', screen: 'Clients', table: 'clients', error, payload: { count: payload.length } });
+      toast({ title: 'Erro ao importar', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Importação concluída', description: `${payload.length} cliente(s) adicionados.` });
+    setImportPreview(null);
     load();
   };
+
 
   const set = (patch: Partial<Client>) => setEditing(prev => ({ ...prev, ...patch }));
 
@@ -198,11 +390,11 @@ export default function Clients() {
             <p className="text-sm text-muted-foreground">Cadastre o cliente aqui antes de criar contratos. Os dados são puxados automaticamente.</p>
           </div>
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button variant="outline" onClick={downloadImportModel}><Download className="w-4 h-4 mr-2" /> Modelo .xls</Button>
+            <Button variant="outline" onClick={downloadImportModel}><Download className="w-4 h-4 mr-2" /> Modelo .xlsx</Button>
             <Button variant="outline" asChild>
               <label className="cursor-pointer">
-                <Upload className="w-4 h-4 mr-2" /> Importar .xls
-                <input type="file" accept=".xls,.html,.csv,.txt" className="hidden" onChange={e => { importModel(e.target.files?.[0] ?? null); e.currentTarget.value = ''; }} />
+                <Upload className="w-4 h-4 mr-2" /> Importar planilha
+                <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={e => { startImport(e.target.files?.[0] ?? null); e.currentTarget.value = ''; }} />
               </label>
             </Button>
             <Button onClick={openNew}><Plus className="w-4 h-4 mr-2" /> Novo cliente</Button>
@@ -394,6 +586,79 @@ export default function Clients() {
               <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancelar</Button>
               <Button onClick={save} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Preview de importação */}
+        <Dialog open={!!importPreview} onOpenChange={(o) => !o && setImportPreview(null)}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Prévia da importação {importFileName && `— ${importFileName}`}</DialogTitle>
+            </DialogHeader>
+            {importPreview && (() => {
+              const total = importPreview.length;
+              const withErrors = importPreview.filter(r => r.errors.length).length;
+              const dupes = importPreview.filter(r => r.duplicate).length;
+              const ok = importPreview.filter(r => !r.errors.length && !r.duplicate).length;
+              return (
+                <>
+                  <div className="grid grid-cols-4 gap-3 text-sm">
+                    <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">Total lidas</div><div className="text-xl font-semibold">{total}</div></div>
+                    <div className="rounded-md border p-3 border-green-500/30"><div className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-600" /> Prontas</div><div className="text-xl font-semibold text-green-600">{ok}</div></div>
+                    <div className="rounded-md border p-3 border-yellow-500/30"><div className="text-xs text-muted-foreground">Duplicadas</div><div className="text-xl font-semibold text-yellow-600">{dupes}</div></div>
+                    <div className="rounded-md border p-3 border-destructive/30"><div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-destructive" /> Com erro</div><div className="text-xl font-semibold text-destructive">{withErrors}</div></div>
+                  </div>
+                  <div className="overflow-auto flex-1 border rounded-md">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50 sticky top-0">
+                        <tr>
+                          <th className="p-2 text-left">Linha</th>
+                          <th className="p-2 text-left">Status</th>
+                          <th className="p-2 text-left">Nome</th>
+                          <th className="p-2 text-left">Tipo</th>
+                          <th className="p-2 text-left">Documento</th>
+                          <th className="p-2 text-left">Telefone</th>
+                          <th className="p-2 text-left">Email</th>
+                          <th className="p-2 text-left">Advogado</th>
+                          <th className="p-2 text-left">Observações da linha</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importPreview.map(r => {
+                          const status = r.errors.length ? 'erro' : r.duplicate ? 'duplicado' : 'ok';
+                          return (
+                            <tr key={r.line} className="border-t">
+                              <td className="p-2">{r.line}</td>
+                              <td className="p-2">
+                                {status === 'ok' && <Badge variant="outline" className="text-green-600 border-green-500/40">OK</Badge>}
+                                {status === 'duplicado' && <Badge variant="outline" className="text-yellow-600 border-yellow-500/40">Duplicado ({r.duplicate})</Badge>}
+                                {status === 'erro' && <Badge variant="destructive">Erro</Badge>}
+                              </td>
+                              <td className="p-2">{r.data.full_name || <span className="text-muted-foreground">—</span>}</td>
+                              <td className="p-2">{r.data.person_type?.toUpperCase()}</td>
+                              <td className="p-2 font-mono">{r.data.cpf || r.data.cnpj || '—'}</td>
+                              <td className="p-2">{r.data.phone || '—'}</td>
+                              <td className="p-2">{r.data.email || '—'}</td>
+                              <td className="p-2">{r.data.attorney_name || '—'}</td>
+                              <td className="p-2 text-[11px]">
+                                {r.errors.map(e => <div key={e} className="text-destructive">• {e}</div>)}
+                                {r.warnings.map(w => <div key={w} className="text-yellow-600">• {w}</div>)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setImportPreview(null)} disabled={importing}>Cancelar</Button>
+                    <Button onClick={confirmImport} disabled={importing || ok === 0}>
+                      {importing ? 'Importando...' : `Importar ${ok} cliente(s)`}
+                    </Button>
+                  </DialogFooter>
+                </>
+              );
+            })()}
           </DialogContent>
         </Dialog>
       </div>
