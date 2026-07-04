@@ -588,6 +588,79 @@ export default function Clients() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Preview de importação */}
+        <Dialog open={!!importPreview} onOpenChange={(o) => !o && setImportPreview(null)}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Prévia da importação {importFileName && `— ${importFileName}`}</DialogTitle>
+            </DialogHeader>
+            {importPreview && (() => {
+              const total = importPreview.length;
+              const withErrors = importPreview.filter(r => r.errors.length).length;
+              const dupes = importPreview.filter(r => r.duplicate).length;
+              const ok = importPreview.filter(r => !r.errors.length && !r.duplicate).length;
+              return (
+                <>
+                  <div className="grid grid-cols-4 gap-3 text-sm">
+                    <div className="rounded-md border p-3"><div className="text-xs text-muted-foreground">Total lidas</div><div className="text-xl font-semibold">{total}</div></div>
+                    <div className="rounded-md border p-3 border-green-500/30"><div className="text-xs text-muted-foreground flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-600" /> Prontas</div><div className="text-xl font-semibold text-green-600">{ok}</div></div>
+                    <div className="rounded-md border p-3 border-yellow-500/30"><div className="text-xs text-muted-foreground">Duplicadas</div><div className="text-xl font-semibold text-yellow-600">{dupes}</div></div>
+                    <div className="rounded-md border p-3 border-destructive/30"><div className="text-xs text-muted-foreground flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-destructive" /> Com erro</div><div className="text-xl font-semibold text-destructive">{withErrors}</div></div>
+                  </div>
+                  <div className="overflow-auto flex-1 border rounded-md">
+                    <table className="w-full text-xs">
+                      <thead className="bg-muted/50 sticky top-0">
+                        <tr>
+                          <th className="p-2 text-left">Linha</th>
+                          <th className="p-2 text-left">Status</th>
+                          <th className="p-2 text-left">Nome</th>
+                          <th className="p-2 text-left">Tipo</th>
+                          <th className="p-2 text-left">Documento</th>
+                          <th className="p-2 text-left">Telefone</th>
+                          <th className="p-2 text-left">Email</th>
+                          <th className="p-2 text-left">Advogado</th>
+                          <th className="p-2 text-left">Observações da linha</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importPreview.map(r => {
+                          const status = r.errors.length ? 'erro' : r.duplicate ? 'duplicado' : 'ok';
+                          return (
+                            <tr key={r.line} className="border-t">
+                              <td className="p-2">{r.line}</td>
+                              <td className="p-2">
+                                {status === 'ok' && <Badge variant="outline" className="text-green-600 border-green-500/40">OK</Badge>}
+                                {status === 'duplicado' && <Badge variant="outline" className="text-yellow-600 border-yellow-500/40">Duplicado ({r.duplicate})</Badge>}
+                                {status === 'erro' && <Badge variant="destructive">Erro</Badge>}
+                              </td>
+                              <td className="p-2">{r.data.full_name || <span className="text-muted-foreground">—</span>}</td>
+                              <td className="p-2">{r.data.person_type?.toUpperCase()}</td>
+                              <td className="p-2 font-mono">{r.data.cpf || r.data.cnpj || '—'}</td>
+                              <td className="p-2">{r.data.phone || '—'}</td>
+                              <td className="p-2">{r.data.email || '—'}</td>
+                              <td className="p-2">{r.data.attorney_name || '—'}</td>
+                              <td className="p-2 text-[11px]">
+                                {r.errors.map(e => <div key={e} className="text-destructive">• {e}</div>)}
+                                {r.warnings.map(w => <div key={w} className="text-yellow-600">• {w}</div>)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setImportPreview(null)} disabled={importing}>Cancelar</Button>
+                    <Button onClick={confirmImport} disabled={importing || ok === 0}>
+                      {importing ? 'Importando...' : `Importar ${ok} cliente(s)`}
+                    </Button>
+                  </DialogFooter>
+                </>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
