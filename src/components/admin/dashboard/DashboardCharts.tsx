@@ -102,10 +102,16 @@ const DashboardCharts = () => {
   const { data, kind, rangeLabel } = useMemo(() => {
     const now = new Date();
     let from: Date; let to: Date; let k: 'day' | 'week' | 'month';
-    if (period === 'day') { k = 'day'; to = now; from = addUnits(now, 'day', -29); }
-    else if (period === 'week') { k = 'week'; to = now; from = addUnits(startOf(now, 'week'), 'week', -11); }
-    else if (period === 'month') { k = 'month'; to = now; from = addUnits(startOf(now, 'month'), 'month', -11); }
-    else {
+    if (period === 'day') {
+      // Apenas o dia de hoje
+      k = 'day'; from = startOf(now, 'day'); to = now;
+    } else if (period === 'week') {
+      // Últimos 7 dias corridos, agrupados por dia
+      k = 'day'; to = now; from = startOf(addUnits(now, 'day', -6), 'day');
+    } else if (period === 'month') {
+      // Mês atual (do dia 1 até hoje), agrupado por dia
+      k = 'day'; to = now; from = startOf(now, 'month');
+    } else {
       k = customGranularity;
       from = new Date(customFrom + 'T00:00:00');
       to = new Date(customTo + 'T23:59:59');
@@ -183,9 +189,9 @@ const DashboardCharts = () => {
           <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
             <SelectTrigger className="w-36 h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="day">Por dia (30d)</SelectItem>
-              <SelectItem value="week">Por semana (12s)</SelectItem>
-              <SelectItem value="month">Por mês (12m)</SelectItem>
+              <SelectItem value="day">Hoje</SelectItem>
+              <SelectItem value="week">Últimos 7 dias</SelectItem>
+              <SelectItem value="month">Mês atual</SelectItem>
               <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
