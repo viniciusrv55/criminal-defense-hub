@@ -93,9 +93,10 @@ const FinancialWidgets = () => {
   const [openPay, setOpenPay] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!user?.id) return;
     (async () => {
       const admin = isAdmin();
-      const { data: mem } = await db.from('team_members').select('id').eq('user_id', user?.id).eq('active', true).maybeSingle();
+      const { data: mem } = await db.from('team_members').select('id').eq('user_id', user.id).eq('active', true).maybeSingle();
       const meTeamId = mem?.id ?? null;
       const [{ data: cs }, { data: cls }, { data: ps }] = await Promise.all([
         db.from('contracts').select('*').neq('status', 'cancelled'),

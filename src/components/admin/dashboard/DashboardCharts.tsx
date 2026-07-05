@@ -70,6 +70,7 @@ const DashboardCharts = () => {
   const admin = isAdmin();
 
   useEffect(() => {
+    if (!user?.id) return;
     (async () => {
       const [{ data: m }, { data: ps }, { data: cs }, { data: ap }] = await Promise.all([
         db.from('team_members').select('id,full_name,user_id').eq('active', true).order('full_name'),
