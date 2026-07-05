@@ -34,6 +34,7 @@ const WeeklyAgendaWidget = () => {
   const [filter, setFilter] = useState<string>('self');
 
   useEffect(() => {
+    if (!user?.id) return;
     (async () => {
       const [{ data: m }, { data: a }] = await Promise.all([
         db.from('team_members').select('id,full_name,user_id').eq('active', true).order('full_name'),
