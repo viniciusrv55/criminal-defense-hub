@@ -619,21 +619,8 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     }
   }
 
-  // Handoff by count
-  if (!opts.dryRun && agent.handoff_after_messages) {
-    const { count } = await admin
-      .from('whatsapp_messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('conversation_id', conversationId)
-      .eq('direction', 'outbound')
-      .not('metadata->ai_agent_id', 'is', null);
-    if ((count ?? 0) >= agent.handoff_after_messages) {
-      await executeTool(admin, 'request_human_handoff', { reason: 'Limite de mensagens IA atingido' }, {
-        conversationId, agent, contactPhone: conv.contact_phone,
-      });
-      return { ok: true, handoff: true };
-    }
-  }
+  // (Handoff por contagem de mensagens foi removido — usar apenas horário + palavras-chave.)
+
 
   // Knowledge
   const { data: knowledge } = await admin
