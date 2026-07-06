@@ -8,6 +8,7 @@ import {
   UsersRound, KanbanSquare, Inbox, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import NotificationBell from '@/components/admin/NotificationBell';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
