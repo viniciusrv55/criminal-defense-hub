@@ -409,6 +409,61 @@ async function sendWhatsApp(admin: Any, conversationId: string, text: string, ag
   return inserted?.id ?? null;
 }
 
+// Notifica advogado responsável: cria registro em `notifications` (sino no admin)
+// e envia mensagem no WhatsApp pessoal dele via Evolution API.
+async function notifyAttorney(admin: Any, params: { attorneyId: string; clientName: string; conversationId: string }): Promise<void> {
+  try {
+    const { data: tm } = await admin
+      .from('team_members')
+      .select('id, user_id, full_name, phone')
+      .eq('id', params.attorneyId)
+      .maybeSingle();
+    if (!tm) return;
+
+    const title = 'Cliente aguardando atendimento';
+    const body = `${params.clientName} enviou mensagem no WhatsApp e está aguardando você no sistema.`;
+    const link = `/admin/atendimento?conversation=${params.conversationId}`;
+
+    if (tm.user_id) {
+      await admin.from('notifications').insert({
+        user_id: tm.user_id,
+        team_member_id: tm.id,
+        kind: 'client_waiting',
+        title, body, link,
+        conversation_id: params.conversationId,
+      }).then(() => {}, () => {});
+    }
+
+    // Aviso via WhatsApp para o telefone do advogado (uso INTERNO — número da equipe).
+    const phone = String(tm.phone ?? '').replace(/\D/g, '');
+    if (!phone || phone.length < 10) return;
+
+    const { data: inst } = await admin
+      .from('whatsapp_instances')
+      .select('instance_name')
+      .eq('active', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const { data: settings } = await admin
+      .from('platform_settings').select('key,value').in('key', ['evolution_api_url', 'evolution_api_key']);
+    const map = Object.fromEntries((settings ?? []).map((s: Any) => [s.key, s.value]));
+    const baseUrl = (map.evolution_api_url ?? '').replace(/\/+$/, '');
+    const apiKey = map.evolution_api_key;
+    if (!baseUrl || !apiKey || !inst?.instance_name) return;
+
+    const text = `🔔 ${title}\n\n${body}\n\nAcesse: ${link}`;
+    await fetch(`${baseUrl}/message/sendText/${inst.instance_name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: apiKey },
+      body: JSON.stringify({ number: phone, text }),
+    }).catch(() => {});
+  } catch (e) {
+    console.error('[notifyAttorney]', e);
+  }
+}
+
+
 export async function runAgent(admin: Any, openaiKey: string, conversationId: string, opts: { dryRun?: boolean; overrideMessages?: { role: string; content: string }[]; overrideAgentId?: string } = {}): Promise<Any> {
   const started = Date.now();
 
@@ -458,17 +513,18 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     }
   }
 
-  // === Cliente cadastrado? Se sim, transfere direto para o advogado responsável e pausa IA ===
+  // === Cliente cadastrado? Se sim: notifica advogado responsável (sino + WhatsApp)
+  // e joga a conversa na fila geral já atribuída a ele. Pausa a IA.
   if (!opts.dryRun && conv.contact_phone) {
     try {
       const digits = String(conv.contact_phone).replace(/\D/g, '');
-      const tail = digits.slice(-10); // últimos 10 dígitos (DDD+número), ignora DDI
+      const tail = digits.slice(-10);
       if (tail.length >= 8) {
         const { data: clientMatches } = await admin
           .from('clients')
           .select('id, full_name, assigned_attorney_id, phones')
           .not('assigned_attorney_id', 'is', null)
-          .limit(200);
+          .limit(500);
         const match = (clientMatches ?? []).find((c: Any) => {
           const phones = Array.isArray(c.phones) ? c.phones : [];
           return phones.some((p: Any) => {
@@ -477,19 +533,28 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           });
         });
         if (match?.assigned_attorney_id) {
+          const { data: gen } = await admin
+            .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).limit(1).maybeSingle();
           await admin.from('whatsapp_conversations').update({
+            current_queue_id: gen?.id ?? conv.current_queue_id,
             assigned_team_member_id: match.assigned_attorney_id,
             ai_enabled: false,
             ai_paused_at: new Date().toISOString(),
             status: 'open',
+            unread_count: 1,
           }).eq('id', conversationId);
           await admin.from('whatsapp_conversation_notes').insert({
             conversation_id: conversationId,
-            note: `Cliente cadastrado (${match.full_name}) — transferido automaticamente para o advogado responsável.`,
+            note: `Cliente cadastrado (${match.full_name}) — encaminhado à fila geral e atribuído ao advogado responsável.`,
           }).then(() => {}, () => {});
+          await notifyAttorney(admin, {
+            attorneyId: match.assigned_attorney_id,
+            clientName: match.full_name,
+            conversationId,
+          });
           await admin.from('ai_agent_runs').insert({
             agent_id: null, conversation_id: conversationId, status: 'handoff',
-            error: 'cliente_cadastrado_auto_transfer', model: 'n/a',
+            error: 'cliente_cadastrado_notificado', model: 'n/a',
           }).then(() => {}, () => {});
           return { ok: true, handoff: true, reason: 'client_assigned_attorney' };
         }
@@ -554,21 +619,8 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     }
   }
 
-  // Handoff by count
-  if (!opts.dryRun && agent.handoff_after_messages) {
-    const { count } = await admin
-      .from('whatsapp_messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('conversation_id', conversationId)
-      .eq('direction', 'outbound')
-      .not('metadata->ai_agent_id', 'is', null);
-    if ((count ?? 0) >= agent.handoff_after_messages) {
-      await executeTool(admin, 'request_human_handoff', { reason: 'Limite de mensagens IA atingido' }, {
-        conversationId, agent, contactPhone: conv.contact_phone,
-      });
-      return { ok: true, handoff: true };
-    }
-  }
+  // (Handoff por contagem de mensagens foi removido — usar apenas horário + palavras-chave.)
+
 
   // Knowledge
   const { data: knowledge } = await admin
