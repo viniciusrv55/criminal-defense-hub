@@ -409,6 +409,61 @@ async function sendWhatsApp(admin: Any, conversationId: string, text: string, ag
   return inserted?.id ?? null;
 }
 
+// Notifica advogado responsável: cria registro em `notifications` (sino no admin)
+// e envia mensagem no WhatsApp pessoal dele via Evolution API.
+async function notifyAttorney(admin: Any, params: { attorneyId: string; clientName: string; conversationId: string }): Promise<void> {
+  try {
+    const { data: tm } = await admin
+      .from('team_members')
+      .select('id, user_id, full_name, phone')
+      .eq('id', params.attorneyId)
+      .maybeSingle();
+    if (!tm) return;
+
+    const title = 'Cliente aguardando atendimento';
+    const body = `${params.clientName} enviou mensagem no WhatsApp e está aguardando você no sistema.`;
+    const link = `/admin/atendimento?conversation=${params.conversationId}`;
+
+    if (tm.user_id) {
+      await admin.from('notifications').insert({
+        user_id: tm.user_id,
+        team_member_id: tm.id,
+        kind: 'client_waiting',
+        title, body, link,
+        conversation_id: params.conversationId,
+      }).then(() => {}, () => {});
+    }
+
+    // Aviso via WhatsApp para o telefone do advogado (uso INTERNO — número da equipe).
+    const phone = String(tm.phone ?? '').replace(/\D/g, '');
+    if (!phone || phone.length < 10) return;
+
+    const { data: inst } = await admin
+      .from('whatsapp_instances')
+      .select('instance_name')
+      .eq('active', true)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const { data: settings } = await admin
+      .from('platform_settings').select('key,value').in('key', ['evolution_api_url', 'evolution_api_key']);
+    const map = Object.fromEntries((settings ?? []).map((s: Any) => [s.key, s.value]));
+    const baseUrl = (map.evolution_api_url ?? '').replace(/\/+$/, '');
+    const apiKey = map.evolution_api_key;
+    if (!baseUrl || !apiKey || !inst?.instance_name) return;
+
+    const text = `🔔 ${title}\n\n${body}\n\nAcesse: ${link}`;
+    await fetch(`${baseUrl}/message/sendText/${inst.instance_name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: apiKey },
+      body: JSON.stringify({ number: phone, text }),
+    }).catch(() => {});
+  } catch (e) {
+    console.error('[notifyAttorney]', e);
+  }
+}
+
+
 export async function runAgent(admin: Any, openaiKey: string, conversationId: string, opts: { dryRun?: boolean; overrideMessages?: { role: string; content: string }[]; overrideAgentId?: string } = {}): Promise<Any> {
   const started = Date.now();
 
