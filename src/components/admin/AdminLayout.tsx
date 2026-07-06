@@ -164,7 +164,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           <Link to="/" target="_blank" className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-[hsl(0_0%_60%)] hover:text-accent hover:bg-[hsl(0_0%_8%)] transition-colors">
             <ExternalLink className="w-3.5 h-3.5" /> Ver site público
           </Link>
-          <div className="flex items-center gap-3 px-3 py-2">
+          <div className="flex items-center gap-2 px-3 py-2">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent to-[hsl(37_45%_45%)] flex items-center justify-center text-[hsl(0_0%_5%)] font-semibold text-sm">
               {initials}
             </div>
@@ -172,6 +172,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               <p className="text-sm font-medium text-[hsl(0_0%_95%)] truncate">{profileName ?? user?.email}</p>
               <p className="text-[11px] text-[hsl(0_0%_50%)] truncate">{user?.email}</p>
             </div>
+            <NotificationBell />
           </div>
           <button
             onClick={handleLogout}
