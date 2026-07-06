@@ -458,17 +458,18 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     }
   }
 
-  // === Cliente cadastrado? Se sim, transfere direto para o advogado responsável e pausa IA ===
+  // === Cliente cadastrado? Se sim: notifica advogado responsável (sino + WhatsApp)
+  // e joga a conversa na fila geral já atribuída a ele. Pausa a IA.
   if (!opts.dryRun && conv.contact_phone) {
     try {
       const digits = String(conv.contact_phone).replace(/\D/g, '');
-      const tail = digits.slice(-10); // últimos 10 dígitos (DDD+número), ignora DDI
+      const tail = digits.slice(-10);
       if (tail.length >= 8) {
         const { data: clientMatches } = await admin
           .from('clients')
           .select('id, full_name, assigned_attorney_id, phones')
           .not('assigned_attorney_id', 'is', null)
-          .limit(200);
+          .limit(500);
         const match = (clientMatches ?? []).find((c: Any) => {
           const phones = Array.isArray(c.phones) ? c.phones : [];
           return phones.some((p: Any) => {
@@ -477,19 +478,28 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           });
         });
         if (match?.assigned_attorney_id) {
+          const { data: gen } = await admin
+            .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).limit(1).maybeSingle();
           await admin.from('whatsapp_conversations').update({
+            current_queue_id: gen?.id ?? conv.current_queue_id,
             assigned_team_member_id: match.assigned_attorney_id,
             ai_enabled: false,
             ai_paused_at: new Date().toISOString(),
             status: 'open',
+            unread_count: 1,
           }).eq('id', conversationId);
           await admin.from('whatsapp_conversation_notes').insert({
             conversation_id: conversationId,
-            note: `Cliente cadastrado (${match.full_name}) — transferido automaticamente para o advogado responsável.`,
+            note: `Cliente cadastrado (${match.full_name}) — encaminhado à fila geral e atribuído ao advogado responsável.`,
           }).then(() => {}, () => {});
+          await notifyAttorney(admin, {
+            attorneyId: match.assigned_attorney_id,
+            clientName: match.full_name,
+            conversationId,
+          });
           await admin.from('ai_agent_runs').insert({
             agent_id: null, conversation_id: conversationId, status: 'handoff',
-            error: 'cliente_cadastrado_auto_transfer', model: 'n/a',
+            error: 'cliente_cadastrado_notificado', model: 'n/a',
           }).then(() => {}, () => {});
           return { ok: true, handoff: true, reason: 'client_assigned_attorney' };
         }
