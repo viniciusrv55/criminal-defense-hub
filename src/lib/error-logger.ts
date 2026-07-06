@@ -38,9 +38,6 @@ export async function logError({ action, screen, table, error, payload }: LogErr
     const user = auth?.user;
     const { message, code, details } = extractMessage(error);
     if (isTransientError(message, code)) return;
-    const { data: auth } = await supabase.auth.getUser();
-    const user = auth?.user;
-    const { message, code, details } = extractMessage(error);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any).from('error_logs').insert({
       user_id: user?.id ?? null,
