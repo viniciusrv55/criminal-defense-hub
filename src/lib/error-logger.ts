@@ -19,8 +19,25 @@ function extractMessage(error: unknown): { message: string; code?: string; detai
   };
 }
 
+// Erros transitórios/ruído que NÃO devem ir para o painel de Logs de Erros.
+// Falhas de rede (offline, CDN, cancelamento) e aborts não são bugs do sistema.
+function isTransientError(msg: string, code?: string): boolean {
+  const m = (msg || '').toLowerCase();
+  if (m.includes('failed to fetch')) return true;
+  if (m.includes('networkerror')) return true;
+  if (m.includes('load failed')) return true;
+  if (m.includes('aborted') || m.includes('aborterror')) return true;
+  if (m.includes('the user aborted')) return true;
+  if (code === '20' /* DOMException AbortError */) return true;
+  return false;
+}
+
 export async function logError({ action, screen, table, error, payload }: LogErrorInput) {
   try {
+    const { data: auth } = await supabase.auth.getUser();
+    const user = auth?.user;
+    const { message, code, details } = extractMessage(error);
+    if (isTransientError(message, code)) return;
     const { data: auth } = await supabase.auth.getUser();
     const user = auth?.user;
     const { message, code, details } = extractMessage(error);
