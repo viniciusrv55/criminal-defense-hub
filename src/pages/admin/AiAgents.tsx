@@ -337,14 +337,10 @@ export default function AiAgents() {
                         onChange={(e) => patchAgent({ handoff_keywords: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
                       />
                     </div>
-                    <div>
-                      <Label>Transferir após N mensagens da IA (vazio = nunca)</Label>
-                      <Input
-                        type="number" min={1}
-                        value={activeAgent.handoff_after_messages ?? ''}
-                        onChange={(e) => patchAgent({ handoff_after_messages: e.target.value ? Number(e.target.value) : null })}
-                      />
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      A IA transfere para atendimento humano quando: (1) o horário comercial acabar, (2) alguma palavra-chave aparecer, ou (3) a própria IA decidir chamar a tool <code>request_human_handoff</code> (ex.: cliente pede advogado). Se o cliente ainda não estiver cadastrado, o encaminhamento vai <b>direto para a fila geral</b>. Se estiver cadastrado, o advogado responsável recebe uma notificação (sino + WhatsApp).
+                    </p>
+
                     <div className="border-t pt-4">
                       <div className="flex items-center gap-3 mb-3">
                         <Switch
