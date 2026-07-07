@@ -472,7 +472,7 @@ export default function Clients() {
                     </div>
                     <div>
                       <Label>CNPJ</Label>
-                      <Input value={editing.cnpj ?? ''} onChange={e => set({ cnpj: e.target.value })} />
+                      <Input value={maskCNPJ(editing.cnpj ?? '')} onChange={e => set({ cnpj: maskCNPJ(e.target.value) })} placeholder="00.000.000/0000-00" inputMode="numeric" />
                     </div>
                     <div>
                       <Label>Inscrição estadual</Label>
