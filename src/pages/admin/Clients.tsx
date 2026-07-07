@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { logError } from '@/lib/error-logger';
 import { Download, Plus, Pencil, Trash2, Search, Upload, Users, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { Client } from '@/types/contracts';
+import { maskCPF, maskCNPJ, maskPhoneBR, maskCEP } from '@/lib/masks';
 
 // ---------- Importador XLS ----------
 // Cabeçalhos aceitos (case/acentos-insensitive). O primeiro é o "canônico" do modelo.
