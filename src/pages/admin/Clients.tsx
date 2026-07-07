@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { logError } from '@/lib/error-logger';
 import { Download, Plus, Pencil, Trash2, Search, Upload, Users, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import type { Client } from '@/types/contracts';
+import { maskCPF, maskCNPJ, maskPhoneBR, maskCEP } from '@/lib/masks';
 
 // ---------- Importador XLS ----------
 // Cabeçalhos aceitos (case/acentos-insensitive). O primeiro é o "canônico" do modelo.
@@ -472,7 +473,7 @@ export default function Clients() {
                     </div>
                     <div>
                       <Label>CNPJ</Label>
-                      <Input value={editing.cnpj ?? ''} onChange={e => set({ cnpj: e.target.value })} />
+                      <Input value={maskCNPJ(editing.cnpj ?? '')} onChange={e => set({ cnpj: maskCNPJ(e.target.value) })} placeholder="00.000.000/0000-00" inputMode="numeric" />
                     </div>
                     <div>
                       <Label>Inscrição estadual</Label>
@@ -483,7 +484,7 @@ export default function Clients() {
                   <>
                     <div>
                       <Label>CPF</Label>
-                      <Input value={editing.cpf ?? ''} onChange={e => set({ cpf: e.target.value })} />
+                      <Input value={maskCPF(editing.cpf ?? '')} onChange={e => set({ cpf: maskCPF(e.target.value) })} placeholder="000.000.000-00" inputMode="numeric" />
                     </div>
                     <div>
                       <Label>RG</Label>
@@ -523,7 +524,7 @@ export default function Clients() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
                 <div>
                   <Label>Telefone</Label>
-                  <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
+                  <Input value={maskPhoneBR(phone)} onChange={e => setPhone(maskPhoneBR(e.target.value))} placeholder="(00) 00000-0000" inputMode="numeric" />
                 </div>
                 <div>
                   <Label>Email</Label>
@@ -537,10 +538,11 @@ export default function Clients() {
                   <div>
                     <Label>CEP</Label>
                     <Input
-                      value={editing.cep ?? ''}
-                      onChange={e => set({ cep: e.target.value })}
+                      value={maskCEP(editing.cep ?? '')}
+                      onChange={e => set({ cep: maskCEP(e.target.value) })}
                       onBlur={e => lookupCep(e.target.value)}
                       placeholder="00000-000"
+                      inputMode="numeric"
                     />
                   </div>
                   <div>
