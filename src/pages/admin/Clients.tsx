@@ -538,10 +538,11 @@ export default function Clients() {
                   <div>
                     <Label>CEP</Label>
                     <Input
-                      value={editing.cep ?? ''}
-                      onChange={e => set({ cep: e.target.value })}
+                      value={maskCEP(editing.cep ?? '')}
+                      onChange={e => set({ cep: maskCEP(e.target.value) })}
                       onBlur={e => lookupCep(e.target.value)}
                       placeholder="00000-000"
+                      inputMode="numeric"
                     />
                   </div>
                   <div>
