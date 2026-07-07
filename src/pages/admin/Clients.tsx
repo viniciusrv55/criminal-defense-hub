@@ -524,7 +524,7 @@ export default function Clients() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
                 <div>
                   <Label>Telefone</Label>
-                  <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
+                  <Input value={maskPhoneBR(phone)} onChange={e => setPhone(maskPhoneBR(e.target.value))} placeholder="(00) 00000-0000" inputMode="numeric" />
                 </div>
                 <div>
                   <Label>Email</Label>
