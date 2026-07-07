@@ -484,7 +484,7 @@ export default function Clients() {
                   <>
                     <div>
                       <Label>CPF</Label>
-                      <Input value={editing.cpf ?? ''} onChange={e => set({ cpf: e.target.value })} />
+                      <Input value={maskCPF(editing.cpf ?? '')} onChange={e => set({ cpf: maskCPF(e.target.value) })} placeholder="000.000.000-00" inputMode="numeric" />
                     </div>
                     <div>
                       <Label>RG</Label>
