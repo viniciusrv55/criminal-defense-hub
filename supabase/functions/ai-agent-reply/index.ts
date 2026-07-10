@@ -451,10 +451,17 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           });
         });
         if (match?.assigned_attorney_id) {
-          const { data: gen } = await admin
-            .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).limit(1).maybeSingle();
+          // Fila pessoal do advogado (se existir); senão fila geral.
+          const { data: personalQ } = await admin
+            .from('whatsapp_queues').select('id').eq('team_member_id', match.assigned_attorney_id).eq('active', true).limit(1).maybeSingle();
+          let targetQueueId: string | null = personalQ?.id ?? null;
+          if (!targetQueueId) {
+            const { data: gen } = await admin
+              .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).order('sort_order').limit(1).maybeSingle();
+            targetQueueId = gen?.id ?? conv.current_queue_id;
+          }
           await admin.from('whatsapp_conversations').update({
-            current_queue_id: gen?.id ?? conv.current_queue_id,
+            current_queue_id: targetQueueId,
             assigned_team_member_id: match.assigned_attorney_id,
             ai_enabled: false,
             ai_paused_at: new Date().toISOString(),
@@ -463,7 +470,7 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           }).eq('id', conversationId);
           await admin.from('whatsapp_conversation_notes').insert({
             conversation_id: conversationId,
-            note: `Cliente cadastrado (${match.full_name}) — encaminhado à fila geral e atribuído ao advogado responsável.`,
+            note: `Cliente cadastrado (${match.full_name}) — encaminhado à fila pessoal do advogado responsável.`,
           }).then(() => {}, () => {});
           await notifyAttorney(admin, {
             attorneyId: match.assigned_attorney_id,
