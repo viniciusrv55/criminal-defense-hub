@@ -131,6 +131,22 @@ const Team = () => {
     fetchAll();
   };
 
+  const personalQueue = (memberId: string) => queues.find(q => q.team_member_id === memberId);
+
+  const createPersonalQueue = async (m: TeamMember) => {
+    if (personalQueue(m.id)) { toast({ title: 'Este membro já tem fila pessoal' }); return; }
+    const maxSort = Math.max(0, ...queues.map(q => (q as any).sort_order ?? 0), queues.length);
+    const { error } = await db.from('whatsapp_queues').insert({
+      name: `Fila – ${m.full_name}`,
+      team_member_id: m.id,
+      sort_order: maxSort + 1,
+      active: true,
+    });
+    if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Fila pessoal criada' });
+    fetchAll();
+  };
+
   const removeMember = async (m: TeamMember) => {
     if (!confirm(`Remover ${m.full_name} da equipe?`)) return;
     await db.from('team_members').delete().eq('id', m.id);
