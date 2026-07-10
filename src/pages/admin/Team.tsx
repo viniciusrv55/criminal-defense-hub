@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Save, X, Trash2, ShieldCheck, Wrench } from 'lucide-react';
+import { UserPlus, Save, X, Trash2, ShieldCheck, Wrench, Inbox } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { db } from '@/lib/supabase-helpers';
 import { supabase } from '@/integrations/supabase/client';
