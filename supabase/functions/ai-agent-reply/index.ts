@@ -98,23 +98,7 @@ const TOOL_DEFS: Record<string, Any> = {
   },
 };
 
-function withinBusinessHours(bh: Any | null): boolean {
-  if (!bh || !bh.enabled) return true;
-  // bh: { enabled: true, tz: 'America/Sao_Paulo', days: { mon: { start: '08:00', end: '18:00' }, ... } }
-  try {
-    const tz = bh.tz || 'America/Sao_Paulo';
-    const now = new Date();
-    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, weekday: 'short', hour: '2-digit', minute: '2-digit' });
-    const parts = fmt.formatToParts(now);
-    const wk = parts.find(p => p.type === 'weekday')?.value.toLowerCase().slice(0, 3) ?? 'mon';
-    const hh = parts.find(p => p.type === 'hour')?.value ?? '00';
-    const mm = parts.find(p => p.type === 'minute')?.value ?? '00';
-    const cur = `${hh}:${mm}`;
-    const day = bh.days?.[wk];
-    if (!day || !day.start || !day.end) return false;
-    return cur >= day.start && cur <= day.end;
-  } catch { return true; }
-}
+// (horário comercial removido — IA responde sempre que ativa; se ficar em dúvida, transfere para a fila geral via `request_human_handoff`.)
 
 async function callOpenAI(apiKey: string, body: Any): Promise<Any> {
   const r = await fetch('https://api.openai.com/v1/chat/completions', {
