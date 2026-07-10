@@ -318,56 +318,6 @@ export default function AiAgents() {
                     ))}
                   </TabsContent>
 
-                  <TabsContent value="handoff" className="space-y-4 mt-4">
-                    <div>
-                      <Label>Palavras-chave para handoff (uma por linha)</Label>
-                      <Textarea
-                        rows={4}
-                        value={(activeAgent.handoff_keywords ?? []).join('\n')}
-                        onChange={(e) => patchAgent({ handoff_keywords: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      A IA transfere para atendimento humano quando: (1) o horário comercial acabar, (2) alguma palavra-chave aparecer, ou (3) a própria IA decidir chamar a tool <code>request_human_handoff</code> (ex.: cliente pede advogado). Se o cliente ainda não estiver cadastrado, o encaminhamento vai <b>direto para a fila geral</b>. Se estiver cadastrado, o advogado responsável recebe uma notificação (sino + WhatsApp).
-                    </p>
-
-                    <div className="border-t pt-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Switch
-                          checked={!!activeAgent.business_hours?.enabled}
-                          onCheckedChange={(v) => patchAgent({ business_hours: { ...(activeAgent.business_hours ?? {}), enabled: v, tz: activeAgent.business_hours?.tz ?? 'America/Sao_Paulo', days: activeAgent.business_hours?.days ?? {} } })}
-                        />
-                        <Label>Limitar a horário comercial</Label>
-                      </div>
-                      {activeAgent.business_hours?.enabled && (
-                        <div className="space-y-2">
-                          {WEEK.map((d) => {
-                            const day = activeAgent.business_hours?.days?.[d.id];
-                            return (
-                              <div key={d.id} className="grid grid-cols-12 gap-2 items-center">
-                                <span className="col-span-2 text-sm">{d.label}</span>
-                                <Input
-                                  className="col-span-4" type="time"
-                                  value={day?.start ?? ''}
-                                  onChange={(e) => patchAgent({ business_hours: { ...activeAgent.business_hours!, days: { ...(activeAgent.business_hours!.days ?? {}), [d.id]: { ...(day ?? { start: '', end: '' }), start: e.target.value } } } })}
-                                />
-                                <Input
-                                  className="col-span-4" type="time"
-                                  value={day?.end ?? ''}
-                                  onChange={(e) => patchAgent({ business_hours: { ...activeAgent.business_hours!, days: { ...(activeAgent.business_hours!.days ?? {}), [d.id]: { ...(day ?? { start: '', end: '' }), end: e.target.value } } } })}
-                                />
-                                <Button variant="ghost" size="sm" className="col-span-2" onClick={() => {
-                                  const days = { ...(activeAgent.business_hours!.days ?? {}) };
-                                  delete days[d.id];
-                                  patchAgent({ business_hours: { ...activeAgent.business_hours!, days } });
-                                }}>Limpar</Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
 
                   <TabsContent value="tools" className="space-y-3 mt-4">
                     {AVAILABLE_TOOLS.map((t) => {
