@@ -152,38 +152,18 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
 
     const summary = `Handoff IA — Motivo: ${reason}\n\nÚltimas mensagens:\n${transcript}`;
 
-    // Create lead if conversation does not yet have one, so it appears in Kanban "Novo"
-    let leadId = convFull?.lead_id ?? null;
-    if (!leadId && convFull?.contact_phone) {
-      const { data: newLead } = await admin
-        .from('leads')
-        .insert({
-          name: convFull.contact_name || `WhatsApp ${convFull.contact_phone}`,
-          phone: convFull.contact_phone,
-          message: summary,
-          status: 'new',
-          kanban_status: 'new',
-        })
-        .select('id')
-        .single();
-      leadId = newLead?.id ?? null;
-      if (leadId) {
-        await admin.from('whatsapp_conversations')
-          .update({ lead_id: leadId })
-          .eq('id', ctx.conversationId);
-        await admin.from('lead_history').insert({
-          lead_id: leadId,
-          action: 'ai_handoff',
-          description: `Conversa de WhatsApp transferida pela IA. ${reason}`,
-        });
-      }
-    } else if (leadId) {
+    // NÃO cria lead automaticamente — o atendente decide se abre um lead no Kanban após ler a conversa.
+    if (convFull?.lead_id) {
       await admin.from('lead_history').insert({
-        lead_id: leadId,
+        lead_id: convFull.lead_id,
         action: 'ai_handoff',
         description: summary.slice(0, 1000),
       });
     }
+    await admin.from('whatsapp_conversation_notes').insert({
+      conversation_id: ctx.conversationId,
+      note: summary.slice(0, 2000),
+    }).then(() => {}, () => {});
 
     // Transfer to General queue + mark conversation as needing attention (unread badge)
     const { data: gen } = await admin
@@ -191,6 +171,7 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
       .select('id')
       .is('team_member_id', null)
       .eq('active', true)
+      .order('sort_order')
       .limit(1)
       .maybeSingle();
     if (gen?.id) {
@@ -209,7 +190,7 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
       await admin.from('whatsapp_conversations').update({ unread_count: 1 }).eq('id', ctx.conversationId);
     }
 
-    return { ok: true, handed_off: true, lead_id: leadId };
+    return { ok: true, handed_off: true };
   }
   if (name === 'list_appointment_types') {
     const { data } = await admin.from('appointment_types').select('id, name, duration_minutes').eq('active', true).order('sort_order');
