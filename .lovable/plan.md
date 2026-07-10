@@ -1,44 +1,49 @@
-# Plano de melhorias — Atendimento, CNJ e IA
 
-Estão misturadas várias frentes. Proponho atacar em 3 blocos, podemos fazer todos agora ou priorizar.
+# Ajuste no fluxo de Atendimento + IA
 
-## Bloco 1 — Atendimento / WhatsApp / Kanban
+## 1. Filas: uma por advogado + Fila Geral
+- **Comportamento novo:** cada advogado tem sua fila pessoal (auto-criada ou já ligada via `whatsapp_queues.team_member_id`). Atendentes ficam SÓ na Fila Geral.
+- Novo botão em `/admin/equipe` (para membros com `role='attorney'`): "Criar fila pessoal" — cria `whatsapp_queues` com `team_member_id = advogado`, `name = 'Fila – <Nome>'`.
+- Em `/admin/filas`: mostrar badge "Pessoal (Advogado X)" nas filas que têm `team_member_id`; impedir adicionar membros externos nelas.
+- Roteamento no `evolution-webhook` (entrada de mensagem de cliente já cadastrado):
+  - Se o telefone bate com um `client` que tem advogado responsável → conversa entra na **fila pessoal** desse advogado.
+  - Caso contrário → **Fila Geral** (fila sem `team_member_id`, `sort_order` mais baixo).
 
-**Problema:** Quando IA faz handoff ou quando se transfere a conversa entre filas, a nota/contexto somem e o cliente não cai como lead "novo" no Kanban. Quem recebe não sabe o que aconteceu.
+## 2. Remover criação automática de Leads
+- No `ai-agent-reply` e no `evolution-webhook`: **remover** qualquer `INSERT` em `leads` disparado por mensagem/handoff da IA.
+- Handoff da IA agora apenas: pausa IA, transfere conversa para a Fila Geral, gera notificação (sino + WhatsApp) do responsável se cliente cadastrado tiver advogado — sem criar lead.
+- `.lovable/plan.md` (Bloco 1) já contemplava criação automática — atualizar para refletir a nova regra "criação de lead é manual".
 
-**O que será feito:**
-1. **Handoff da IA cria Lead automaticamente** — quando `ai-agent-reply` detecta handoff, criar registro em `leads` com `kanban_status='new'`, vincular `whatsapp_conversation_id`, preencher `name/phone` do contato e gravar o resumo da IA no `lead.message` + `lead_history`.
-2. **Notificação para a fila** — ao criar o lead e/ou transferir conversa, marcar a conversa como `unread`/`needs_attention` e disparar evento realtime para a tela Atendimento (badge/contagem na fila).
-3. **Nota de transferência visível** — exibir as últimas notas de `whatsapp_conversation_transfers` no topo do chat (banner "Transferida por X: <nota>") até que o novo responsável a "marque como lida".
-4. **Aba "Notas internas" do contato** — listar transferências + notas de handoff cronologicamente dentro do drawer da conversa.
+## 3. "Enviar para Kanban" a partir da conversa
+- No drawer de `/admin/atendimento` (topo da conversa), novo botão **"Iniciar atendimento no Kanban"**:
+  - Se a conversa já tem `client_id` → cria `leads` com `client_id` vinculado, `kanban_status='new'`, `responsible_ids = [advogado_responsavel_do_cliente]` (ou o próprio usuário se for advogado sem cliente vinculado).
+  - Se não tem `client_id` → abre modal pedindo para selecionar/cadastrar o cliente primeiro (link para `/admin/clientes/novo` com telefone pré-preenchido).
+  - Vincula `lead.whatsapp_conversation_id` e grava nota no `lead_history` com resumo/últimas mensagens.
 
-## Bloco 2 — CNJ / DataJud (igualar ao Integra)
+## 4. Iniciar atendimento Kanban a partir de um Cliente
+- Em `/admin/kanban` (Leads): botão **"Novo atendimento a partir de cliente"** abre combobox de `clients`.
+- Filtro exibido: apenas clientes onde `responsible_attorney_id = eu` **ou** `responsible_attorney_id IS NULL`.
+- Ao selecionar: cria `leads` (`client_id`, dados preenchidos do cliente, `kanban_status='new'`, `responsible_ids=[eu]`) e, se houver conversa WhatsApp aberta desse cliente, vincula.
 
-**Problema:** Hoje retornamos só dados básicos. O Integra mostra publicações com texto completo, partes, advogados, andamentos com data.
+## 5. Handoff da IA — remover configuração
+- Em `/admin/agentes-ia`: remover campos "keywords de handoff", "horário limite" — deixar apenas toggle "IA responde" + `system_prompt` + ferramentas.
+- Nova regra fixa: sempre que o modelo chamar `request_human_handoff` **ou** retornar resposta com incerteza (fallback do wrapper) → transfere para **Fila Geral**, pausa IA por 24h, envia notificação padrão.
+- Remover coluna `handoff_keywords`, `handoff_time_limit` (se existirem) via migration. Se ainda usadas em algum lugar do código, limpar referências.
 
-**O que será feito:**
-1. **Edge function `cnj-lookup` retornar TUDO**: partes (autor/réu), advogados (nome + OAB), todos os assuntos, classe, órgão, valor, segredo de justiça, **lista completa de movimentos/andamentos** com data e descrição.
-2. **Nova tabela `process_movements`** (vinculada a `contracts.id`) para histórico persistente.
-3. **Nova edge function `cnj-sync` (cron diário)** — para cada contrato com `cnj_number`, consulta DataJud, compara movimentos e insere novos. Cria entrada em `lead_history`/notificação quando há andamento novo.
-4. **UI no contrato**: aba "Andamentos" com timeline (data, órgão, descrição) + botão "Atualizar agora". Aba "Partes e Advogados" com a lista vinda do DataJud.
-5. **Preenchimento automático ampliado** no `ContractForm`: além do que já preenche, popular partes (campo "parte adversa"), advogado adversário e abrir os movimentos na aba dedicada.
+## Detalhes técnicos
+- **DB migration:**
+  - `ALTER TABLE ai_agents DROP COLUMN handoff_keywords, DROP COLUMN handoff_time_limit_start, DROP COLUMN handoff_time_limit_end` (só se existirem).
+  - Nenhuma nova tabela.
+- **Edge functions afetadas:** `ai-agent-reply`, `evolution-webhook`, `whatsapp-transfer`.
+- **Frontend afetado:** `src/pages/admin/AiAgents.tsx`, `src/pages/admin/Team.tsx`, `src/pages/admin/Queues.tsx`, `src/pages/admin/Atendimento.tsx`, `src/pages/admin/Leads.tsx` (Kanban).
+- **Roteamento de fila:** função helper `resolveIncomingQueue(clientId, phone)` no webhook, retorna `queue_id` conforme regra do item 1.
 
-## Bloco 3 — Agente IA agenda horários
+## Ordem de execução
+1. Migration + limpeza `ai_agents`.
+2. Backend (webhook + ai-agent-reply): remover auto-lead, ajustar roteamento por advogado.
+3. Frontend `AiAgents`: remover UI de handoff.
+4. Frontend `Team` + `Queues`: botão fila pessoal / badges.
+5. Frontend `Atendimento`: botão "Iniciar Kanban".
+6. Frontend `Leads` (Kanban): "Novo atendimento a partir de cliente".
 
-**Problema:** IA não consegue marcar reunião com advogado.
-
-**O que será feito:**
-1. **Tool `schedule_appointment` no `ai-agent-reply`** — argumentos: `attorney_id?`, `practice_area_id?`, `date`, `time`, `duration_min`, `client_name`, `client_phone`, `notes`.
-2. **Tool `list_available_slots`** — recebe `attorney_id?` + `date_range`, lê `agenda_config` + `appointments` existentes, devolve slots livres respeitando horário de trabalho e duração padrão.
-3. **Validação anti-conflito** — usa o trigger `check_appointment_overlap` já existente; se der erro, IA recebe e tenta outro horário.
-4. **Configuração por agente** (em `ai_agents`): toggle "pode agendar" + escolher se agenda só com 1 advogado específico ou qualquer um da área.
-5. **Confirmação ao cliente** via WhatsApp com data/hora + nome do advogado.
-
----
-
-## Ordem sugerida
-1º Bloco 1 (urgente — atendimento está furado)
-2º Bloco 2 (CNJ — pediu paridade com Integra)
-3º Bloco 3 (agendamento IA — feature nova)
-
-**Posso tocar os 3 em sequência nesta mesma conversa, ou prefere que eu faça só o Bloco 1 agora e os outros depois?**
+Confirma que faço tudo em sequência agora, ou prefere que eu quebre em etapas menores (ex: 1+2+3 primeiro, depois 4+5+6)?
