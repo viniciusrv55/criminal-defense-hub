@@ -49,7 +49,7 @@ const Team = () => {
   const fetchAll = async () => {
     const { data: tm } = await db.from('team_members').select('*').order('full_name');
     const { data: kp } = await db.from('kanban_stage_permissions').select('*');
-    const { data: qs } = await db.from('whatsapp_queues').select('id,name').eq('active', true).order('sort_order');
+    const { data: qs } = await db.from('whatsapp_queues').select('id,name,team_member_id').eq('active', true).order('sort_order');
     const { data: sm } = await db.from('kanban_stage_queue_map').select('stage,queue_id');
     const { data: kc } = await db.from('kanban_columns').select('key,label,sort_order,active').eq('active', true).order('sort_order');
     setMembers(tm ?? []);
