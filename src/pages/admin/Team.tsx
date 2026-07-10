@@ -275,12 +275,22 @@ const Team = () => {
                   <p className="text-xs text-muted-foreground mt-1">
                     {[m.role_title, m.specialty, m.email].filter(Boolean).join(' · ')}
                   </p>
+                  {personalQueue(m.id) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 mt-1 rounded-full bg-accent/15 text-accent border border-accent/30">
+                      <Inbox className="w-3 h-3" /> Fila pessoal: {personalQueue(m.id)!.name}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2 mr-3">
                     <Switch checked={m.active} onCheckedChange={() => toggleActive(m)} />
                     <Label className="text-xs text-muted-foreground">Ativo</Label>
                   </div>
+                  {!personalQueue(m.id) && (
+                    <Button variant="ghost" size="sm" onClick={() => createPersonalQueue(m)}>
+                      <Inbox className="w-4 h-4 mr-1" /> Criar fila pessoal
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => setEditingId(editingId === m.id ? null : m.id)}>
                     <ShieldCheck className="w-4 h-4 mr-1" /> Permissões
                   </Button>
