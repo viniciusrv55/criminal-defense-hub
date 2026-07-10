@@ -26,9 +26,6 @@ interface Agent {
   max_tokens: number;
   system_prompt: string;
   greeting_message: string | null;
-  handoff_keywords: string[];
-  handoff_after_messages: number | null;
-  business_hours: { enabled?: boolean; tz?: string; days?: Record<string, { start: string; end: string }> } | null;
   tools_enabled: string[];
   scheduling_attorney_id?: string | null;
 }
@@ -38,18 +35,13 @@ interface Run { id: string; agent_id: string; status: string; model: string; pro
 
 const AVAILABLE_TOOLS = [
   { id: 'get_practice_areas', label: 'Listar áreas de atuação', desc: 'Permite ao agente consultar as áreas ativas do site.' },
-  { id: 'create_lead', label: 'Criar lead', desc: 'Permite registrar um novo lead no CRM.' },
-  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA, cria lead na coluna Novo e transfere para a fila Geral, com resumo da conversa.' },
+  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA e transfere a conversa para a Fila Geral, com resumo. Não cria lead — o atendente decide se cria.' },
   { id: 'list_appointment_types', label: 'Listar tipos de consulta', desc: 'Retorna os tipos de compromisso cadastrados.' },
   { id: 'get_available_slots', label: 'Consultar horários livres', desc: 'Permite à IA pesquisar horários disponíveis para agendar consultas.' },
   { id: 'create_appointment', label: 'Agendar consulta', desc: 'Permite à IA marcar consulta. Pode ser com advogado específico via configuração.' },
 ];
 
 const MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'];
-const WEEK = [
-  { id: 'mon', label: 'Seg' }, { id: 'tue', label: 'Ter' }, { id: 'wed', label: 'Qua' },
-  { id: 'thu', label: 'Qui' }, { id: 'fri', label: 'Sex' }, { id: 'sat', label: 'Sáb' }, { id: 'sun', label: 'Dom' },
-];
 
 export default function AiAgents() {
   const [queues, setQueues] = useState<Queue[]>([]);
