@@ -31,7 +31,7 @@ interface StagePerm {
 interface KanbanCol { key: string; label: string; sort_order: number; active: boolean; }
 
 
-interface Queue { id: string; name: string; }
+interface Queue { id: string; name: string; team_member_id: string | null; }
 interface StageMap { stage: string; queue_id: string; }
 
 const Team = () => {
