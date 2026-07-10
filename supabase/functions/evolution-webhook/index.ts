@@ -161,6 +161,40 @@ Deno.serve(async (req) => {
           .maybeSingle();
         leadId = leadMatch?.id ?? null;
 
+        // Match client by phone (jsonb `phones` array) — se o cliente tiver advogado responsável,
+        // preferimos a fila PESSOAL desse advogado para roteamento.
+        try {
+          const tail = phone.slice(-10);
+          if (tail.length >= 8) {
+            const { data: clientRows } = await admin
+              .from('clients')
+              .select('id, assigned_attorney_id, phones')
+              .limit(500);
+            const cm = (clientRows ?? []).find((c: Any) => {
+              const ps = Array.isArray(c.phones) ? c.phones : [];
+              return ps.some((p: Any) => {
+                const v = String(p?.value ?? p ?? '').replace(/\D/g, '');
+                return v && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
+              });
+            });
+            if (cm) {
+              clientId = cm.id;
+              if (cm.assigned_attorney_id) {
+                const { data: pq } = await admin
+                  .from('whatsapp_queues')
+                  .select('id')
+                  .eq('team_member_id', cm.assigned_attorney_id)
+                  .eq('active', true)
+                  .limit(1)
+                  .maybeSingle();
+                if (pq?.id) queueId = pq.id;
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[webhook client-match]', e);
+        }
+
         // Upsert conversation
         const { data: existing } = await admin
           .from('whatsapp_conversations')

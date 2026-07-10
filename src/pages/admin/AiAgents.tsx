@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bot, Plus, Save, Trash2, Send, Loader2, FlaskConical, BookOpen, Wrench, Clock, MessageCircle } from 'lucide-react';
+import { Bot, Plus, Save, Trash2, Send, Loader2, FlaskConical, BookOpen, Wrench, MessageCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/lib/supabase-helpers';
@@ -26,9 +26,6 @@ interface Agent {
   max_tokens: number;
   system_prompt: string;
   greeting_message: string | null;
-  handoff_keywords: string[];
-  handoff_after_messages: number | null;
-  business_hours: { enabled?: boolean; tz?: string; days?: Record<string, { start: string; end: string }> } | null;
   tools_enabled: string[];
   scheduling_attorney_id?: string | null;
 }
@@ -38,18 +35,13 @@ interface Run { id: string; agent_id: string; status: string; model: string; pro
 
 const AVAILABLE_TOOLS = [
   { id: 'get_practice_areas', label: 'Listar áreas de atuação', desc: 'Permite ao agente consultar as áreas ativas do site.' },
-  { id: 'create_lead', label: 'Criar lead', desc: 'Permite registrar um novo lead no CRM.' },
-  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA, cria lead na coluna Novo e transfere para a fila Geral, com resumo da conversa.' },
+  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA e transfere a conversa para a Fila Geral, com resumo. Não cria lead — o atendente decide se cria.' },
   { id: 'list_appointment_types', label: 'Listar tipos de consulta', desc: 'Retorna os tipos de compromisso cadastrados.' },
   { id: 'get_available_slots', label: 'Consultar horários livres', desc: 'Permite à IA pesquisar horários disponíveis para agendar consultas.' },
   { id: 'create_appointment', label: 'Agendar consulta', desc: 'Permite à IA marcar consulta. Pode ser com advogado específico via configuração.' },
 ];
 
 const MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'];
-const WEEK = [
-  { id: 'mon', label: 'Seg' }, { id: 'tue', label: 'Ter' }, { id: 'wed', label: 'Qua' },
-  { id: 'thu', label: 'Qui' }, { id: 'fri', label: 'Sex' }, { id: 'sat', label: 'Sáb' }, { id: 'sun', label: 'Dom' },
-];
 
 export default function AiAgents() {
   const [queues, setQueues] = useState<Queue[]>([]);
@@ -126,9 +118,7 @@ export default function AiAgents() {
       max_tokens: activeAgent.max_tokens,
       system_prompt: activeAgent.system_prompt,
       greeting_message: activeAgent.greeting_message,
-      handoff_keywords: activeAgent.handoff_keywords,
-      handoff_after_messages: activeAgent.handoff_after_messages,
-      business_hours: activeAgent.business_hours,
+      scheduling_attorney_id: activeAgent.scheduling_attorney_id ?? null,
       tools_enabled: activeAgent.tools_enabled,
       queue_id: activeAgent.queue_id,
     }).eq('id', activeAgent.id);
@@ -243,7 +233,7 @@ export default function AiAgents() {
                     <TabsTrigger value="general">Geral</TabsTrigger>
                     <TabsTrigger value="prompt"><MessageCircle className="w-3.5 h-3.5 mr-1" />Prompt</TabsTrigger>
                     <TabsTrigger value="knowledge"><BookOpen className="w-3.5 h-3.5 mr-1" />Conhecimento</TabsTrigger>
-                    <TabsTrigger value="handoff"><Clock className="w-3.5 h-3.5 mr-1" />Handoff</TabsTrigger>
+                    
                     <TabsTrigger value="tools"><Wrench className="w-3.5 h-3.5 mr-1" />Ferramentas</TabsTrigger>
                     <TabsTrigger value="play"><FlaskConical className="w-3.5 h-3.5 mr-1" />Playground</TabsTrigger>
                     <TabsTrigger value="history">Histórico</TabsTrigger>
@@ -328,56 +318,6 @@ export default function AiAgents() {
                     ))}
                   </TabsContent>
 
-                  <TabsContent value="handoff" className="space-y-4 mt-4">
-                    <div>
-                      <Label>Palavras-chave para handoff (uma por linha)</Label>
-                      <Textarea
-                        rows={4}
-                        value={(activeAgent.handoff_keywords ?? []).join('\n')}
-                        onChange={(e) => patchAgent({ handoff_keywords: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean) })}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      A IA transfere para atendimento humano quando: (1) o horário comercial acabar, (2) alguma palavra-chave aparecer, ou (3) a própria IA decidir chamar a tool <code>request_human_handoff</code> (ex.: cliente pede advogado). Se o cliente ainda não estiver cadastrado, o encaminhamento vai <b>direto para a fila geral</b>. Se estiver cadastrado, o advogado responsável recebe uma notificação (sino + WhatsApp).
-                    </p>
-
-                    <div className="border-t pt-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Switch
-                          checked={!!activeAgent.business_hours?.enabled}
-                          onCheckedChange={(v) => patchAgent({ business_hours: { ...(activeAgent.business_hours ?? {}), enabled: v, tz: activeAgent.business_hours?.tz ?? 'America/Sao_Paulo', days: activeAgent.business_hours?.days ?? {} } })}
-                        />
-                        <Label>Limitar a horário comercial</Label>
-                      </div>
-                      {activeAgent.business_hours?.enabled && (
-                        <div className="space-y-2">
-                          {WEEK.map((d) => {
-                            const day = activeAgent.business_hours?.days?.[d.id];
-                            return (
-                              <div key={d.id} className="grid grid-cols-12 gap-2 items-center">
-                                <span className="col-span-2 text-sm">{d.label}</span>
-                                <Input
-                                  className="col-span-4" type="time"
-                                  value={day?.start ?? ''}
-                                  onChange={(e) => patchAgent({ business_hours: { ...activeAgent.business_hours!, days: { ...(activeAgent.business_hours!.days ?? {}), [d.id]: { ...(day ?? { start: '', end: '' }), start: e.target.value } } } })}
-                                />
-                                <Input
-                                  className="col-span-4" type="time"
-                                  value={day?.end ?? ''}
-                                  onChange={(e) => patchAgent({ business_hours: { ...activeAgent.business_hours!, days: { ...(activeAgent.business_hours!.days ?? {}), [d.id]: { ...(day ?? { start: '', end: '' }), end: e.target.value } } } })}
-                                />
-                                <Button variant="ghost" size="sm" className="col-span-2" onClick={() => {
-                                  const days = { ...(activeAgent.business_hours!.days ?? {}) };
-                                  delete days[d.id];
-                                  patchAgent({ business_hours: { ...activeAgent.business_hours!, days } });
-                                }}>Limpar</Button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
 
                   <TabsContent value="tools" className="space-y-3 mt-4">
                     {AVAILABLE_TOOLS.map((t) => {

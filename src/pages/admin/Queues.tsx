@@ -117,7 +117,10 @@ const Queues = () => {
         </div>
       ) : (
         <div className="space-y-4">
-          {queues.map(q => (
+          {queues.map(q => {
+            const isPersonal = !!q.team_member_id;
+            const attorney = isPersonal ? team.find(t => t.id === q.team_member_id) : null;
+            return (
             <div key={q.id} className="bg-card rounded-xl border border-border p-5">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex-1 min-w-[260px] space-y-2">
@@ -127,16 +130,29 @@ const Queues = () => {
                     onBlur={(e) => { if (e.target.value !== q.name) return; updateQueue(q.id, { name: e.target.value }); }}
                     className="bg-background font-medium"
                   />
-                  <p className="text-xs text-muted-foreground">{members.filter(m => m.queue_id === q.id).length} membro(s)</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {isPersonal ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/30">
+                        Pessoal · {attorney?.full_name ?? 'Advogado'}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                        Fila Geral / compartilhada
+                      </span>
+                    )}
+                    <p className="text-xs text-muted-foreground">{members.filter(m => m.queue_id === q.id).length} membro(s)</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <Switch checked={q.active} onCheckedChange={(v) => updateQueue(q.id, { active: v })} />
                     <Label className="text-xs text-muted-foreground">Ativa</Label>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setEditing(editing === q.id ? null : q.id)}>
-                    <Users className="w-4 h-4 mr-1" /> Membros
-                  </Button>
+                  {!isPersonal && (
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(editing === q.id ? null : q.id)}>
+                      <Users className="w-4 h-4 mr-1" /> Membros
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => updateQueue(q.id, { name: q.name })} title="Salvar nome">
                     <Save className="w-4 h-4" />
                   </Button>
@@ -146,7 +162,7 @@ const Queues = () => {
                 </div>
               </div>
 
-              {editing === q.id && (
+              {editing === q.id && !isPersonal && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <p className="text-xs text-muted-foreground mb-3">Selecione quem atende esta fila:</p>
                   <div className="flex flex-wrap gap-2">
@@ -167,7 +183,8 @@ const Queues = () => {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </AdminLayout>

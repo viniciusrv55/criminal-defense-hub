@@ -121,11 +121,8 @@ export type Database = {
       ai_agents: {
         Row: {
           active: boolean
-          business_hours: Json | null
           created_at: string
           greeting_message: string | null
-          handoff_after_messages: number | null
-          handoff_keywords: string[]
           id: string
           max_tokens: number
           model: string
@@ -139,11 +136,8 @@ export type Database = {
         }
         Insert: {
           active?: boolean
-          business_hours?: Json | null
           created_at?: string
           greeting_message?: string | null
-          handoff_after_messages?: number | null
-          handoff_keywords?: string[]
           id?: string
           max_tokens?: number
           model?: string
@@ -157,11 +151,8 @@ export type Database = {
         }
         Update: {
           active?: boolean
-          business_hours?: Json | null
           created_at?: string
           greeting_message?: string | null
-          handoff_after_messages?: number | null
-          handoff_keywords?: string[]
           id?: string
           max_tokens?: number
           model?: string
@@ -1598,6 +1589,7 @@ export type Database = {
       leads: {
         Row: {
           assigned_attorney_id: string | null
+          client_id: string | null
           created_at: string | null
           email: string | null
           id: string
@@ -1609,9 +1601,11 @@ export type Database = {
           responsible_ids: string[]
           status: string
           updated_at: string | null
+          whatsapp_conversation_id: string | null
         }
         Insert: {
           assigned_attorney_id?: string | null
+          client_id?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -1623,9 +1617,11 @@ export type Database = {
           responsible_ids?: string[]
           status?: string
           updated_at?: string | null
+          whatsapp_conversation_id?: string | null
         }
         Update: {
           assigned_attorney_id?: string | null
+          client_id?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -1637,13 +1633,28 @@ export type Database = {
           responsible_ids?: string[]
           status?: string
           updated_at?: string | null
+          whatsapp_conversation_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leads_practice_area_id_fkey"
             columns: ["practice_area_id"]
             isOneToOne: false
             referencedRelation: "practice_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_whatsapp_conversation_id_fkey"
+            columns: ["whatsapp_conversation_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_conversations"
             referencedColumns: ["id"]
           },
         ]

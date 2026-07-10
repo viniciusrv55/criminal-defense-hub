@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Send, Search, Inbox, MessageSquare, ArrowRightLeft, User as UserIcon, Phone,
   Loader2, FileText, Image as ImageIcon, Mic, Video as VideoIcon, MapPin, Sticker, Bot, BotOff,
-  Calendar, Paperclip, Smile, Square, Plus,
+  Calendar, Paperclip, Smile, Square, Plus, UserPlus2,
 } from 'lucide-react';
 import Picker from '@emoji-mart/react';
 import emojiData from '@emoji-mart/data';
@@ -38,6 +38,7 @@ interface Conversation {
   last_message_preview: string | null;
   unread_count: number;
   lead_id: string | null;
+  client_id: string | null;
   ai_enabled: boolean;
   ai_paused_at: string | null;
 }
@@ -405,6 +406,60 @@ export default function Atendimento() {
     setTransferQueueId('');
   }
 
+  const navigate = useNavigate();
+  const [sendingToKanban, setSendingToKanban] = useState(false);
+  async function sendToKanban() {
+    if (!activeConv) return;
+    if (!activeConv.client_id) {
+      toast({
+        title: 'Cliente não cadastrado',
+        description: 'Cadastre o cliente pelo menu Clientes usando este telefone e depois volte para enviar ao Kanban.',
+        variant: 'destructive',
+      });
+      navigate(`/admin/clientes?phone=${encodeURIComponent(activeConv.contact_phone)}`);
+      return;
+    }
+    setSendingToKanban(true);
+    try {
+      // Já existe lead vinculado? navega direto
+      if (activeConv.lead_id) {
+        navigate('/admin/kanban');
+        return;
+      }
+      const { data: cli } = await supabase.from('clients')
+        .select('id, full_name, emails, phones, assigned_attorney_id')
+        .eq('id', activeConv.client_id).maybeSingle();
+      if (!cli) { toast({ title: 'Cliente não encontrado', variant: 'destructive' }); return; }
+      const email = Array.isArray(cli.emails) && cli.emails[0]
+        ? String((cli.emails[0] as { value?: string }).value ?? '') : null;
+      const responsibleIds = cli.assigned_attorney_id ? [cli.assigned_attorney_id] : [];
+      const { data: lead, error } = await supabase.from('leads').insert({
+        name: cli.full_name || activeConv.contact_name || activeConv.contact_phone,
+        phone: activeConv.contact_phone,
+        email,
+        client_id: cli.id,
+        whatsapp_conversation_id: activeConv.id,
+        status: 'new',
+        kanban_status: 'new',
+        responsible_ids: responsibleIds,
+        message: 'Atendimento iniciado a partir da conversa do WhatsApp.',
+      }).select('id').single();
+      if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+      await supabase.from('whatsapp_conversations').update({ lead_id: lead.id }).eq('id', activeConv.id);
+      await supabase.from('lead_history').insert({
+        lead_id: lead.id, action: 'created_from_conversation',
+        description: `Lead criado manualmente a partir da conversa (${activeConv.contact_phone}).`,
+        performed_by: user?.id,
+      });
+      toast({ title: 'Atendimento enviado ao Kanban' });
+      navigate('/admin/kanban');
+    } finally {
+      setSendingToKanban(false);
+    }
+  }
+
+
+
   async function toggleAi() {
     if (!activeConv) return;
     const paused = !!activeConv.ai_paused_at;
@@ -755,6 +810,10 @@ export default function Atendimento() {
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
                       <ArrowRightLeft className="w-4 h-4 mr-2" /> Transferir
+                    </Button>
+                    <Button variant="default" size="sm" onClick={sendToKanban} disabled={sendingToKanban}>
+                      {sendingToKanban ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserPlus2 className="w-4 h-4 mr-2" />}
+                      Enviar ao Kanban
                     </Button>
                   </div>
                 </div>

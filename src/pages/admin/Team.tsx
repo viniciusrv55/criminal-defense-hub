@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Save, X, Trash2, ShieldCheck, Wrench } from 'lucide-react';
+import { UserPlus, Save, X, Trash2, ShieldCheck, Wrench, Inbox } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { db } from '@/lib/supabase-helpers';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,7 +31,7 @@ interface StagePerm {
 interface KanbanCol { key: string; label: string; sort_order: number; active: boolean; }
 
 
-interface Queue { id: string; name: string; }
+interface Queue { id: string; name: string; team_member_id: string | null; }
 interface StageMap { stage: string; queue_id: string; }
 
 const Team = () => {
@@ -49,7 +49,7 @@ const Team = () => {
   const fetchAll = async () => {
     const { data: tm } = await db.from('team_members').select('*').order('full_name');
     const { data: kp } = await db.from('kanban_stage_permissions').select('*');
-    const { data: qs } = await db.from('whatsapp_queues').select('id,name').eq('active', true).order('sort_order');
+    const { data: qs } = await db.from('whatsapp_queues').select('id,name,team_member_id').eq('active', true).order('sort_order');
     const { data: sm } = await db.from('kanban_stage_queue_map').select('stage,queue_id');
     const { data: kc } = await db.from('kanban_columns').select('key,label,sort_order,active').eq('active', true).order('sort_order');
     setMembers(tm ?? []);
@@ -128,6 +128,22 @@ const Team = () => {
       return;
     }
     toast({ title: 'Acesso reparado', description: 'E-mail confirmado e permissões recriadas para este membro.' });
+    fetchAll();
+  };
+
+  const personalQueue = (memberId: string) => queues.find(q => q.team_member_id === memberId);
+
+  const createPersonalQueue = async (m: TeamMember) => {
+    if (personalQueue(m.id)) { toast({ title: 'Este membro já tem fila pessoal' }); return; }
+    const maxSort = Math.max(0, ...queues.map(q => (q as any).sort_order ?? 0), queues.length);
+    const { error } = await db.from('whatsapp_queues').insert({
+      name: `Fila – ${m.full_name}`,
+      team_member_id: m.id,
+      sort_order: maxSort + 1,
+      active: true,
+    });
+    if (error) { toast({ title: 'Erro', description: error.message, variant: 'destructive' }); return; }
+    toast({ title: 'Fila pessoal criada' });
     fetchAll();
   };
 
@@ -259,12 +275,22 @@ const Team = () => {
                   <p className="text-xs text-muted-foreground mt-1">
                     {[m.role_title, m.specialty, m.email].filter(Boolean).join(' · ')}
                   </p>
+                  {personalQueue(m.id) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 mt-1 rounded-full bg-accent/15 text-accent border border-accent/30">
+                      <Inbox className="w-3 h-3" /> Fila pessoal: {personalQueue(m.id)!.name}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2 mr-3">
                     <Switch checked={m.active} onCheckedChange={() => toggleActive(m)} />
                     <Label className="text-xs text-muted-foreground">Ativo</Label>
                   </div>
+                  {!personalQueue(m.id) && (
+                    <Button variant="ghost" size="sm" onClick={() => createPersonalQueue(m)}>
+                      <Inbox className="w-4 h-4 mr-1" /> Criar fila pessoal
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => setEditingId(editingId === m.id ? null : m.id)}>
                     <ShieldCheck className="w-4 h-4 mr-1" /> Permissões
                   </Button>

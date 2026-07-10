@@ -25,9 +25,6 @@ interface Agent {
   max_tokens: number;
   system_prompt: string;
   greeting_message: string | null;
-  handoff_keywords: string[];
-  handoff_after_messages: number | null;
-  business_hours: Any | null;
   tools_enabled: string[];
 }
 
@@ -40,25 +37,7 @@ const TOOL_DEFS: Record<string, Any> = {
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
-  create_lead: {
-    type: 'function',
-    function: {
-      name: 'create_lead',
-      description: 'Registra o contato como lead no CRM com nome e telefone (o telefone já é capturado automaticamente da conversa). SEMPRE pergunte o NOME do cliente logo no início e chame esta função assim que tiver o nome — não fique de conversa fiada. O resumo do caso é opcional (use só se o cliente espontaneamente contar do que precisa).',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Nome do cliente.' },
-          email: { type: 'string', description: 'Email (opcional, não insista).' },
-          practice_area: { type: 'string', description: 'Área de atuação relacionada (opcional).' },
-          message: { type: 'string', description: 'Breve contexto do que o cliente precisa (opcional).' },
-        },
-        required: ['name'],
-        additionalProperties: false,
-      },
-
-    },
-  },
+  
   request_human_handoff: {
     type: 'function',
     function: {
@@ -119,23 +98,7 @@ const TOOL_DEFS: Record<string, Any> = {
   },
 };
 
-function withinBusinessHours(bh: Any | null): boolean {
-  if (!bh || !bh.enabled) return true;
-  // bh: { enabled: true, tz: 'America/Sao_Paulo', days: { mon: { start: '08:00', end: '18:00' }, ... } }
-  try {
-    const tz = bh.tz || 'America/Sao_Paulo';
-    const now = new Date();
-    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour12: false, weekday: 'short', hour: '2-digit', minute: '2-digit' });
-    const parts = fmt.formatToParts(now);
-    const wk = parts.find(p => p.type === 'weekday')?.value.toLowerCase().slice(0, 3) ?? 'mon';
-    const hh = parts.find(p => p.type === 'hour')?.value ?? '00';
-    const mm = parts.find(p => p.type === 'minute')?.value ?? '00';
-    const cur = `${hh}:${mm}`;
-    const day = bh.days?.[wk];
-    if (!day || !day.start || !day.end) return false;
-    return cur >= day.start && cur <= day.end;
-  } catch { return true; }
-}
+// (horário comercial removido — IA responde sempre que ativa; se ficar em dúvida, transfere para a fila geral via `request_human_handoff`.)
 
 async function callOpenAI(apiKey: string, body: Any): Promise<Any> {
   const r = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -158,34 +121,8 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
     return { areas: (data ?? []).map((a: Any) => ({ title: a.title, summary: a.subtitle ?? a.description ?? '' })) };
   }
   if (name === 'create_lead') {
-    // try matching practice_area
-    let areaId: string | null = null;
-    if (args.practice_area) {
-      const { data } = await admin
-        .from('practice_areas')
-        .select('id, title')
-        .eq('active', true);
-      const match = (data ?? []).find((a: Any) => a.title?.toLowerCase().includes(String(args.practice_area).toLowerCase()));
-      areaId = match?.id ?? null;
-    }
-    const { data: lead, error } = await admin
-      .from('leads')
-      .insert({
-        name: args.name,
-        email: args.email ?? null,
-        phone: ctx.contactPhone,
-        message: args.message ?? null,
-        practice_area_id: areaId,
-        status: 'new',
-        kanban_status: 'new',
-      })
-      .select('id')
-      .single();
-    if (error) return { ok: false, error: error.message };
-
-    // link conversation
-    await admin.from('whatsapp_conversations').update({ lead_id: lead.id }).eq('id', ctx.conversationId);
-    return { ok: true, lead_id: lead.id };
+    // Ferramenta desativada — a criação de leads é manual pelo atendimento.
+    return { ok: false, error: 'create_lead desativado — o atendente cria o lead manualmente pelo painel.' };
   }
   if (name === 'request_human_handoff') {
     const reason = args.reason ?? 'Solicitação do agente';
@@ -215,38 +152,18 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
 
     const summary = `Handoff IA — Motivo: ${reason}\n\nÚltimas mensagens:\n${transcript}`;
 
-    // Create lead if conversation does not yet have one, so it appears in Kanban "Novo"
-    let leadId = convFull?.lead_id ?? null;
-    if (!leadId && convFull?.contact_phone) {
-      const { data: newLead } = await admin
-        .from('leads')
-        .insert({
-          name: convFull.contact_name || `WhatsApp ${convFull.contact_phone}`,
-          phone: convFull.contact_phone,
-          message: summary,
-          status: 'new',
-          kanban_status: 'new',
-        })
-        .select('id')
-        .single();
-      leadId = newLead?.id ?? null;
-      if (leadId) {
-        await admin.from('whatsapp_conversations')
-          .update({ lead_id: leadId })
-          .eq('id', ctx.conversationId);
-        await admin.from('lead_history').insert({
-          lead_id: leadId,
-          action: 'ai_handoff',
-          description: `Conversa de WhatsApp transferida pela IA. ${reason}`,
-        });
-      }
-    } else if (leadId) {
+    // NÃO cria lead automaticamente — o atendente decide se abre um lead no Kanban após ler a conversa.
+    if (convFull?.lead_id) {
       await admin.from('lead_history').insert({
-        lead_id: leadId,
+        lead_id: convFull.lead_id,
         action: 'ai_handoff',
         description: summary.slice(0, 1000),
       });
     }
+    await admin.from('whatsapp_conversation_notes').insert({
+      conversation_id: ctx.conversationId,
+      note: summary.slice(0, 2000),
+    }).then(() => {}, () => {});
 
     // Transfer to General queue + mark conversation as needing attention (unread badge)
     const { data: gen } = await admin
@@ -254,6 +171,7 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
       .select('id')
       .is('team_member_id', null)
       .eq('active', true)
+      .order('sort_order')
       .limit(1)
       .maybeSingle();
     if (gen?.id) {
@@ -272,7 +190,7 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
       await admin.from('whatsapp_conversations').update({ unread_count: 1 }).eq('id', ctx.conversationId);
     }
 
-    return { ok: true, handed_off: true, lead_id: leadId };
+    return { ok: true, handed_off: true };
   }
   if (name === 'list_appointment_types') {
     const { data } = await admin.from('appointment_types').select('id, name, duration_minutes').eq('active', true).order('sort_order');
@@ -533,10 +451,17 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           });
         });
         if (match?.assigned_attorney_id) {
-          const { data: gen } = await admin
-            .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).limit(1).maybeSingle();
+          // Fila pessoal do advogado (se existir); senão fila geral.
+          const { data: personalQ } = await admin
+            .from('whatsapp_queues').select('id').eq('team_member_id', match.assigned_attorney_id).eq('active', true).limit(1).maybeSingle();
+          let targetQueueId: string | null = personalQ?.id ?? null;
+          if (!targetQueueId) {
+            const { data: gen } = await admin
+              .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).order('sort_order').limit(1).maybeSingle();
+            targetQueueId = gen?.id ?? conv.current_queue_id;
+          }
           await admin.from('whatsapp_conversations').update({
-            current_queue_id: gen?.id ?? conv.current_queue_id,
+            current_queue_id: targetQueueId,
             assigned_team_member_id: match.assigned_attorney_id,
             ai_enabled: false,
             ai_paused_at: new Date().toISOString(),
@@ -545,7 +470,7 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           }).eq('id', conversationId);
           await admin.from('whatsapp_conversation_notes').insert({
             conversation_id: conversationId,
-            note: `Cliente cadastrado (${match.full_name}) — encaminhado à fila geral e atribuído ao advogado responsável.`,
+            note: `Cliente cadastrado (${match.full_name}) — encaminhado à fila pessoal do advogado responsável.`,
           }).then(() => {}, () => {});
           await notifyAttorney(admin, {
             attorneyId: match.assigned_attorney_id,
@@ -578,12 +503,6 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
 
   if (!opts.dryRun) {
     if (!conv.ai_enabled || conv.ai_paused_at) return { ok: false, error: 'IA desativada/pausada na conversa' };
-    if (!withinBusinessHours(agent.business_hours)) {
-      await admin.from('ai_agent_runs').insert({
-        agent_id: agent.id, conversation_id: conversationId, status: 'handoff', error: 'Fora do horário', model: agent.model,
-      });
-      return { ok: false, error: 'Fora do horário comercial' };
-    }
   }
 
   // Build messages
@@ -603,23 +522,9 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     }));
   }
 
-  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
+  // (handoff por palavras-chave / horário / contagem de mensagens removido —
+  //  na dúvida a IA chama `request_human_handoff` e o roteamento vai para a fila geral.)
 
-  // Handoff by keywords
-  if (!opts.dryRun && agent.handoff_keywords?.length) {
-    const lower = lastUserMsg.toLowerCase();
-    if (agent.handoff_keywords.some(k => k && lower.includes(k.toLowerCase()))) {
-      await executeTool(admin, 'request_human_handoff', { reason: 'Palavra-chave detectada' }, {
-        conversationId, agent, contactPhone: conv.contact_phone,
-      });
-      await admin.from('ai_agent_runs').insert({
-        agent_id: agent.id, conversation_id: conversationId, status: 'handoff', error: 'keyword', model: agent.model,
-      });
-      return { ok: true, handoff: true };
-    }
-  }
-
-  // (Handoff por contagem de mensagens foi removido — usar apenas horário + palavras-chave.)
 
 
   // Knowledge
