@@ -121,34 +121,8 @@ async function executeTool(admin: Any, name: string, args: Any, ctx: { conversat
     return { areas: (data ?? []).map((a: Any) => ({ title: a.title, summary: a.subtitle ?? a.description ?? '' })) };
   }
   if (name === 'create_lead') {
-    // try matching practice_area
-    let areaId: string | null = null;
-    if (args.practice_area) {
-      const { data } = await admin
-        .from('practice_areas')
-        .select('id, title')
-        .eq('active', true);
-      const match = (data ?? []).find((a: Any) => a.title?.toLowerCase().includes(String(args.practice_area).toLowerCase()));
-      areaId = match?.id ?? null;
-    }
-    const { data: lead, error } = await admin
-      .from('leads')
-      .insert({
-        name: args.name,
-        email: args.email ?? null,
-        phone: ctx.contactPhone,
-        message: args.message ?? null,
-        practice_area_id: areaId,
-        status: 'new',
-        kanban_status: 'new',
-      })
-      .select('id')
-      .single();
-    if (error) return { ok: false, error: error.message };
-
-    // link conversation
-    await admin.from('whatsapp_conversations').update({ lead_id: lead.id }).eq('id', ctx.conversationId);
-    return { ok: true, lead_id: lead.id };
+    // Ferramenta desativada — a criação de leads é manual pelo atendimento.
+    return { ok: false, error: 'create_lead desativado — o atendente cria o lead manualmente pelo painel.' };
   }
   if (name === 'request_human_handoff') {
     const reason = args.reason ?? 'Solicitação do agente';
