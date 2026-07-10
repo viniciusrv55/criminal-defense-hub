@@ -37,7 +37,7 @@ const TOOL_DEFS: Record<string, Any> = {
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
-  request_human_handoff_placeholder: undefined as never,
+  
   request_human_handoff: {
     type: 'function',
     function: {
