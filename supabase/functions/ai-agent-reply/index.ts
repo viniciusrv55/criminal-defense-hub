@@ -37,25 +37,7 @@ const TOOL_DEFS: Record<string, Any> = {
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
-  create_lead: {
-    type: 'function',
-    function: {
-      name: 'create_lead',
-      description: 'Registra o contato como lead no CRM com nome e telefone (o telefone já é capturado automaticamente da conversa). SEMPRE pergunte o NOME do cliente logo no início e chame esta função assim que tiver o nome — não fique de conversa fiada. O resumo do caso é opcional (use só se o cliente espontaneamente contar do que precisa).',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Nome do cliente.' },
-          email: { type: 'string', description: 'Email (opcional, não insista).' },
-          practice_area: { type: 'string', description: 'Área de atuação relacionada (opcional).' },
-          message: { type: 'string', description: 'Breve contexto do que o cliente precisa (opcional).' },
-        },
-        required: ['name'],
-        additionalProperties: false,
-      },
-
-    },
-  },
+  request_human_handoff_placeholder: undefined as never,
   request_human_handoff: {
     type: 'function',
     function: {
