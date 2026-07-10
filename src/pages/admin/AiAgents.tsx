@@ -118,9 +118,7 @@ export default function AiAgents() {
       max_tokens: activeAgent.max_tokens,
       system_prompt: activeAgent.system_prompt,
       greeting_message: activeAgent.greeting_message,
-      handoff_keywords: activeAgent.handoff_keywords,
-      handoff_after_messages: activeAgent.handoff_after_messages,
-      business_hours: activeAgent.business_hours,
+      scheduling_attorney_id: activeAgent.scheduling_attorney_id ?? null,
       tools_enabled: activeAgent.tools_enabled,
       queue_id: activeAgent.queue_id,
     }).eq('id', activeAgent.id);
