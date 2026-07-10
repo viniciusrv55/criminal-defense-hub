@@ -811,6 +811,10 @@ export default function Atendimento() {
                     <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
                       <ArrowRightLeft className="w-4 h-4 mr-2" /> Transferir
                     </Button>
+                    <Button variant="default" size="sm" onClick={sendToKanban} disabled={sendingToKanban}>
+                      {sendingToKanban ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserPlus2 className="w-4 h-4 mr-2" />}
+                      Enviar ao Kanban
+                    </Button>
                   </div>
                 </div>
 
