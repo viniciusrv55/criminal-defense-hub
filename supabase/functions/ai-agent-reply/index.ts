@@ -25,9 +25,6 @@ interface Agent {
   max_tokens: number;
   system_prompt: string;
   greeting_message: string | null;
-  handoff_keywords: string[];
-  handoff_after_messages: number | null;
-  business_hours: Any | null;
   tools_enabled: string[];
 }
 
