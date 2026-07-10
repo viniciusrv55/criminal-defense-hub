@@ -503,12 +503,6 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
 
   if (!opts.dryRun) {
     if (!conv.ai_enabled || conv.ai_paused_at) return { ok: false, error: 'IA desativada/pausada na conversa' };
-    if (!withinBusinessHours(agent.business_hours)) {
-      await admin.from('ai_agent_runs').insert({
-        agent_id: agent.id, conversation_id: conversationId, status: 'handoff', error: 'Fora do horário', model: agent.model,
-      });
-      return { ok: false, error: 'Fora do horário comercial' };
-    }
   }
 
   // Build messages
@@ -528,23 +522,9 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     }));
   }
 
-  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content ?? '';
+  // (handoff por palavras-chave / horário / contagem de mensagens removido —
+  //  na dúvida a IA chama `request_human_handoff` e o roteamento vai para a fila geral.)
 
-  // Handoff by keywords
-  if (!opts.dryRun && agent.handoff_keywords?.length) {
-    const lower = lastUserMsg.toLowerCase();
-    if (agent.handoff_keywords.some(k => k && lower.includes(k.toLowerCase()))) {
-      await executeTool(admin, 'request_human_handoff', { reason: 'Palavra-chave detectada' }, {
-        conversationId, agent, contactPhone: conv.contact_phone,
-      });
-      await admin.from('ai_agent_runs').insert({
-        agent_id: agent.id, conversation_id: conversationId, status: 'handoff', error: 'keyword', model: agent.model,
-      });
-      return { ok: true, handoff: true };
-    }
-  }
-
-  // (Handoff por contagem de mensagens foi removido — usar apenas horário + palavras-chave.)
 
 
   // Knowledge
