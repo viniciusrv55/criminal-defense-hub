@@ -456,6 +456,9 @@ export default function Atendimento() {
     } finally {
       setSendingToKanban(false);
     }
+  }
+
+
 
   async function toggleAi() {
     if (!activeConv) return;
