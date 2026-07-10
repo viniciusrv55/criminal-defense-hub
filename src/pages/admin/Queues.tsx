@@ -183,7 +183,8 @@ const Queues = () => {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </AdminLayout>
