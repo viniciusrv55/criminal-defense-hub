@@ -74,21 +74,48 @@ function maskDoc(doc: string): string {
   return '***';
 }
 
+import { normalizeBrazilianPhone } from '../_shared/phone.ts';
+
 async function findClientByPhone(admin: Any, phone: string): Promise<Any | null> {
-  const digits = String(phone ?? '').replace(/\D/g, '');
-  const tail = digits.slice(-10);
-  if (tail.length < 8) return null;
+  const incoming = String(phone ?? '');
+  const normalizedIncoming = normalizeBrazilianPhone(incoming);
+  console.log('[lookup_client_by_phone] Número recebido:', incoming);
+  console.log('[lookup_client_by_phone] Número normalizado:', normalizedIncoming);
+
+  if (!normalizedIncoming || normalizedIncoming.length < 10) {
+    console.log('[lookup_client_by_phone] Resultado da comparação: telefone inválido');
+    return null;
+  }
+
   const { data: clients } = await admin
     .from('clients')
     .select('id, full_name, cpf, cnpj, assigned_attorney_id, phones')
     .limit(1000);
-  return (clients ?? []).find((c: Any) => {
+
+  let matched: Any | null = null;
+  let matchedRaw: string | null = null;
+  let matchedNormalized: string | null = null;
+
+  for (const c of (clients ?? [])) {
     const phones = Array.isArray(c.phones) ? c.phones : [];
-    return phones.some((p: Any) => {
-      const v = String(p?.value ?? p ?? '').replace(/\D/g, '');
-      return v && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
-    });
-  }) ?? null;
+    for (const p of phones) {
+      const raw = String(p?.value ?? p ?? '');
+      const normalized = normalizeBrazilianPhone(raw);
+      if (normalized && normalized === normalizedIncoming) {
+        matched = c;
+        matchedRaw = raw;
+        matchedNormalized = normalized;
+        break;
+      }
+    }
+    if (matched) break;
+  }
+
+  console.log('[lookup_client_by_phone] Número encontrado no banco:', matchedRaw ?? '(nenhum)');
+  console.log('[lookup_client_by_phone] Número normalizado do banco:', matchedNormalized ?? '(nenhum)');
+  console.log('[lookup_client_by_phone] Resultado da comparação:', matched ? `MATCH (cliente ${matched.id} - ${matched.full_name})` : 'NÃO ENCONTRADO');
+
+  return matched;
 }
 
 // (horário comercial removido — IA responde sempre que ativa; se ficar em dúvida, transfere para a fila geral via `request_human_handoff`.)
