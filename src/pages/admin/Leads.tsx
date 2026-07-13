@@ -408,6 +408,26 @@ const Leads = () => {
                     <p className="text-[11px] text-muted-foreground text-center">Cria cliente e abre o contrato pré-preenchido.</p>
                   </>
                 )}
+
+                {selectedLead.kanban_status === closedKey && selectedLead.status !== 'closed' && (
+                  <>
+                    <Button
+                      onClick={() => closeAtendimento(selectedLead)}
+                      disabled={closing}
+                      variant="outline"
+                      className="w-full border-green-600/40 text-green-700 hover:bg-green-600/10"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      {closing ? 'Encerrando...' : 'Encerrar atendimento'}
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground text-center">Salva no histórico do cliente que o caso foi resolvido pelos advogados responsáveis.</p>
+                  </>
+                )}
+                {selectedLead.status === 'closed' && (
+                  <p className="text-[11px] text-green-700 text-center flex items-center justify-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Atendimento encerrado
+                  </p>
+                )}
               </div>
 
             </div>
