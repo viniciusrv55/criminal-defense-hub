@@ -142,7 +142,9 @@ function MessageBubble({ msg }: { msg: Message }) {
 }
 
 export default function Atendimento() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const canDeleteConversations = isAdmin();
+  const [deletingConv, setDeletingConv] = useState(false);
   const [queues, setQueues] = useState<Queue[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
