@@ -23,6 +23,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { TransferNoteBanner } from '@/components/admin/TransferNoteBanner';
+import { samePhone, normalizeBrazilianPhone } from '@/lib/phone';
 
 
 interface Queue { id: string; name: string; team_member_id: string | null; color: string; }
@@ -412,17 +413,42 @@ export default function Atendimento() {
   const [sendingToKanban, setSendingToKanban] = useState(false);
   async function sendToKanban() {
     if (!activeConv) return;
-    if (!activeConv.client_id) {
-      toast({
-        title: 'Cliente não cadastrado',
-        description: 'Cadastre o cliente pelo menu Clientes usando este telefone e depois volte para enviar ao Kanban.',
-        variant: 'destructive',
-      });
-      navigate(`/admin/clientes?phone=${encodeURIComponent(activeConv.contact_phone)}`);
-      return;
-    }
     setSendingToKanban(true);
     try {
+      let clientId = activeConv.client_id;
+
+      // Fallback: se a conversa não está vinculada, tenta localizar cliente pelo telefone
+      if (!clientId && activeConv.contact_phone) {
+        const normalized = normalizeBrazilianPhone(activeConv.contact_phone);
+        const alt = normalized.length === 13 && normalized.startsWith('55')
+          ? normalized.slice(0, 4) + normalized.slice(5) // sem 9º dígito
+          : normalized;
+        const digits = Array.from(new Set([normalized, alt, activeConv.contact_phone])).filter(Boolean);
+        const { data: candidates } = await supabase
+          .from('clients')
+          .select('id, full_name, emails, phones, assigned_attorney_id')
+          .or(digits.map((d) => `phones::text.ilike.%${d}%`).join(','))
+          .limit(20);
+        const match = (candidates ?? []).find((c) => {
+          const phones = (c.phones as Array<{ value?: string }> | null) ?? [];
+          return phones.some((p) => samePhone(p?.value, activeConv.contact_phone));
+        });
+        if (match) {
+          clientId = match.id;
+          await supabase.from('whatsapp_conversations').update({ client_id: match.id }).eq('id', activeConv.id);
+        }
+      }
+
+      if (!clientId) {
+        toast({
+          title: 'Cliente não cadastrado',
+          description: 'Cadastre o cliente pelo menu Clientes usando este telefone e depois volte para enviar ao Kanban.',
+          variant: 'destructive',
+        });
+        navigate(`/admin/clientes?phone=${encodeURIComponent(activeConv.contact_phone)}`);
+        return;
+      }
+
       // Já existe lead vinculado? navega direto
       if (activeConv.lead_id) {
         navigate('/admin/kanban');
@@ -430,7 +456,7 @@ export default function Atendimento() {
       }
       const { data: cli } = await supabase.from('clients')
         .select('id, full_name, emails, phones, assigned_attorney_id')
-        .eq('id', activeConv.client_id).maybeSingle();
+        .eq('id', clientId).maybeSingle();
       if (!cli) { toast({ title: 'Cliente não encontrado', variant: 'destructive' }); return; }
       const email = Array.isArray(cli.emails) && cli.emails[0]
         ? String((cli.emails[0] as { value?: string }).value ?? '') : null;
