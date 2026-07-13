@@ -845,6 +845,18 @@ export default function Atendimento() {
                       {sendingToKanban ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserPlus2 className="w-4 h-4 mr-2" />}
                       Enviar ao Kanban
                     </Button>
+                    {canDeleteConversations && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDeleteConversation}
+                        disabled={deletingConv}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                        title="Apagar conversa (admin)"
+                      >
+                        {deletingConv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </Button>
+                    )}
                   </div>
                 </div>
 
