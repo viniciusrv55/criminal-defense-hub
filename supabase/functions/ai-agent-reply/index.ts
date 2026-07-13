@@ -425,10 +425,46 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     .order('sort_order');
   const knowledgeBlock = (knowledge ?? []).map((k: Any) => `## ${k.title}\n${k.content}`).join('\n\n');
 
+  // === Pré-identificação determinística: executa lookup_client_by_phone ANTES da OpenAI ===
+  // Reutiliza a mesma função `findClientByPhone` já usada pela tool. O resultado é injetado
+  // no system prompt para que a IA já receba a identidade resolvida e não precise perguntar
+  // nem decidir chamar a tool. `confirm_client_document` e `transfer_to_general` continuam
+  // disponíveis e são acionadas pela IA normalmente.
+  let identityBlock = '';
+  try {
+    const preClient = await findClientByPhone(admin, conv.contact_phone);
+    if (preClient) {
+      const doc = preClient.cpf || preClient.cnpj || '';
+      const docHint = doc ? maskDoc(doc) : '(sem CPF/CNPJ no cadastro)';
+      let attorneyName: string | null = null;
+      if (preClient.assigned_attorney_id) {
+        const { data: tm } = await admin.from('team_members').select('full_name').eq('id', preClient.assigned_attorney_id).maybeSingle();
+        attorneyName = tm?.full_name ?? null;
+      }
+      identityBlock = `\n# Identificação já resolvida (pré-computada pelo sistema — NÃO chame lookup_client_by_phone novamente)\n`
+        + `- Telefone bate com cliente cadastrado.\n`
+        + `- Nome no cadastro: ${preClient.full_name}\n`
+        + `- CPF/CNPJ (mascarado, 3 primeiros dígitos): ${docHint}\n`
+        + `- Advogado responsável: ${attorneyName ?? '(nenhum — cairá em fila geral quando confirmar)'}\n\n`
+        + `PROTOCOLO OBRIGATÓRIO nesta primeira interação:\n`
+        + `1) Cumprimente pelo nome ("${preClient.full_name}").\n`
+        + `2) Pergunte se pode confirmar o CPF/CNPJ, exibindo o hint mascarado acima como pista (ex: "começa com ${docHint}").\n`
+        + `3) Quando o cliente informar o documento, chame a tool \`confirm_client_document\` com o valor digitado. Se conferir, a conversa será transferida automaticamente.\n`
+        + `4) Se o cliente disser que não é essa pessoa ou pedir humano, chame \`transfer_to_general\`.`;
+    } else {
+      identityBlock = `\n# Identificação já resolvida (pré-computada pelo sistema — NÃO chame lookup_client_by_phone novamente)\n`
+        + `- Telefone NÃO corresponde a nenhum cliente cadastrado.\n\n`
+        + `PROTOCOLO OBRIGATÓRIO: cumprimente educadamente, informe que não localizamos cadastro para este número e chame \`transfer_to_general\` com reason="numero_nao_cadastrado" para encaminhar à fila geral (onde poderão corrigir o cadastro).`;
+    }
+  } catch (e) {
+    console.error('[pre-identify]', e);
+  }
+
   const systemPrompt = [
     agent.system_prompt,
     knowledgeBlock ? `\n# Base de conhecimento\n${knowledgeBlock}` : '',
-    `\n# Contexto da conversa atual\nNome do contato no WhatsApp: ${conv.contact_name ?? 'desconhecido'}\nTelefone do contato (JÁ CONHECIDO — NUNCA pergunte ao cliente): ${conv.contact_phone}\n\nREGRA ABSOLUTA: o telefone acima é o número pelo qual o cliente está falando com você AGORA no WhatsApp. Você JAMAIS deve pedir o número de telefone. Na PRIMEIRA mensagem do cliente, chame imediatamente a tool \`lookup_client_by_phone\` (sem argumentos) para verificar o cadastro.`,
+    `\n# Contexto da conversa atual\nNome do contato no WhatsApp: ${conv.contact_name ?? 'desconhecido'}\nTelefone do contato (JÁ CONHECIDO — NUNCA pergunte ao cliente): ${conv.contact_phone}\n\nREGRA ABSOLUTA: o telefone acima é o número pelo qual o cliente está falando com você AGORA no WhatsApp. Você JAMAIS deve pedir o número de telefone.`,
+    identityBlock,
   ].filter(Boolean).join('\n');
 
 
