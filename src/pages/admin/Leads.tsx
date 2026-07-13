@@ -252,7 +252,7 @@ const Leads = () => {
       <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
         <div>
           <h1 className="font-serif text-2xl font-bold text-foreground">Atendimento Kanban</h1>
-          <p className="text-muted-foreground text-sm mt-1">{leads.length} leads no total</p>
+          <p className="text-muted-foreground text-sm mt-1">{leads.filter(l => l.status !== 'closed').length} leads ativos</p>
         </div>
         {isAdmin() && (
           <Button variant="outline" size="sm" onClick={() => setShowColumnsEditor(v => !v)}>
@@ -269,7 +269,7 @@ const Leads = () => {
 
       <div className="flex gap-4 overflow-x-auto pb-4">
         {visibleColumns.map(col => {
-          const colLeads = leads.filter(l => l.kanban_status === col.key);
+          const colLeads = leads.filter(l => l.kanban_status === col.key && l.status !== 'closed');
           return (
             <div key={col.key} className="min-w-[280px] flex-1">
               <div className={`p-3 rounded-t-xl bg-card border-t-4 ${col.color ?? 'border-accent'} border-x border-border`}>
