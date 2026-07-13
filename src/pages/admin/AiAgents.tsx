@@ -227,8 +227,6 @@ export default function AiAgents() {
                     <TabsTrigger value="general">Geral</TabsTrigger>
                     <TabsTrigger value="prompt"><MessageCircle className="w-3.5 h-3.5 mr-1" />Prompt</TabsTrigger>
                     <TabsTrigger value="knowledge"><BookOpen className="w-3.5 h-3.5 mr-1" />Conhecimento</TabsTrigger>
-                    
-                    <TabsTrigger value="tools"><Wrench className="w-3.5 h-3.5 mr-1" />Ferramentas</TabsTrigger>
                     <TabsTrigger value="play"><FlaskConical className="w-3.5 h-3.5 mr-1" />Playground</TabsTrigger>
                     <TabsTrigger value="history">Histórico</TabsTrigger>
                   </TabsList>
