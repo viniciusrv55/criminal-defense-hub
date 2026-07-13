@@ -383,7 +383,9 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           const v = String(t.phone ?? '').replace(/\D/g, '');
           return v && v.length >= 8 && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
         });
+        console.log('[DIAG] team-member phone check → tail:', tail, 'match:', teamMatch ? `${teamMatch.full_name} (${teamMatch.phone})` : 'nenhum');
         if (teamMatch) {
+          console.log('[DIAG] SHORT-CIRCUIT: contato é membro da equipe → fila geral, IA NÃO executada');
           const { data: gen } = await admin
             .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).limit(1).maybeSingle();
           await admin.from('whatsapp_conversations').update({
