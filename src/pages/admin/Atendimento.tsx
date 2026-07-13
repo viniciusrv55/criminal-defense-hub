@@ -686,51 +686,54 @@ export default function Atendimento() {
   return (
     <AdminLayout>
       <div className="-m-6 lg:-m-10 h-[calc(100vh-3.5rem)] lg:h-screen flex flex-col bg-background">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
-          <div>
-            <h1 className="font-serif text-2xl">Atendimento</h1>
-            <p className="text-sm text-muted-foreground">Chat em tempo real do WhatsApp</p>
+        <div className="px-6 py-4 border-b border-border bg-card flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="font-serif text-2xl">Atendimento</h1>
+              <p className="text-sm text-muted-foreground">Chat em tempo real do WhatsApp</p>
+            </div>
+            <Button onClick={() => setNewConvOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" /> Nova conversa
+            </Button>
           </div>
-          <Button onClick={() => setNewConvOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" /> Nova conversa
-          </Button>
+          {/* Queues – horizontal selector */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wider text-muted-foreground">
+              <Inbox className="w-4 h-4" /> Fila
+            </div>
+            <Select
+              value={activeQueueId ?? ''}
+              onValueChange={(v) => { setActiveQueueId(v); setActiveConvId(null); }}
+            >
+              <SelectTrigger className="w-[280px] h-9">
+                <SelectValue placeholder={queues.length === 0 ? 'Nenhuma fila ativa' : 'Selecione uma fila'} />
+              </SelectTrigger>
+              <SelectContent>
+                {queues.map((q) => {
+                  const unread = queueCounts[q.id] ?? 0;
+                  return (
+                    <SelectItem key={q.id} value={q.id}>
+                      <span className="flex items-center gap-2">
+                        <span>{q.name}</span>
+                        {unread > 0 && (
+                          <Badge className="bg-accent text-[hsl(0_0%_8%)] h-4 px-1.5 text-[10px]">{unread}</Badge>
+                        )}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            {activeQueueId && (queueCounts[activeQueueId] ?? 0) > 0 && (
+              <Badge className="bg-accent text-[hsl(0_0%_8%)] h-5 px-2 text-[11px]">
+                {queueCounts[activeQueueId]} não lida{queueCounts[activeQueueId] === 1 ? '' : 's'}
+              </Badge>
+            )}
+          </div>
         </div>
 
 
         <div className="flex-1 flex overflow-hidden">
-          {/* Queues */}
-          <aside className="w-64 border-r border-border bg-[hsl(0_0%_4%)] text-[hsl(0_0%_92%)] flex flex-col">
-            <div className="px-4 py-3 border-b border-[hsl(0_0%_12%)] text-xs uppercase tracking-wider text-[hsl(0_0%_50%)]">Filas</div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              {queues.map((q) => {
-                const active = q.id === activeQueueId;
-                const unread = queueCounts[q.id] ?? 0;
-                return (
-                  <button
-                    key={q.id}
-                    onClick={() => { setActiveQueueId(q.id); setActiveConvId(null); }}
-                    className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                      active
-                        ? 'bg-accent/15 text-accent'
-                        : 'hover:bg-[hsl(0_0%_8%)] text-[hsl(0_0%_75%)]'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <Inbox className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{q.name}</span>
-                    </span>
-                    {unread > 0 && (
-                      <Badge className="bg-accent text-[hsl(0_0%_8%)] h-5 px-1.5 text-[10px]">{unread}</Badge>
-                    )}
-                  </button>
-                );
-              })}
-              {queues.length === 0 && !loading && (
-                <p className="text-xs text-[hsl(0_0%_50%)] px-3 py-4">Nenhuma fila ativa.</p>
-              )}
-            </div>
-          </aside>
-
           {/* Conversations list */}
           <section className="w-80 border-r border-border bg-card flex flex-col">
             <div className="p-3 border-b border-border">
