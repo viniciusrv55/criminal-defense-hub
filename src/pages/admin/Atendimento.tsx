@@ -478,6 +478,34 @@ export default function Atendimento() {
     }
   }
 
+  async function handleDeleteConversation() {
+    if (!activeConv || !canDeleteConversations) return;
+    const label = activeConv.contact_name ?? activeConv.contact_phone;
+    if (!confirm(`Apagar conversa com ${label}?\n\nTodas as mensagens serão removidas permanentemente. Esta ação não pode ser desfeita.`)) return;
+    setDeletingConv(true);
+    const convId = activeConv.id;
+    const { error: msgErr } = await supabase.from('whatsapp_messages').delete().eq('conversation_id', convId);
+    if (msgErr) {
+      setDeletingConv(false);
+      toast({ title: 'Erro ao apagar mensagens', description: msgErr.message, variant: 'destructive' });
+      return;
+    }
+    const { error: convErr } = await supabase.from('whatsapp_conversations').delete().eq('id', convId);
+    setDeletingConv(false);
+    if (convErr) {
+      toast({ title: 'Erro ao apagar conversa', description: convErr.message, variant: 'destructive' });
+      return;
+    }
+    setConversations((prev) => prev.filter((c) => c.id !== convId));
+    setMessages([]);
+    setActiveConvId(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete('conversation');
+    setSearchParams(next, { replace: true });
+    toast({ title: 'Conversa apagada' });
+  }
+
+
   function openSchedule() {
     if (!activeConv) return;
     const base = new Date();
