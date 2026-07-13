@@ -1,49 +1,87 @@
+Resumo: refatorar o bloco de identidade que o Edge Function `ai-agent-reply` injeta no system prompt da OpenAI, transformando-o de texto livre em JSON estruturado, com instruções rígidas de uso.
 
-# Ajuste no fluxo de Atendimento + IA
+Escopo:
+- Alterar APENAS a formatação do contexto de identificação no system prompt.
+- Manter a arquitetura atual: Edge Function, tools, banco de dados, webhook, roteamento e contratos permanecem inalterados.
+- Não criar novas colunas, tabelas, funções, triggers ou APIs.
 
-## 1. Filas: uma por advogado + Fila Geral
-- **Comportamento novo:** cada advogado tem sua fila pessoal (auto-criada ou já ligada via `whatsapp_queues.team_member_id`). Atendentes ficam SÓ na Fila Geral.
-- Novo botão em `/admin/equipe` (para membros com `role='attorney'`): "Criar fila pessoal" — cria `whatsapp_queues` com `team_member_id = advogado`, `name = 'Fila – <Nome>'`.
-- Em `/admin/filas`: mostrar badge "Pessoal (Advogado X)" nas filas que têm `team_member_id`; impedir adicionar membros externos nelas.
-- Roteamento no `evolution-webhook` (entrada de mensagem de cliente já cadastrado):
-  - Se o telefone bate com um `client` que tem advogado responsável → conversa entra na **fila pessoal** desse advogado.
-  - Caso contrário → **Fila Geral** (fila sem `team_member_id`, `sort_order` mais baixo).
+Arquivos que serão modificados:
+1. `supabase/functions/ai-agent-reply/index.ts`
+   - Substituir o bloco `identityBlock` textual pelo novo bloco JSON.
+   - Incluir cálculo de `document_type` (CPF/CNPJ) e `attorney: { exists, name }`.
+   - Incluir `contact_name` e `contact_phone` apenas como informações auxiliares.
+   - Adicionar estado `document_confirmed: false` no contexto inicial; a tool `confirm_client_document` já atualiza a conversa, mas ainda não re-executa a pré-identificação em follow-ups. Para este ajuste, manteremos `document_confirmed: false` sempre que o contexto for montado antes da confirmação (o que é o caso atual). A confirmação real ocorre pela tool e a conversa é pausada, então o contexto de follow-up não é necessário.
 
-## 2. Remover criação automática de Leads
-- No `ai-agent-reply` e no `evolution-webhook`: **remover** qualquer `INSERT` em `leads` disparado por mensagem/handoff da IA.
-- Handoff da IA agora apenas: pausa IA, transfere conversa para a Fila Geral, gera notificação (sino + WhatsApp) do responsável se cliente cadastrado tiver advogado — sem criar lead.
-- `.lovable/plan.md` (Bloco 1) já contemplava criação automática — atualizar para refletir a nova regra "criação de lead é manual".
+2. `src/pages/admin/AiAgents.tsx`
+   - Atualizar o `DEFAULT_PROMPT` para remover referências ao formato antigo de texto e instruir que o agente deve usar o bloco JSON como única fonte de verdade.
 
-## 3. "Enviar para Kanban" a partir da conversa
-- No drawer de `/admin/atendimento` (topo da conversa), novo botão **"Iniciar atendimento no Kanban"**:
-  - Se a conversa já tem `client_id` → cria `leads` com `client_id` vinculado, `kanban_status='new'`, `responsible_ids = [advogado_responsavel_do_cliente]` (ou o próprio usuário se for advogado sem cliente vinculado).
-  - Se não tem `client_id` → abre modal pedindo para selecionar/cadastrar o cliente primeiro (link para `/admin/clientes/novo` com telefone pré-preenchido).
-  - Vincula `lead.whatsapp_conversation_id` e grava nota no `lead_history` com resumo/últimas mensagens.
+Campos que farão parte do bloco JSON:
 
-## 4. Iniciar atendimento Kanban a partir de um Cliente
-- Em `/admin/kanban` (Leads): botão **"Novo atendimento a partir de cliente"** abre combobox de `clients`.
-- Filtro exibido: apenas clientes onde `responsible_attorney_id = eu` **ou** `responsible_attorney_id IS NULL`.
-- Ao selecionar: cria `leads` (`client_id`, dados preenchidos do cliente, `kanban_status='new'`, `responsible_ids=[eu]`) e, se houver conversa WhatsApp aberta desse cliente, vincula.
+```json
+{
+  "client_found": true,
+  "client_name": "João da Silva",
+  "document_hint": "123.***.***-**",
+  "document_type": "CPF",
+  "document_confirmed": false,
+  "attorney": {
+    "exists": true,
+    "name": "Felipe Moraes"
+  },
+  "contact_name": "João",
+  "contact_phone": "5564999999999"
+}
+```
 
-## 5. Handoff da IA — remover configuração
-- Em `/admin/agentes-ia`: remover campos "keywords de handoff", "horário limite" — deixar apenas toggle "IA responde" + `system_prompt` + ferramentas.
-- Nova regra fixa: sempre que o modelo chamar `request_human_handoff` **ou** retornar resposta com incerteza (fallback do wrapper) → transfere para **Fila Geral**, pausa IA por 24h, envia notificação padrão.
-- Remover coluna `handoff_keywords`, `handoff_time_limit` (se existirem) via migration. Se ainda usadas em algum lugar do código, limpar referências.
+Quando cliente não for encontrado:
 
-## Detalhes técnicos
-- **DB migration:**
-  - `ALTER TABLE ai_agents DROP COLUMN handoff_keywords, DROP COLUMN handoff_time_limit_start, DROP COLUMN handoff_time_limit_end` (só se existirem).
-  - Nenhuma nova tabela.
-- **Edge functions afetadas:** `ai-agent-reply`, `evolution-webhook`, `whatsapp-transfer`.
-- **Frontend afetado:** `src/pages/admin/AiAgents.tsx`, `src/pages/admin/Team.tsx`, `src/pages/admin/Queues.tsx`, `src/pages/admin/Atendimento.tsx`, `src/pages/admin/Leads.tsx` (Kanban).
-- **Roteamento de fila:** função helper `resolveIncomingQueue(clientId, phone)` no webhook, retorna `queue_id` conforme regra do item 1.
+```json
+{
+  "client_found": false,
+  "client_name": null,
+  "document_hint": null,
+  "document_type": null,
+  "document_confirmed": false,
+  "attorney": {
+    "exists": false,
+    "name": null
+  },
+  "contact_name": "João",
+  "contact_phone": "5564999999999"
+}
+```
 
-## Ordem de execução
-1. Migration + limpeza `ai_agents`.
-2. Backend (webhook + ai-agent-reply): remover auto-lead, ajustar roteamento por advogado.
-3. Frontend `AiAgents`: remover UI de handoff.
-4. Frontend `Team` + `Queues`: botão fila pessoal / badges.
-5. Frontend `Atendimento`: botão "Iniciar Kanban".
-6. Frontend `Leads` (Kanban): "Novo atendimento a partir de cliente".
+Instruções que serão adicionadas ao system prompt:
 
-Confirma que faço tudo em sequência agora, ou prefere que eu quebre em etapas menores (ex: 1+2+3 primeiro, depois 4+5+6)?
+```text
+########################################
+## CONTEXTO DO SISTEMA (NÃO ALTERAR)
+########################################
+
+As informações abaixo foram obtidas diretamente pelo backend.
+Elas são a única fonte de verdade para identificação do cliente.
+Nunca tente deduzir informações diferentes.
+Nunca consulte novamente o telefone.
+Nunca utilize lookup_client_by_phone novamente.
+Nunca utilize o nome do contato do WhatsApp para identificar o cliente.
+Nunca invente clientes ou advogados.
+
+{json}
+
+########################################
+```
+
+Riscos:
+- Baixo. Apenas formatação do prompt.
+- A API continua recebendo uma string; o JSON fica dentro do system prompt, mantendo compatibilidade total.
+
+Impacto esperado:
+- A IA passa a ver campos estruturados, reduzindo ambiguidade sobre identidade, advogado e etapa do fluxo.
+
+Plano de rollback:
+- Reverter os dois arquivos para a versão anterior e, se necessário, reimplantar a Edge Function.
+
+Arquivos que NÃO serão modificados:
+- Qualquer arquivo de banco de dados, migrations, RLS, triggers, webhooks, Evolution API, contratos de API ou outras Edge Functions.
+
+Aprovação necessária antes da implementação.
