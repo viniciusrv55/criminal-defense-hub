@@ -428,8 +428,9 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
   const systemPrompt = [
     agent.system_prompt,
     knowledgeBlock ? `\n# Base de conhecimento\n${knowledgeBlock}` : '',
-    `\n# Contexto\nNome do contato: ${conv.contact_name ?? 'desconhecido'}\nTelefone: ${conv.contact_phone}`,
+    `\n# Contexto da conversa atual\nNome do contato no WhatsApp: ${conv.contact_name ?? 'desconhecido'}\nTelefone do contato (JÁ CONHECIDO — NUNCA pergunte ao cliente): ${conv.contact_phone}\n\nREGRA ABSOLUTA: o telefone acima é o número pelo qual o cliente está falando com você AGORA no WhatsApp. Você JAMAIS deve pedir o número de telefone. Na PRIMEIRA mensagem do cliente, chame imediatamente a tool \`lookup_client_by_phone\` (sem argumentos) para verificar o cadastro.`,
   ].filter(Boolean).join('\n');
+
 
   // Tools do protocolo de identificação são sempre ativas (independente de tools_enabled)
   const tools = Object.values(TOOL_DEFS);
