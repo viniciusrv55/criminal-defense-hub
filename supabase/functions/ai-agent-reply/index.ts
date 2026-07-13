@@ -372,63 +372,11 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     }
   }
 
-  // === Cliente cadastrado? Se sim: notifica advogado responsável (sino + WhatsApp)
-  // e joga a conversa na fila geral já atribuída a ele. Pausa a IA.
-  if (!opts.dryRun && conv.contact_phone) {
-    try {
-      const digits = String(conv.contact_phone).replace(/\D/g, '');
-      const tail = digits.slice(-10);
-      if (tail.length >= 8) {
-        const { data: clientMatches } = await admin
-          .from('clients')
-          .select('id, full_name, assigned_attorney_id, phones')
-          .not('assigned_attorney_id', 'is', null)
-          .limit(500);
-        const match = (clientMatches ?? []).find((c: Any) => {
-          const phones = Array.isArray(c.phones) ? c.phones : [];
-          return phones.some((p: Any) => {
-            const v = String(p?.value ?? p ?? '').replace(/\D/g, '');
-            return v && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
-          });
-        });
-        if (match?.assigned_attorney_id) {
-          // Fila pessoal do advogado (se existir); senão fila geral.
-          const { data: personalQ } = await admin
-            .from('whatsapp_queues').select('id').eq('team_member_id', match.assigned_attorney_id).eq('active', true).limit(1).maybeSingle();
-          let targetQueueId: string | null = personalQ?.id ?? null;
-          if (!targetQueueId) {
-            const { data: gen } = await admin
-              .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).order('sort_order').limit(1).maybeSingle();
-            targetQueueId = gen?.id ?? conv.current_queue_id;
-          }
-          await admin.from('whatsapp_conversations').update({
-            current_queue_id: targetQueueId,
-            assigned_team_member_id: match.assigned_attorney_id,
-            ai_enabled: false,
-            ai_paused_at: new Date().toISOString(),
-            status: 'open',
-            unread_count: 1,
-          }).eq('id', conversationId);
-          await admin.from('whatsapp_conversation_notes').insert({
-            conversation_id: conversationId,
-            note: `Cliente cadastrado (${match.full_name}) — encaminhado à fila pessoal do advogado responsável.`,
-          }).then(() => {}, () => {});
-          await notifyAttorney(admin, {
-            attorneyId: match.assigned_attorney_id,
-            clientName: match.full_name,
-            conversationId,
-          });
-          await admin.from('ai_agent_runs').insert({
-            agent_id: null, conversation_id: conversationId, status: 'handoff',
-            error: 'cliente_cadastrado_notificado', model: 'n/a',
-          }).then(() => {}, () => {});
-          return { ok: true, handoff: true, reason: 'client_assigned_attorney' };
-        }
-      }
-    } catch (e) {
-      console.error('[client-lookup]', e);
-    }
-  }
+  // (Auto-roteamento por telefone removido — o protocolo de identificação
+  //  agora é conduzido pelo próprio agente de IA via tools lookup_client_by_phone
+  //  e confirm_client_document, para confirmar CPF/CNPJ antes de transferir.)
+
+
 
 
 
