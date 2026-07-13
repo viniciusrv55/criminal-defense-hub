@@ -311,43 +311,7 @@ export default function AiAgents() {
                   </TabsContent>
 
 
-                  <TabsContent value="tools" className="space-y-3 mt-4">
-                    {AVAILABLE_TOOLS.map((t) => {
-                      const checked = activeAgent.tools_enabled?.includes(t.id);
-                      return (
-                        <label key={t.id} className="flex items-start gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/30">
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => {
-                              const set = new Set(activeAgent.tools_enabled ?? []);
-                              if (v) set.add(t.id); else set.delete(t.id);
-                              patchAgent({ tools_enabled: [...set] });
-                            }}
-                          />
-                          <div>
-                            <p className="font-medium text-sm">{t.label}</p>
-                            <p className="text-xs text-muted-foreground">{t.desc}</p>
-                          </div>
-                        </label>
-                      );
-                    })}
-                    {activeAgent.tools_enabled?.includes('create_appointment') && (
-                      <div className="p-3 border border-accent/40 bg-accent/5 rounded-lg space-y-2">
-                        <Label className="text-sm">Advogado padrão para agendamentos (opcional)</Label>
-                        <Select
-                          value={activeAgent.scheduling_attorney_id ?? '__any__'}
-                          onValueChange={(v) => patchAgent({ scheduling_attorney_id: v === '__any__' ? null : v })}
-                        >
-                          <SelectTrigger><SelectValue placeholder="Qualquer advogado disponível" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__any__">Qualquer advogado disponível</SelectItem>
-                            {members.map((m) => (<SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">Se preenchido, a IA marcará todas as consultas com este advogado, salvo se o cliente pedir outro pelo nome.</p>
-                      </div>
-                    )}
-                  </TabsContent>
+
 
                   <TabsContent value="play" className="space-y-3 mt-4">
                     <p className="text-xs text-muted-foreground">Teste o agente sem enviar mensagens reais. Ferramentas não são executadas — apenas registradas.</p>
