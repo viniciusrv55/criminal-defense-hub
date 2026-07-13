@@ -23,7 +23,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { TransferNoteBanner } from '@/components/admin/TransferNoteBanner';
-import { samePhone, normalizeBrazilianPhone } from '@/lib/phone';
+import { samePhone } from '@/lib/phone';
 
 
 interface Queue { id: string; name: string; team_member_id: string | null; color: string; }
@@ -419,16 +419,15 @@ export default function Atendimento() {
 
       // Fallback: se a conversa não está vinculada, tenta localizar cliente pelo telefone
       if (!clientId && activeConv.contact_phone) {
-        const normalized = normalizeBrazilianPhone(activeConv.contact_phone);
-        const alt = normalized.length === 13 && normalized.startsWith('55')
-          ? normalized.slice(0, 4) + normalized.slice(5) // sem 9º dígito
-          : normalized;
-        const digits = Array.from(new Set([normalized, alt, activeConv.contact_phone])).filter(Boolean);
+        // Telefones no banco vêm com máscara (ex.: "(64) 99284-3221"), então
+        // um ilike no texto bruto não bate com dígitos normalizados. Buscamos
+        // apenas clientes que tenham telefone cadastrado e comparamos em JS
+        // usando samePhone (que já lida com 9º dígito e formatos).
         const { data: candidates } = await supabase
           .from('clients')
-          .select('id, full_name, emails, phones, assigned_attorney_id')
-          .or(digits.map((d) => `phones::text.ilike.%${d}%`).join(','))
-          .limit(20);
+          .select('id, phones')
+          .not('phones', 'is', null)
+          .limit(5000);
         const match = (candidates ?? []).find((c) => {
           const phones = (c.phones as Array<{ value?: string }> | null) ?? [];
           return phones.some((p) => samePhone(p?.value, activeConv.contact_phone));
