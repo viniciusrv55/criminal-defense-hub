@@ -28,75 +28,68 @@ interface Agent {
   tools_enabled: string[];
 }
 
+// Tools do PROTOCOLO DE IDENTIFICAÇÃO. Sempre ativas, independentes de tools_enabled.
 const TOOL_DEFS: Record<string, Any> = {
-  get_practice_areas: {
+  lookup_client_by_phone: {
     type: 'function',
     function: {
-      name: 'get_practice_areas',
-      description: 'Retorna as áreas de atuação ativas do escritório, com título e descrição curta.',
+      name: 'lookup_client_by_phone',
+      description: 'Consulta se o telefone do contato atual bate com algum cliente cadastrado. Chame SEMPRE na primeira interação, antes de qualquer coisa. Retorna { found, client_name?, doc_hint? } onde doc_hint é o CPF/CNPJ do cadastro com apenas os 3 primeiros dígitos visíveis e o restante mascarado.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
-  
-  request_human_handoff: {
+  confirm_client_document: {
     type: 'function',
     function: {
-      name: 'request_human_handoff',
-      description: 'Encaminha a conversa para a FILA GERAL de atendimento humano e pausa a IA. Use SEMPRE que o cliente pedir para falar com um atendente, advogado, humano, ou demonstrar que quer falar com alguém da equipe. Não tente continuar a conversa por conta própria — apenas chame esta função. Antes de chamar, responda com uma única mensagem curta e simpática avisando que ele foi encaminhado para a fila de atendimento e que em breve um atendente irá responder.',
+      name: 'confirm_client_document',
+      description: 'Valida o CPF/CNPJ informado pelo cliente contra o cadastro vinculado ao telefone. Se bater, transfere a conversa para a fila do advogado responsável e pausa a IA. Retorna { ok, transferred?, attorney_name? }.',
       parameters: {
         type: 'object',
-        properties: { reason: { type: 'string', description: 'Motivo curto do encaminhamento.' } },
+        properties: { document: { type: 'string', description: 'CPF ou CNPJ digitado pelo cliente (com ou sem pontuação).' } },
+        required: ['document'],
+        additionalProperties: false,
+      },
+    },
+  },
+  transfer_to_general: {
+    type: 'function',
+    function: {
+      name: 'transfer_to_general',
+      description: 'Envia a conversa para a FILA GERAL e pausa a IA. Use quando o cliente não é reconhecido, não confere com o cadastro, ou pede para falar com atendente humano.',
+      parameters: {
+        type: 'object',
+        properties: { reason: { type: 'string', description: 'Motivo curto (ex: numero_nao_cadastrado, cliente_nao_confere, cpf_nao_confere, pedido_humano).' } },
         required: ['reason'],
         additionalProperties: false,
       },
     },
   },
-
-  list_appointment_types: {
-    type: 'function',
-    function: {
-      name: 'list_appointment_types',
-      description: 'Retorna os tipos de compromisso disponíveis (consulta, audiência etc).',
-      parameters: { type: 'object', properties: {}, additionalProperties: false },
-    },
-  },
-  get_available_slots: {
-    type: 'function',
-    function: {
-      name: 'get_available_slots',
-      description: 'Retorna horários livres para agendar consulta em uma data (YYYY-MM-DD). Considera disponibilidade dos advogados, compromissos existentes e bloqueios.',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: { type: 'string', description: 'Data alvo no formato YYYY-MM-DD.' },
-          duration_minutes: { type: 'number', description: 'Duração desejada em minutos (default 30).' },
-        },
-        required: ['date'],
-        additionalProperties: false,
-      },
-    },
-  },
-  create_appointment: {
-    type: 'function',
-    function: {
-      name: 'create_appointment',
-      description: 'Cria um agendamento (consulta) vinculado à conversa atual. Use após confirmar nome, data/hora e (opcional) advogado.',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Nome do cliente.' },
-          starts_at: { type: 'string', description: 'Data/hora ISO 8601 do início (ex 2026-05-20T14:00:00-03:00).' },
-          duration_minutes: { type: 'number', description: 'Duração em minutos (default 30).' },
-          appointment_type: { type: 'string', description: 'Nome do tipo (ex Consulta inicial).' },
-          attorney_name: { type: 'string', description: 'Nome (ou parte) do advogado preferido — opcional.' },
-          notes: { type: 'string', description: 'Observações.' },
-        },
-        required: ['name', 'starts_at'],
-        additionalProperties: false,
-      },
-    },
-  },
 };
+
+function maskDoc(doc: string): string {
+  const d = (doc ?? '').replace(/\D/g, '');
+  if (d.length === 11) return `${d.slice(0, 3)}.***.***-**`;
+  if (d.length === 14) return `${d.slice(0, 3)}.***.***/****-**`;
+  if (d.length >= 3) return `${d.slice(0, 3)}${'*'.repeat(Math.max(0, d.length - 3))}`;
+  return '***';
+}
+
+async function findClientByPhone(admin: Any, phone: string): Promise<Any | null> {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  const tail = digits.slice(-10);
+  if (tail.length < 8) return null;
+  const { data: clients } = await admin
+    .from('clients')
+    .select('id, full_name, cpf, cnpj, assigned_attorney_id, phones')
+    .limit(1000);
+  return (clients ?? []).find((c: Any) => {
+    const phones = Array.isArray(c.phones) ? c.phones : [];
+    return phones.some((p: Any) => {
+      const v = String(p?.value ?? p ?? '').replace(/\D/g, '');
+      return v && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
+    });
+  }) ?? null;
+}
 
 // (horário comercial removido — IA responde sempre que ativa; se ficar em dúvida, transfere para a fila geral via `request_human_handoff`.)
 
