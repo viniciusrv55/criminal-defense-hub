@@ -269,7 +269,7 @@ const Leads = () => {
 
       <div className="flex gap-4 overflow-x-auto pb-4">
         {visibleColumns.map(col => {
-          const colLeads = leads.filter(l => l.kanban_status === col.key);
+          const colLeads = leads.filter(l => l.kanban_status === col.key && l.status !== 'closed');
           return (
             <div key={col.key} className="min-w-[280px] flex-1">
               <div className={`p-3 rounded-t-xl bg-card border-t-4 ${col.color ?? 'border-accent'} border-x border-border`}>
