@@ -469,7 +469,7 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           ? { dry_run: true, would_call: fname, args: fargs }
           : await executeTool(admin, fname, fargs, { conversationId, agent, contactPhone: conv.contact_phone });
         llmMessages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
-        if (fname === 'request_human_handoff') didHandoff = true;
+        if (fname === 'transfer_to_general' || (fname === 'confirm_client_document' && (result as Any)?.transferred)) didHandoff = true;
       }
       // Após handoff, encerra o loop — IA já pausada
       if (didHandoff) {
