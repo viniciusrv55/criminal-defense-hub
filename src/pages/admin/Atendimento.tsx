@@ -450,7 +450,7 @@ export default function Atendimento() {
 
       // Já existe lead vinculado? navega direto
       if (activeConv.lead_id) {
-        navigate('/admin/kanban');
+        navigate('/admin/leads');
         return;
       }
       const { data: cli } = await supabase.from('clients')
@@ -479,7 +479,7 @@ export default function Atendimento() {
         performed_by: user?.id,
       });
       toast({ title: 'Atendimento enviado ao Kanban' });
-      navigate('/admin/kanban');
+      navigate('/admin/leads');
     } finally {
       setSendingToKanban(false);
     }
