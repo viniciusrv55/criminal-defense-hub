@@ -33,13 +33,7 @@ interface TeamMember { id: string; full_name: string; }
 interface Knowledge { id: string; agent_id: string; title: string; content: string; sort_order: number; active: boolean; }
 interface Run { id: string; agent_id: string; status: string; model: string; prompt_tokens: number | null; completion_tokens: number | null; latency_ms: number | null; tool_calls: unknown; error: string | null; created_at: string; }
 
-const AVAILABLE_TOOLS = [
-  { id: 'get_practice_areas', label: 'Listar áreas de atuação', desc: 'Permite ao agente consultar as áreas ativas do site.' },
-  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA e transfere a conversa para a Fila Geral, com resumo. Não cria lead — o atendente decide se cria.' },
-  { id: 'list_appointment_types', label: 'Listar tipos de consulta', desc: 'Retorna os tipos de compromisso cadastrados.' },
-  { id: 'get_available_slots', label: 'Consultar horários livres', desc: 'Permite à IA pesquisar horários disponíveis para agendar consultas.' },
-  { id: 'create_appointment', label: 'Agendar consulta', desc: 'Permite à IA marcar consulta. Pode ser com advogado específico via configuração.' },
-];
+const AVAILABLE_TOOLS: { id: string; label: string; desc: string }[] = [];
 
 const MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'];
 
