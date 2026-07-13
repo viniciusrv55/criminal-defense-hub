@@ -1,0 +1,2 @@
+CREATE POLICY "Admins can delete conversations" ON public.whatsapp_conversations FOR DELETE TO authenticated USING (public.is_admin(auth.uid()));
+CREATE POLICY "Admins can delete messages" ON public.whatsapp_messages FOR DELETE TO authenticated USING (public.is_admin(auth.uid()));

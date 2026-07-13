@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Send, Search, Inbox, MessageSquare, ArrowRightLeft, User as UserIcon, Phone,
   Loader2, FileText, Image as ImageIcon, Mic, Video as VideoIcon, MapPin, Sticker, Bot, BotOff,
-  Calendar, Paperclip, Smile, Square, Plus, UserPlus2,
+  Calendar, Paperclip, Smile, Square, Plus, UserPlus2, Trash2,
 } from 'lucide-react';
 import Picker from '@emoji-mart/react';
 import emojiData from '@emoji-mart/data';
