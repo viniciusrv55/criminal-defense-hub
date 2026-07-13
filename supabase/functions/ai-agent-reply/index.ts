@@ -433,29 +433,38 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
   let identityBlock = '';
   try {
     const preClient = await findClientByPhone(admin, conv.contact_phone);
-    if (preClient) {
-      const doc = preClient.cpf || preClient.cnpj || '';
-      const docHint = doc ? maskDoc(doc) : '(sem CPF/CNPJ no cadastro)';
-      let attorneyName: string | null = null;
-      if (preClient.assigned_attorney_id) {
-        const { data: tm } = await admin.from('team_members').select('full_name').eq('id', preClient.assigned_attorney_id).maybeSingle();
-        attorneyName = tm?.full_name ?? null;
-      }
-      identityBlock = `\n# Identificação já resolvida (pré-computada pelo sistema — NÃO chame lookup_client_by_phone novamente)\n`
-        + `- Telefone bate com cliente cadastrado.\n`
-        + `- Nome no cadastro: ${preClient.full_name}\n`
-        + `- CPF/CNPJ (mascarado, 3 primeiros dígitos): ${docHint}\n`
-        + `- Advogado responsável: ${attorneyName ?? '(nenhum — cairá em fila geral quando confirmar)'}\n\n`
-        + `PROTOCOLO OBRIGATÓRIO nesta primeira interação:\n`
-        + `1) Cumprimente pelo nome ("${preClient.full_name}").\n`
-        + `2) Pergunte se pode confirmar o CPF/CNPJ, exibindo o hint mascarado acima como pista (ex: "começa com ${docHint}").\n`
-        + `3) Quando o cliente informar o documento, chame a tool \`confirm_client_document\` com o valor digitado. Se conferir, a conversa será transferida automaticamente.\n`
-        + `4) Se o cliente disser que não é essa pessoa ou pedir humano, chame \`transfer_to_general\`.`;
-    } else {
-      identityBlock = `\n# Identificação já resolvida (pré-computada pelo sistema — NÃO chame lookup_client_by_phone novamente)\n`
-        + `- Telefone NÃO corresponde a nenhum cliente cadastrado.\n\n`
-        + `PROTOCOLO OBRIGATÓRIO: cumprimente educadamente, informe que não localizamos cadastro para este número e chame \`transfer_to_general\` com reason="numero_nao_cadastrado" para encaminhar à fila geral (onde poderão corrigir o cadastro).`;
+    let attorneyName: string | null = null;
+    if (preClient?.assigned_attorney_id) {
+      const { data: tm } = await admin.from('team_members').select('full_name').eq('id', preClient.assigned_attorney_id).maybeSingle();
+      attorneyName = tm?.full_name ?? null;
     }
+    const docRaw = preClient?.cpf || preClient?.cnpj || '';
+    const docType = preClient?.cpf ? 'CPF' : preClient?.cnpj ? 'CNPJ' : null;
+    const identityPayload = {
+      client_found: !!preClient,
+      client_name: preClient?.full_name ?? null,
+      document_hint: docRaw ? maskDoc(docRaw) : null,
+      document_type: docType,
+      document_confirmed: false,
+      attorney: {
+        exists: !!attorneyName,
+        name: attorneyName,
+      },
+      contact_name: conv.contact_name ?? null,
+      contact_phone: conv.contact_phone ?? null,
+    };
+    identityBlock = `\n########################################\n`
+      + `## CONTEXTO DO SISTEMA (NÃO ALTERAR)\n`
+      + `########################################\n\n`
+      + `As informações abaixo foram obtidas diretamente pelo backend.\n`
+      + `Elas são a única fonte de verdade para identificação do cliente.\n`
+      + `Nunca tente deduzir informações diferentes.\n`
+      + `Nunca consulte novamente o telefone.\n`
+      + `Nunca utilize lookup_client_by_phone novamente.\n`
+      + `Nunca utilize o nome do contato do WhatsApp para identificar o cliente.\n`
+      + `Nunca invente clientes ou advogados.\n\n`
+      + `${JSON.stringify(identityPayload, null, 2)}\n\n`
+      + `########################################\n`;
   } catch (e) {
     console.error('[pre-identify]', e);
   }
