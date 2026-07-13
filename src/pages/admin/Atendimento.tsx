@@ -23,6 +23,7 @@ import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { TransferNoteBanner } from '@/components/admin/TransferNoteBanner';
+import { samePhone, normalizeBrazilianPhone } from '@/lib/phone';
 
 
 interface Queue { id: string; name: string; team_member_id: string | null; color: string; }
