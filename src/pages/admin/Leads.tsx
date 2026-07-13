@@ -144,6 +144,7 @@ const Leads = () => {
       setClosing(false);
     }
   };
+  const [team, setTeam] = useState<TeamMemberLite[]>([]);
   const [perms, setPerms] = useState<StagePerm[]>([]);
   const [myMemberId, setMyMemberId] = useState<string | null>(null);
 
