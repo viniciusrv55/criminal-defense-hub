@@ -252,7 +252,7 @@ const Leads = () => {
       <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
         <div>
           <h1 className="font-serif text-2xl font-bold text-foreground">Atendimento Kanban</h1>
-          <p className="text-muted-foreground text-sm mt-1">{leads.length} leads no total</p>
+          <p className="text-muted-foreground text-sm mt-1">{leads.filter(l => l.status !== 'closed').length} leads ativos</p>
         </div>
         {isAdmin() && (
           <Button variant="outline" size="sm" onClick={() => setShowColumnsEditor(v => !v)}>
