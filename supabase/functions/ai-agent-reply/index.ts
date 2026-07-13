@@ -431,7 +431,8 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     `\n# Contexto\nNome do contato: ${conv.contact_name ?? 'desconhecido'}\nTelefone: ${conv.contact_phone}`,
   ].filter(Boolean).join('\n');
 
-  const tools = (agent.tools_enabled ?? []).map(n => TOOL_DEFS[n]).filter(Boolean);
+  // Tools do protocolo de identificação são sempre ativas (independente de tools_enabled)
+  const tools = Object.values(TOOL_DEFS);
 
   // Tool loop (max 3 iterations)
   const llmMessages: Any[] = [{ role: 'system', content: systemPrompt }, ...messages];
