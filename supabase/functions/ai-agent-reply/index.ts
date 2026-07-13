@@ -495,6 +495,8 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
       contact_name: conv.contact_name ?? null,
       contact_phone: conv.contact_phone ?? null,
     };
+    console.log('[DIAG] lookup_client_by_phone bruto → preClient:', preClient ? { id: preClient.id, full_name: preClient.full_name, cpf: preClient.cpf ? '(preenchido)' : null, cnpj: preClient.cnpj ? '(preenchido)' : null, assigned_attorney_id: preClient.assigned_attorney_id } : null);
+    console.log('[DIAG] identityPayload (JSON injetado no prompt):', JSON.stringify(identityPayload, null, 2));
     identityBlock = `\n########################################\n`
       + `## CONTEXTO DO SISTEMA (NÃO ALTERAR)\n`
       + `########################################\n\n`
