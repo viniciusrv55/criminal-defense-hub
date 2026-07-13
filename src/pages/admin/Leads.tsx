@@ -80,7 +80,70 @@ const Leads = () => {
     }
   };
 
-  const [team, setTeam] = useState<TeamMemberLite[]>([]);
+  const closeAtendimento = async (lead: Lead) => {
+    const summary = window.prompt(
+      'Descreva brevemente o resultado do atendimento (será salvo no histórico do cliente):',
+      'Atendimento concluído.',
+    );
+    if (summary === null) return; // cancelado
+    setClosing(true);
+    try {
+      // 1) Garantir cliente vinculado (cria mínimo se não existir)
+      let clientId = lead.client_id;
+      if (!clientId) {
+        const { data: existing } = await db.from('clients')
+          .select('id').eq('lead_id', lead.id).maybeSingle();
+        clientId = (existing as { id: string } | null)?.id ?? null;
+      }
+      if (!clientId) {
+        const { data: created, error: cErr } = await db.from('clients').insert({
+          person_type: 'pf',
+          full_name: lead.name,
+          emails: lead.email ? [{ label: 'principal', value: lead.email }] : [],
+          phones: lead.phone ? [{ label: 'celular', value: lead.phone }] : [],
+          notes: lead.message || null,
+          lead_id: lead.id,
+          created_by: user?.id,
+        }).select('id').single();
+        if (cErr) { toast({ title: 'Erro ao criar cliente', description: cErr.message, variant: 'destructive' }); setClosing(false); return; }
+        clientId = (created as { id: string }).id;
+        await updateLead(lead.id, { client_id: clientId } as Partial<Lead>);
+      }
+
+      // 2) Insere histórico no cliente
+      const { error: hErr } = await db.from('client_history').insert({
+        client_id: clientId,
+        lead_id: lead.id,
+        action: 'atendimento_encerrado',
+        summary,
+        attorney_ids: lead.responsible_ids ?? [],
+        practice_area_id: lead.practice_area_id,
+        performed_by: user?.id,
+      });
+      if (hErr) { toast({ title: 'Erro ao salvar histórico', description: hErr.message, variant: 'destructive' }); setClosing(false); return; }
+
+      // 3) Marca lead como fechado
+      await updateLead(lead.id, { status: 'closed' } as Partial<Lead>);
+      await db.from('lead_history').insert({
+        lead_id: lead.id,
+        action: 'closed',
+        description: `Atendimento encerrado: ${summary}`,
+        performed_by: user?.id,
+      });
+
+      // 4) Encerra conversa de WhatsApp vinculada (se houver)
+      try {
+        await supabase.from('whatsapp_conversations')
+          .update({ status: 'closed' })
+          .eq('lead_id', lead.id);
+      } catch (e) { console.warn('close conversation failed', e); }
+
+      toast({ title: 'Atendimento encerrado', description: 'Histórico salvo no cliente.' });
+      setSelectedLead(null);
+    } finally {
+      setClosing(false);
+    }
+  };
   const [perms, setPerms] = useState<StagePerm[]>([]);
   const [myMemberId, setMyMemberId] = useState<string | null>(null);
 
