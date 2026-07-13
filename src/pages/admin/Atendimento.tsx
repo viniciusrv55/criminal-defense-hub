@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import {
   Send, Search, Inbox, MessageSquare, ArrowRightLeft, User as UserIcon, Phone,
   Loader2, FileText, Image as ImageIcon, Mic, Video as VideoIcon, MapPin, Sticker, Bot, BotOff,
-  Calendar, Paperclip, Smile, Square, Plus, UserPlus2,
+  Calendar, Paperclip, Smile, Square, Plus, UserPlus2, Trash2,
 } from 'lucide-react';
 import Picker from '@emoji-mart/react';
 import emojiData from '@emoji-mart/data';
@@ -142,7 +142,9 @@ function MessageBubble({ msg }: { msg: Message }) {
 }
 
 export default function Atendimento() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const canDeleteConversations = isAdmin();
+  const [deletingConv, setDeletingConv] = useState(false);
   const [queues, setQueues] = useState<Queue[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -475,6 +477,34 @@ export default function Atendimento() {
       toast({ title: paused ? 'IA retomada' : 'IA pausada' });
     }
   }
+
+  async function handleDeleteConversation() {
+    if (!activeConv || !canDeleteConversations) return;
+    const label = activeConv.contact_name ?? activeConv.contact_phone;
+    if (!confirm(`Apagar conversa com ${label}?\n\nTodas as mensagens serão removidas permanentemente. Esta ação não pode ser desfeita.`)) return;
+    setDeletingConv(true);
+    const convId = activeConv.id;
+    const { error: msgErr } = await supabase.from('whatsapp_messages').delete().eq('conversation_id', convId);
+    if (msgErr) {
+      setDeletingConv(false);
+      toast({ title: 'Erro ao apagar mensagens', description: msgErr.message, variant: 'destructive' });
+      return;
+    }
+    const { error: convErr } = await supabase.from('whatsapp_conversations').delete().eq('id', convId);
+    setDeletingConv(false);
+    if (convErr) {
+      toast({ title: 'Erro ao apagar conversa', description: convErr.message, variant: 'destructive' });
+      return;
+    }
+    setConversations((prev) => prev.filter((c) => c.id !== convId));
+    setMessages([]);
+    setActiveConvId(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete('conversation');
+    setSearchParams(next, { replace: true });
+    toast({ title: 'Conversa apagada' });
+  }
+
 
   function openSchedule() {
     if (!activeConv) return;
@@ -815,6 +845,18 @@ export default function Atendimento() {
                       {sendingToKanban ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UserPlus2 className="w-4 h-4 mr-2" />}
                       Enviar ao Kanban
                     </Button>
+                    {canDeleteConversations && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDeleteConversation}
+                        disabled={deletingConv}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                        title="Apagar conversa (admin)"
+                      >
+                        {deletingConv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </Button>
+                    )}
                   </div>
                 </div>
 
