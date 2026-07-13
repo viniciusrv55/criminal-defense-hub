@@ -361,6 +361,13 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     .maybeSingle();
   if (!conv) return { ok: false, error: 'Conversa não encontrada' };
 
+  console.log('[DIAG] ================ runAgent start ================');
+  console.log('[DIAG] conversation_id:', conversationId);
+  console.log('[DIAG] contact_phone (Evolution):', conv.contact_phone);
+  console.log('[DIAG] contact_name (Evolution):', conv.contact_name);
+  console.log('[DIAG] current_queue_id:', conv.current_queue_id);
+  console.log('[DIAG] ai_enabled:', conv.ai_enabled, 'ai_paused_at:', conv.ai_paused_at);
+
   // === Contato é um membro da equipe? Encaminha para fila geral e NÃO aciona IA ===
   if (!opts.dryRun && conv.contact_phone) {
     try {
