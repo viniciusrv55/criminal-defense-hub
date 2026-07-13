@@ -120,8 +120,8 @@ export default function AiAgents() {
       queue_id: q.id,
       name: `Agente — ${q.name}`,
       active: false,
-      system_prompt: 'Você é um atendente do escritório de advocacia Lindomberto Moraes. Seja cordial, claro e direto. Não dê pareceres jurídicos definitivos; sempre indique falar com um advogado para o caso concreto.',
-      greeting_message: 'Olá! 👋 Sou o assistente virtual do escritório Lindomberto Moraes. Como posso te ajudar hoje?',
+      system_prompt: DEFAULT_PROMPT,
+      greeting_message: null,
     }).select('*').single();
     if (error) return toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     setAgents((prev) => [data as Agent, ...prev]);
