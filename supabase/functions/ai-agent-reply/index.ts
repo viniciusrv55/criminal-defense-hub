@@ -526,6 +526,12 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
 
   // Tool loop (max 3 iterations)
   const llmMessages: Any[] = [{ role: 'system', content: systemPrompt }, ...messages];
+
+  console.log('[DIAG] ===== SYSTEM PROMPT FINAL enviado à OpenAI (', systemPrompt.length, 'chars) =====');
+  console.log(systemPrompt);
+  console.log('[DIAG] ===== FIM SYSTEM PROMPT =====');
+  console.log('[DIAG] messages (histórico) count:', messages.length, '→', JSON.stringify(messages.slice(-5)));
+
   let totalPromptTokens = 0, totalCompletionTokens = 0;
   const toolCalls: Any[] = [];
   let finalText = '';
@@ -542,6 +548,7 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     totalCompletionTokens += resp.usage?.completion_tokens ?? 0;
     const choice = resp.choices?.[0];
     const msg = choice?.message;
+    console.log('[DIAG] OpenAI resp iter=', iter, 'finish_reason=', choice?.finish_reason, 'content=', (msg?.content ?? '').slice(0, 400), 'tool_calls=', JSON.stringify(msg?.tool_calls ?? []));
     if (!msg) break;
 
     if (msg.tool_calls?.length) {
