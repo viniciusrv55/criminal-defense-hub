@@ -28,75 +28,68 @@ interface Agent {
   tools_enabled: string[];
 }
 
+// Tools do PROTOCOLO DE IDENTIFICAÇÃO. Sempre ativas, independentes de tools_enabled.
 const TOOL_DEFS: Record<string, Any> = {
-  get_practice_areas: {
+  lookup_client_by_phone: {
     type: 'function',
     function: {
-      name: 'get_practice_areas',
-      description: 'Retorna as áreas de atuação ativas do escritório, com título e descrição curta.',
+      name: 'lookup_client_by_phone',
+      description: 'Consulta se o telefone do contato atual bate com algum cliente cadastrado. Chame SEMPRE na primeira interação, antes de qualquer coisa. Retorna { found, client_name?, doc_hint? } onde doc_hint é o CPF/CNPJ do cadastro com apenas os 3 primeiros dígitos visíveis e o restante mascarado.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
     },
   },
-  
-  request_human_handoff: {
+  confirm_client_document: {
     type: 'function',
     function: {
-      name: 'request_human_handoff',
-      description: 'Encaminha a conversa para a FILA GERAL de atendimento humano e pausa a IA. Use SEMPRE que o cliente pedir para falar com um atendente, advogado, humano, ou demonstrar que quer falar com alguém da equipe. Não tente continuar a conversa por conta própria — apenas chame esta função. Antes de chamar, responda com uma única mensagem curta e simpática avisando que ele foi encaminhado para a fila de atendimento e que em breve um atendente irá responder.',
+      name: 'confirm_client_document',
+      description: 'Valida o CPF/CNPJ informado pelo cliente contra o cadastro vinculado ao telefone. Se bater, transfere a conversa para a fila do advogado responsável e pausa a IA. Retorna { ok, transferred?, attorney_name? }.',
       parameters: {
         type: 'object',
-        properties: { reason: { type: 'string', description: 'Motivo curto do encaminhamento.' } },
+        properties: { document: { type: 'string', description: 'CPF ou CNPJ digitado pelo cliente (com ou sem pontuação).' } },
+        required: ['document'],
+        additionalProperties: false,
+      },
+    },
+  },
+  transfer_to_general: {
+    type: 'function',
+    function: {
+      name: 'transfer_to_general',
+      description: 'Envia a conversa para a FILA GERAL e pausa a IA. Use quando o cliente não é reconhecido, não confere com o cadastro, ou pede para falar com atendente humano.',
+      parameters: {
+        type: 'object',
+        properties: { reason: { type: 'string', description: 'Motivo curto (ex: numero_nao_cadastrado, cliente_nao_confere, cpf_nao_confere, pedido_humano).' } },
         required: ['reason'],
         additionalProperties: false,
       },
     },
   },
-
-  list_appointment_types: {
-    type: 'function',
-    function: {
-      name: 'list_appointment_types',
-      description: 'Retorna os tipos de compromisso disponíveis (consulta, audiência etc).',
-      parameters: { type: 'object', properties: {}, additionalProperties: false },
-    },
-  },
-  get_available_slots: {
-    type: 'function',
-    function: {
-      name: 'get_available_slots',
-      description: 'Retorna horários livres para agendar consulta em uma data (YYYY-MM-DD). Considera disponibilidade dos advogados, compromissos existentes e bloqueios.',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: { type: 'string', description: 'Data alvo no formato YYYY-MM-DD.' },
-          duration_minutes: { type: 'number', description: 'Duração desejada em minutos (default 30).' },
-        },
-        required: ['date'],
-        additionalProperties: false,
-      },
-    },
-  },
-  create_appointment: {
-    type: 'function',
-    function: {
-      name: 'create_appointment',
-      description: 'Cria um agendamento (consulta) vinculado à conversa atual. Use após confirmar nome, data/hora e (opcional) advogado.',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: { type: 'string', description: 'Nome do cliente.' },
-          starts_at: { type: 'string', description: 'Data/hora ISO 8601 do início (ex 2026-05-20T14:00:00-03:00).' },
-          duration_minutes: { type: 'number', description: 'Duração em minutos (default 30).' },
-          appointment_type: { type: 'string', description: 'Nome do tipo (ex Consulta inicial).' },
-          attorney_name: { type: 'string', description: 'Nome (ou parte) do advogado preferido — opcional.' },
-          notes: { type: 'string', description: 'Observações.' },
-        },
-        required: ['name', 'starts_at'],
-        additionalProperties: false,
-      },
-    },
-  },
 };
+
+function maskDoc(doc: string): string {
+  const d = (doc ?? '').replace(/\D/g, '');
+  if (d.length === 11) return `${d.slice(0, 3)}.***.***-**`;
+  if (d.length === 14) return `${d.slice(0, 3)}.***.***/****-**`;
+  if (d.length >= 3) return `${d.slice(0, 3)}${'*'.repeat(Math.max(0, d.length - 3))}`;
+  return '***';
+}
+
+async function findClientByPhone(admin: Any, phone: string): Promise<Any | null> {
+  const digits = String(phone ?? '').replace(/\D/g, '');
+  const tail = digits.slice(-10);
+  if (tail.length < 8) return null;
+  const { data: clients } = await admin
+    .from('clients')
+    .select('id, full_name, cpf, cnpj, assigned_attorney_id, phones')
+    .limit(1000);
+  return (clients ?? []).find((c: Any) => {
+    const phones = Array.isArray(c.phones) ? c.phones : [];
+    return phones.some((p: Any) => {
+      const v = String(p?.value ?? p ?? '').replace(/\D/g, '');
+      return v && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
+    });
+  }) ?? null;
+}
 
 // (horário comercial removido — IA responde sempre que ativa; se ficar em dúvida, transfere para a fila geral via `request_human_handoff`.)
 
@@ -111,166 +104,114 @@ async function callOpenAI(apiKey: string, body: Any): Promise<Any> {
   return JSON.parse(text);
 }
 
-async function executeTool(admin: Any, name: string, args: Any, ctx: { conversationId: string; agent: Agent; contactPhone: string }): Promise<Any> {
-  if (name === 'get_practice_areas') {
-    const { data } = await admin
-      .from('practice_areas')
-      .select('title, subtitle, description')
-      .eq('active', true)
-      .order('sort_order');
-    return { areas: (data ?? []).map((a: Any) => ({ title: a.title, summary: a.subtitle ?? a.description ?? '' })) };
-  }
-  if (name === 'create_lead') {
-    // Ferramenta desativada — a criação de leads é manual pelo atendimento.
-    return { ok: false, error: 'create_lead desativado — o atendente cria o lead manualmente pelo painel.' };
-  }
-  if (name === 'request_human_handoff') {
-    const reason = args.reason ?? 'Solicitação do agente';
-    await admin
-      .from('whatsapp_conversations')
-      .update({ ai_paused_at: new Date().toISOString(), ai_handoff_reason: reason })
-      .eq('id', ctx.conversationId);
-
-    // Fetch conversation + recent messages to build a summary for human agents
-    const { data: convFull } = await admin
-      .from('whatsapp_conversations')
-      .select('id, contact_name, contact_phone, lead_id, current_queue_id')
-      .eq('id', ctx.conversationId)
-      .maybeSingle();
-
-    const { data: recentMsgs } = await admin
-      .from('whatsapp_messages')
-      .select('direction, content, created_at')
-      .eq('conversation_id', ctx.conversationId)
-      .order('created_at', { ascending: false })
-      .limit(15);
-
-    const transcript = (recentMsgs ?? []).reverse()
-      .map((m: Any) => `${m.direction === 'inbound' ? 'Cliente' : 'IA'}: ${m.content ?? ''}`)
-      .join('\n')
-      .slice(0, 2000);
-
-    const summary = `Handoff IA — Motivo: ${reason}\n\nÚltimas mensagens:\n${transcript}`;
-
-    // NÃO cria lead automaticamente — o atendente decide se abre um lead no Kanban após ler a conversa.
-    if (convFull?.lead_id) {
-      await admin.from('lead_history').insert({
-        lead_id: convFull.lead_id,
-        action: 'ai_handoff',
-        description: summary.slice(0, 1000),
-      });
-    }
-    await admin.from('whatsapp_conversation_notes').insert({
-      conversation_id: ctx.conversationId,
-      note: summary.slice(0, 2000),
+async function transferToGeneral(admin: Any, conversationId: string, reason: string): Promise<void> {
+  const { data: convFull } = await admin
+    .from('whatsapp_conversations')
+    .select('id, current_queue_id')
+    .eq('id', conversationId)
+    .maybeSingle();
+  const { data: gen } = await admin
+    .from('whatsapp_queues')
+    .select('id')
+    .is('team_member_id', null)
+    .eq('active', true)
+    .order('sort_order')
+    .limit(1)
+    .maybeSingle();
+  await admin.from('whatsapp_conversations').update({
+    ai_enabled: false,
+    ai_paused_at: new Date().toISOString(),
+    ai_handoff_reason: reason,
+    current_queue_id: gen?.id ?? convFull?.current_queue_id,
+    assigned_team_member_id: null,
+    status: 'open',
+    unread_count: 1,
+  }).eq('id', conversationId);
+  if (gen?.id) {
+    await admin.from('whatsapp_conversation_transfers').insert({
+      conversation_id: conversationId,
+      from_queue_id: convFull?.current_queue_id ?? null,
+      to_queue_id: gen.id,
+      note: `IA transferiu para fila geral — motivo: ${reason}`,
     }).then(() => {}, () => {});
+  }
+  await admin.from('whatsapp_conversation_notes').insert({
+    conversation_id: conversationId,
+    note: `IA transferiu para fila geral — motivo: ${reason}`,
+  }).then(() => {}, () => {});
+}
 
-    // Transfer to General queue + mark conversation as needing attention (unread badge)
-    const { data: gen } = await admin
-      .from('whatsapp_queues')
-      .select('id')
-      .is('team_member_id', null)
-      .eq('active', true)
-      .order('sort_order')
-      .limit(1)
-      .maybeSingle();
-    if (gen?.id) {
+async function executeTool(admin: Any, name: string, args: Any, ctx: { conversationId: string; agent: Agent; contactPhone: string }): Promise<Any> {
+  if (name === 'lookup_client_by_phone') {
+    const client = await findClientByPhone(admin, ctx.contactPhone);
+    if (!client) return { found: false };
+    const doc = client.cpf || client.cnpj || '';
+    return {
+      found: true,
+      client_name: client.full_name,
+      doc_hint: doc ? maskDoc(doc) : '(sem CPF/CNPJ no cadastro)',
+      has_document: !!doc,
+    };
+  }
+  if (name === 'confirm_client_document') {
+    const informed = String(args.document ?? '').replace(/\D/g, '');
+    if (!informed) return { ok: false, error: 'documento_vazio' };
+    const client = await findClientByPhone(admin, ctx.contactPhone);
+    if (!client) return { ok: false, error: 'cliente_nao_encontrado' };
+    const stored = String(client.cpf || client.cnpj || '').replace(/\D/g, '');
+    if (!stored) return { ok: false, error: 'cliente_sem_documento_cadastrado' };
+    if (stored !== informed) return { ok: false, error: 'documento_nao_confere' };
+
+    // Documento confere — transfere para fila do advogado responsável (se houver)
+    const { data: convFull } = await admin
+      .from('whatsapp_conversations').select('id, current_queue_id').eq('id', ctx.conversationId).maybeSingle();
+    let targetQueueId: string | null = null;
+    let attorneyName: string | null = null;
+    if (client.assigned_attorney_id) {
+      const { data: personalQ } = await admin
+        .from('whatsapp_queues').select('id').eq('team_member_id', client.assigned_attorney_id).eq('active', true).limit(1).maybeSingle();
+      targetQueueId = personalQ?.id ?? null;
+      const { data: tm } = await admin.from('team_members').select('full_name').eq('id', client.assigned_attorney_id).maybeSingle();
+      attorneyName = tm?.full_name ?? null;
+    }
+    if (!targetQueueId) {
+      const { data: gen } = await admin
+        .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).order('sort_order').limit(1).maybeSingle();
+      targetQueueId = gen?.id ?? convFull?.current_queue_id ?? null;
+    }
+    await admin.from('whatsapp_conversations').update({
+      current_queue_id: targetQueueId,
+      assigned_team_member_id: client.assigned_attorney_id ?? null,
+      ai_enabled: false,
+      ai_paused_at: new Date().toISOString(),
+      ai_handoff_reason: 'documento_confirmado',
+      status: 'open',
+      unread_count: 1,
+    }).eq('id', ctx.conversationId);
+    if (targetQueueId && targetQueueId !== convFull?.current_queue_id) {
       await admin.from('whatsapp_conversation_transfers').insert({
         conversation_id: ctx.conversationId,
         from_queue_id: convFull?.current_queue_id ?? null,
-        to_queue_id: gen.id,
-        note: summary,
+        to_queue_id: targetQueueId,
+        note: `IA confirmou identidade — cliente ${client.full_name}${attorneyName ? ` · advogado ${attorneyName}` : ''}.`,
+      }).then(() => {}, () => {});
+    }
+    if (client.assigned_attorney_id) {
+      await notifyAttorney(admin, {
+        attorneyId: client.assigned_attorney_id,
+        clientName: client.full_name,
+        conversationId: ctx.conversationId,
       });
-      await admin.from('whatsapp_conversations').update({
-        current_queue_id: gen.id,
-        assigned_team_member_id: null,
-        unread_count: 1,
-      }).eq('id', ctx.conversationId);
-    } else {
-      await admin.from('whatsapp_conversations').update({ unread_count: 1 }).eq('id', ctx.conversationId);
     }
-
-    return { ok: true, handed_off: true };
+    return { ok: true, transferred: true, attorney_name: attorneyName, client_name: client.full_name };
   }
-  if (name === 'list_appointment_types') {
-    const { data } = await admin.from('appointment_types').select('id, name, duration_minutes').eq('active', true).order('sort_order');
-    return { types: data ?? [] };
-  }
-  if (name === 'get_available_slots') {
-    const dateStr = args.date as string;
-    const duration = Number(args.duration_minutes) || 30;
-    if (!dateStr) return { ok: false, error: 'date obrigatória' };
-    const dayStart = new Date(`${dateStr}T00:00:00-03:00`);
-    const dayEnd = new Date(`${dateStr}T23:59:59-03:00`);
-    const weekday = dayStart.getDay();
-    const { data: avail } = await admin.from('appointment_availability').select('team_member_id, start_time, end_time').eq('weekday', weekday).eq('active', true);
-    if (!avail?.length) return { slots: [], note: 'Sem disponibilidade nesta data.' };
-    const { data: existing } = await admin.from('appointments').select('starts_at, ends_at, attorney_id').gte('starts_at', dayStart.toISOString()).lte('starts_at', dayEnd.toISOString()).neq('status', 'cancelled');
-    const { data: blocks } = await admin.from('appointment_blocks').select('starts_at, ends_at, team_member_id').lte('starts_at', dayEnd.toISOString()).gte('ends_at', dayStart.toISOString());
-    const slots: string[] = [];
-    for (const a of avail) {
-      const [sh, sm] = a.start_time.split(':').map(Number);
-      const [eh, em] = a.end_time.split(':').map(Number);
-      let cur = new Date(dayStart); cur.setHours(sh, sm, 0, 0);
-      const end = new Date(dayStart); end.setHours(eh, em, 0, 0);
-      while (cur.getTime() + duration * 60000 <= end.getTime()) {
-        const slotEnd = new Date(cur.getTime() + duration * 60000);
-        const conflict = (existing ?? []).some((e: Any) => e.attorney_id === a.team_member_id && new Date(e.starts_at) < slotEnd && new Date(e.ends_at) > cur)
-          || (blocks ?? []).some((b: Any) => (!b.team_member_id || b.team_member_id === a.team_member_id) && new Date(b.starts_at) < slotEnd && new Date(b.ends_at) > cur);
-        if (!conflict && cur > new Date()) slots.push(cur.toISOString());
-        cur = new Date(cur.getTime() + 30 * 60000);
-      }
-    }
-    return { slots: Array.from(new Set(slots)).sort().slice(0, 8) };
-  }
-  if (name === 'create_appointment') {
-    const starts = new Date(args.starts_at);
-    if (isNaN(starts.getTime())) return { ok: false, error: 'starts_at inválido' };
-    const duration = Number(args.duration_minutes) || 30;
-    const ends = new Date(starts.getTime() + duration * 60000);
-    let typeId: string | null = null;
-    if (args.appointment_type) {
-      const { data: types } = await admin.from('appointment_types').select('id, name').eq('active', true);
-      typeId = (types ?? []).find((t: Any) => t.name.toLowerCase().includes(String(args.appointment_type).toLowerCase()))?.id ?? null;
-    }
-    // 1) Preferência: advogado citado no argumento ou pré-configurado no agente
-    let attorneyId: string | null = null;
-    const preferredName = typeof args.attorney_name === 'string' ? args.attorney_name.trim() : '';
-    const preferredId = (ctx.agent as Any).scheduling_attorney_id as string | null | undefined;
-    if (preferredName) {
-      const { data: tm } = await admin.from('team_members').select('id, full_name').eq('active', true);
-      const m = (tm ?? []).find((t: Any) => t.full_name?.toLowerCase().includes(preferredName.toLowerCase()));
-      if (m) attorneyId = m.id;
-    } else if (preferredId) {
-      attorneyId = preferredId;
-    }
-
-    // 2) Caso não tenha advogado preferido, varre disponibilidade da semana
-    if (!attorneyId) {
-      const weekday = starts.getDay();
-      const hhmm = starts.toTimeString().slice(0, 5);
-      const { data: avail } = await admin.from('appointment_availability').select('team_member_id').eq('weekday', weekday).eq('active', true).lte('start_time', hhmm).gte('end_time', hhmm);
-      for (const a of (avail ?? [])) {
-        const { data: clash } = await admin.from('appointments').select('id').eq('attorney_id', a.team_member_id).neq('status', 'cancelled').lt('starts_at', ends.toISOString()).gt('ends_at', starts.toISOString()).maybeSingle();
-        if (!clash) { attorneyId = a.team_member_id; break; }
-      }
-    }
-    const { data: appt, error } = await admin.from('appointments').insert({
-      title: `Consulta — ${args.name}`,
-      appointment_type_id: typeId,
-      conversation_id: ctx.conversationId,
-      attorney_id: attorneyId,
-      starts_at: starts.toISOString(),
-      ends_at: ends.toISOString(),
-      status: 'scheduled',
-      created_via: 'ai_agent',
-      notes: args.notes ?? null,
-    }).select('id').single();
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, appointment_id: appt.id, starts_at: starts.toISOString(), attorney_assigned: !!attorneyId };
+  if (name === 'transfer_to_general') {
+    await transferToGeneral(admin, ctx.conversationId, String(args.reason ?? 'nao_especificado'));
+    return { ok: true, transferred: true };
   }
   return { ok: false, error: `Tool desconhecida: ${name}` };
 }
+
 
 async function sendWhatsApp(admin: Any, conversationId: string, text: string, agentId: string): Promise<string | null> {
   const { data: conv } = await admin
@@ -431,63 +372,11 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     }
   }
 
-  // === Cliente cadastrado? Se sim: notifica advogado responsável (sino + WhatsApp)
-  // e joga a conversa na fila geral já atribuída a ele. Pausa a IA.
-  if (!opts.dryRun && conv.contact_phone) {
-    try {
-      const digits = String(conv.contact_phone).replace(/\D/g, '');
-      const tail = digits.slice(-10);
-      if (tail.length >= 8) {
-        const { data: clientMatches } = await admin
-          .from('clients')
-          .select('id, full_name, assigned_attorney_id, phones')
-          .not('assigned_attorney_id', 'is', null)
-          .limit(500);
-        const match = (clientMatches ?? []).find((c: Any) => {
-          const phones = Array.isArray(c.phones) ? c.phones : [];
-          return phones.some((p: Any) => {
-            const v = String(p?.value ?? p ?? '').replace(/\D/g, '');
-            return v && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
-          });
-        });
-        if (match?.assigned_attorney_id) {
-          // Fila pessoal do advogado (se existir); senão fila geral.
-          const { data: personalQ } = await admin
-            .from('whatsapp_queues').select('id').eq('team_member_id', match.assigned_attorney_id).eq('active', true).limit(1).maybeSingle();
-          let targetQueueId: string | null = personalQ?.id ?? null;
-          if (!targetQueueId) {
-            const { data: gen } = await admin
-              .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).order('sort_order').limit(1).maybeSingle();
-            targetQueueId = gen?.id ?? conv.current_queue_id;
-          }
-          await admin.from('whatsapp_conversations').update({
-            current_queue_id: targetQueueId,
-            assigned_team_member_id: match.assigned_attorney_id,
-            ai_enabled: false,
-            ai_paused_at: new Date().toISOString(),
-            status: 'open',
-            unread_count: 1,
-          }).eq('id', conversationId);
-          await admin.from('whatsapp_conversation_notes').insert({
-            conversation_id: conversationId,
-            note: `Cliente cadastrado (${match.full_name}) — encaminhado à fila pessoal do advogado responsável.`,
-          }).then(() => {}, () => {});
-          await notifyAttorney(admin, {
-            attorneyId: match.assigned_attorney_id,
-            clientName: match.full_name,
-            conversationId,
-          });
-          await admin.from('ai_agent_runs').insert({
-            agent_id: null, conversation_id: conversationId, status: 'handoff',
-            error: 'cliente_cadastrado_notificado', model: 'n/a',
-          }).then(() => {}, () => {});
-          return { ok: true, handoff: true, reason: 'client_assigned_attorney' };
-        }
-      }
-    } catch (e) {
-      console.error('[client-lookup]', e);
-    }
-  }
+  // (Auto-roteamento por telefone removido — o protocolo de identificação
+  //  agora é conduzido pelo próprio agente de IA via tools lookup_client_by_phone
+  //  e confirm_client_document, para confirmar CPF/CNPJ antes de transferir.)
+
+
 
 
 
@@ -542,7 +431,8 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     `\n# Contexto\nNome do contato: ${conv.contact_name ?? 'desconhecido'}\nTelefone: ${conv.contact_phone}`,
   ].filter(Boolean).join('\n');
 
-  const tools = (agent.tools_enabled ?? []).map(n => TOOL_DEFS[n]).filter(Boolean);
+  // Tools do protocolo de identificação são sempre ativas (independente de tools_enabled)
+  const tools = Object.values(TOOL_DEFS);
 
   // Tool loop (max 3 iterations)
   const llmMessages: Any[] = [{ role: 'system', content: systemPrompt }, ...messages];
@@ -579,7 +469,7 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           ? { dry_run: true, would_call: fname, args: fargs }
           : await executeTool(admin, fname, fargs, { conversationId, agent, contactPhone: conv.contact_phone });
         llmMessages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
-        if (fname === 'request_human_handoff') didHandoff = true;
+        if (fname === 'transfer_to_general' || (fname === 'confirm_client_document' && (result as Any)?.transferred)) didHandoff = true;
       }
       // Após handoff, encerra o loop — IA já pausada
       if (didHandoff) {

@@ -8,9 +8,9 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Checkbox } from '@/components/ui/checkbox';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Bot, Plus, Save, Trash2, Send, Loader2, FlaskConical, BookOpen, Wrench, MessageCircle } from 'lucide-react';
+import { Bot, Plus, Save, Trash2, Send, Loader2, FlaskConical, BookOpen, MessageCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { db } from '@/lib/supabase-helpers';
@@ -33,13 +33,34 @@ interface TeamMember { id: string; full_name: string; }
 interface Knowledge { id: string; agent_id: string; title: string; content: string; sort_order: number; active: boolean; }
 interface Run { id: string; agent_id: string; status: string; model: string; prompt_tokens: number | null; completion_tokens: number | null; latency_ms: number | null; tool_calls: unknown; error: string | null; created_at: string; }
 
-const AVAILABLE_TOOLS = [
-  { id: 'get_practice_areas', label: 'Listar áreas de atuação', desc: 'Permite ao agente consultar as áreas ativas do site.' },
-  { id: 'request_human_handoff', label: 'Transferir para humano', desc: 'Pausa a IA e transfere a conversa para a Fila Geral, com resumo. Não cria lead — o atendente decide se cria.' },
-  { id: 'list_appointment_types', label: 'Listar tipos de consulta', desc: 'Retorna os tipos de compromisso cadastrados.' },
-  { id: 'get_available_slots', label: 'Consultar horários livres', desc: 'Permite à IA pesquisar horários disponíveis para agendar consultas.' },
-  { id: 'create_appointment', label: 'Agendar consulta', desc: 'Permite à IA marcar consulta. Pode ser com advogado específico via configuração.' },
-];
+const DEFAULT_PROMPT = `Você é o atendente virtual do escritório de advocacia Lindomberto Moraes. Sua ÚNICA função nesta primeira etapa é executar o PROTOCOLO DE VERIFICAÇÃO DE IDENTIDADE abaixo. Não responda dúvidas jurídicas, não fale de valores, não agende nada. Você existe apenas para identificar o cliente e encaminhar corretamente.
+
+# Contexto que você recebe
+- Você recebe no contexto o telefone do contato e o resultado da ferramenta \`lookup_client_by_phone\` (dispare-a SEMPRE na primeira mensagem do cliente).
+- O sistema chamará a tool automaticamente e devolverá:
+  - \`{ found: false }\` — telefone não bate com nenhum cliente cadastrado.
+  - \`{ found: true, client_name, doc_hint }\` — bate. \`doc_hint\` já vem no formato "123.***.***-**" (3 primeiros dígitos visíveis, resto mascarado).
+
+# Roteiro obrigatório
+1. Cumprimente com cordialidade e apresente-se:
+   "Olá! Aqui é o atendimento virtual do escritório Lindomberto Moraes. 👋 Vou te identificar rapidamente para te encaminhar ao advogado correto."
+2. Se \`found=false\`: informe que o número não consta no cadastro e chame \`transfer_to_general(reason="numero_nao_cadastrado")\`. Diga: "Vou te encaminhar para nossa equipe geral para corrigir/atualizar seu cadastro. Um atendente já vai te responder por aqui."
+3. Se \`found=true\`:
+   a. Pergunte: "Você é o(a) Sr(a). {client_name}?"
+   b. Se o cliente disser que NÃO é: chame \`transfer_to_general(reason="cliente_nao_confere")\` e avise que a equipe geral irá regularizar o cadastro.
+   c. Se o cliente confirmar: peça o CPF ou CNPJ completo para confirmação. Mostre o hint para ele se orientar: "Para eu confirmar, informe seu CPF ou CNPJ completo. (Cadastro começa com {doc_hint})"
+   d. Quando ele responder com o documento, chame \`confirm_client_document(document="...digitado pelo cliente...")\`. Não tente validar sozinho; a tool responde \`{ ok: true, transferred: true }\` ou \`{ ok: false }\`.
+   e. Se \`ok=true\`: responda "Perfeito, {client_name}! Estou te transferindo para o(a) advogado(a) responsável, que já vai te atender por aqui. 🙌" e ENCERRE. Não continue conversando.
+   f. Se \`ok=false\`: tente mais 1 vez. Se falhar de novo, chame \`transfer_to_general(reason="cpf_nao_confere")\` e avise que a equipe geral vai regularizar.
+
+# Regras
+- Sempre trate por "senhor/senhora" salvo se o cliente pedir informalidade.
+- Nunca revele o CPF completo do cliente — só o hint mascarado.
+- Não invente informações; se não sabe, transfira para a geral.
+- Uma pergunta por vez. Mensagens curtas.
+- Nunca finja executar tools — chame-as de fato.`;
+
+
 
 const MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'];
 
@@ -99,8 +120,8 @@ export default function AiAgents() {
       queue_id: q.id,
       name: `Agente — ${q.name}`,
       active: false,
-      system_prompt: 'Você é um atendente do escritório de advocacia Lindomberto Moraes. Seja cordial, claro e direto. Não dê pareceres jurídicos definitivos; sempre indique falar com um advogado para o caso concreto.',
-      greeting_message: 'Olá! 👋 Sou o assistente virtual do escritório Lindomberto Moraes. Como posso te ajudar hoje?',
+      system_prompt: DEFAULT_PROMPT,
+      greeting_message: null,
     }).select('*').single();
     if (error) return toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     setAgents((prev) => [data as Agent, ...prev]);
@@ -233,8 +254,6 @@ export default function AiAgents() {
                     <TabsTrigger value="general">Geral</TabsTrigger>
                     <TabsTrigger value="prompt"><MessageCircle className="w-3.5 h-3.5 mr-1" />Prompt</TabsTrigger>
                     <TabsTrigger value="knowledge"><BookOpen className="w-3.5 h-3.5 mr-1" />Conhecimento</TabsTrigger>
-                    
-                    <TabsTrigger value="tools"><Wrench className="w-3.5 h-3.5 mr-1" />Ferramentas</TabsTrigger>
                     <TabsTrigger value="play"><FlaskConical className="w-3.5 h-3.5 mr-1" />Playground</TabsTrigger>
                     <TabsTrigger value="history">Histórico</TabsTrigger>
                   </TabsList>
@@ -319,43 +338,7 @@ export default function AiAgents() {
                   </TabsContent>
 
 
-                  <TabsContent value="tools" className="space-y-3 mt-4">
-                    {AVAILABLE_TOOLS.map((t) => {
-                      const checked = activeAgent.tools_enabled?.includes(t.id);
-                      return (
-                        <label key={t.id} className="flex items-start gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted/30">
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => {
-                              const set = new Set(activeAgent.tools_enabled ?? []);
-                              if (v) set.add(t.id); else set.delete(t.id);
-                              patchAgent({ tools_enabled: [...set] });
-                            }}
-                          />
-                          <div>
-                            <p className="font-medium text-sm">{t.label}</p>
-                            <p className="text-xs text-muted-foreground">{t.desc}</p>
-                          </div>
-                        </label>
-                      );
-                    })}
-                    {activeAgent.tools_enabled?.includes('create_appointment') && (
-                      <div className="p-3 border border-accent/40 bg-accent/5 rounded-lg space-y-2">
-                        <Label className="text-sm">Advogado padrão para agendamentos (opcional)</Label>
-                        <Select
-                          value={activeAgent.scheduling_attorney_id ?? '__any__'}
-                          onValueChange={(v) => patchAgent({ scheduling_attorney_id: v === '__any__' ? null : v })}
-                        >
-                          <SelectTrigger><SelectValue placeholder="Qualquer advogado disponível" /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__any__">Qualquer advogado disponível</SelectItem>
-                            {members.map((m) => (<SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">Se preenchido, a IA marcará todas as consultas com este advogado, salvo se o cliente pedir outro pelo nome.</p>
-                      </div>
-                    )}
-                  </TabsContent>
+
 
                   <TabsContent value="play" className="space-y-3 mt-4">
                     <p className="text-xs text-muted-foreground">Teste o agente sem enviar mensagens reais. Ferramentas não são executadas — apenas registradas.</p>
