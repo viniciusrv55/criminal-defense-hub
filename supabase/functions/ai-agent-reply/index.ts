@@ -361,6 +361,13 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     .maybeSingle();
   if (!conv) return { ok: false, error: 'Conversa não encontrada' };
 
+  console.log('[DIAG] ================ runAgent start ================');
+  console.log('[DIAG] conversation_id:', conversationId);
+  console.log('[DIAG] contact_phone (Evolution):', conv.contact_phone);
+  console.log('[DIAG] contact_name (Evolution):', conv.contact_name);
+  console.log('[DIAG] current_queue_id:', conv.current_queue_id);
+  console.log('[DIAG] ai_enabled:', conv.ai_enabled, 'ai_paused_at:', conv.ai_paused_at);
+
   // === Contato é um membro da equipe? Encaminha para fila geral e NÃO aciona IA ===
   if (!opts.dryRun && conv.contact_phone) {
     try {
@@ -376,7 +383,9 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
           const v = String(t.phone ?? '').replace(/\D/g, '');
           return v && v.length >= 8 && (v.endsWith(tail) || tail.endsWith(v.slice(-10)));
         });
+        console.log('[DIAG] team-member phone check → tail:', tail, 'match:', teamMatch ? `${teamMatch.full_name} (${teamMatch.phone})` : 'nenhum');
         if (teamMatch) {
+          console.log('[DIAG] SHORT-CIRCUIT: contato é membro da equipe → fila geral, IA NÃO executada');
           const { data: gen } = await admin
             .from('whatsapp_queues').select('id').is('team_member_id', null).eq('active', true).limit(1).maybeSingle();
           await admin.from('whatsapp_conversations').update({
@@ -408,14 +417,20 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
 
 
   let agent: Agent | null = null;
+  let agentSource = 'none';
   if (opts.overrideAgentId) {
     const { data } = await admin.from('ai_agents').select('*').eq('id', opts.overrideAgentId).maybeSingle();
     agent = data;
+    agentSource = 'overrideAgentId';
   } else if (conv.current_queue_id) {
     const { data } = await admin.from('ai_agents').select('*').eq('queue_id', conv.current_queue_id).eq('active', true).maybeSingle();
     agent = data;
+    agentSource = 'queue_id';
   }
+  console.log('[DIAG] agent lookup source:', agentSource, '→', agent ? `${agent.name} (id=${agent.id}, model=${agent.model})` : 'NENHUM AGENTE');
   if (!agent) return { ok: false, error: 'Nenhum agente ativo para a fila' };
+  console.log('[DIAG] system_prompt length:', agent.system_prompt?.length ?? 0, 'chars — origem: banco (ai_agents.system_prompt). DEFAULT_PROMPT do frontend só é usado ao CRIAR novo agente.');
+  console.log('[DIAG] system_prompt (primeiros 400 chars):', (agent.system_prompt ?? '').slice(0, 400));
 
   if (!opts.dryRun) {
     if (!conv.ai_enabled || conv.ai_paused_at) return { ok: false, error: 'IA desativada/pausada na conversa' };
@@ -480,6 +495,8 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
       contact_name: conv.contact_name ?? null,
       contact_phone: conv.contact_phone ?? null,
     };
+    console.log('[DIAG] lookup_client_by_phone bruto → preClient:', preClient ? { id: preClient.id, full_name: preClient.full_name, cpf: preClient.cpf ? '(preenchido)' : null, cnpj: preClient.cnpj ? '(preenchido)' : null, assigned_attorney_id: preClient.assigned_attorney_id } : null);
+    console.log('[DIAG] identityPayload (JSON injetado no prompt):', JSON.stringify(identityPayload, null, 2));
     identityBlock = `\n########################################\n`
       + `## CONTEXTO DO SISTEMA (NÃO ALTERAR)\n`
       + `########################################\n\n`
@@ -509,6 +526,12 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
 
   // Tool loop (max 3 iterations)
   const llmMessages: Any[] = [{ role: 'system', content: systemPrompt }, ...messages];
+
+  console.log('[DIAG] ===== SYSTEM PROMPT FINAL enviado à OpenAI (', systemPrompt.length, 'chars) =====');
+  console.log(systemPrompt);
+  console.log('[DIAG] ===== FIM SYSTEM PROMPT =====');
+  console.log('[DIAG] messages (histórico) count:', messages.length, '→', JSON.stringify(messages.slice(-5)));
+
   let totalPromptTokens = 0, totalCompletionTokens = 0;
   const toolCalls: Any[] = [];
   let finalText = '';
@@ -525,6 +548,7 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
     totalCompletionTokens += resp.usage?.completion_tokens ?? 0;
     const choice = resp.choices?.[0];
     const msg = choice?.message;
+    console.log('[DIAG] OpenAI resp iter=', iter, 'finish_reason=', choice?.finish_reason, 'content=', (msg?.content ?? '').slice(0, 400), 'tool_calls=', JSON.stringify(msg?.tool_calls ?? []));
     if (!msg) break;
 
     if (msg.tool_calls?.length) {
