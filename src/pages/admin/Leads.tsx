@@ -23,6 +23,7 @@ const Leads = () => {
   const navigate = useNavigate();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [converting, setConverting] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
   const [showColumnsEditor, setShowColumnsEditor] = useState(false);
 
