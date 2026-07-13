@@ -835,9 +835,6 @@ export default function Atendimento() {
                     <Button variant="outline" size="sm" onClick={toggleAi}>
                       {activeConv.ai_paused_at ? <><Bot className="w-4 h-4 mr-2" />Retomar IA</> : <><BotOff className="w-4 h-4 mr-2" />Pausar IA</>}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={openSchedule}>
-                      <Calendar className="w-4 h-4 mr-2" /> Agendar
-                    </Button>
                     <Button variant="outline" size="sm" onClick={() => setTransferOpen(true)}>
                       <ArrowRightLeft className="w-4 h-4 mr-2" /> Transferir
                     </Button>
