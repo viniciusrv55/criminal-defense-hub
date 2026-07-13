@@ -6,7 +6,7 @@ import { usePracticeAreas } from '@/hooks/usePracticeAreas';
 import { db } from '@/lib/supabase-helpers';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus, MessageCircle, Settings2 } from 'lucide-react';
+import { Phone, Mail, Calendar, X, UserPlus2, FileSignature, CalendarPlus, MessageCircle, Settings2, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import type { Lead } from '@/types/database';
@@ -23,6 +23,7 @@ const Leads = () => {
   const navigate = useNavigate();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [converting, setConverting] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [columns, setColumns] = useState<KanbanColumn[]>([]);
   const [showColumnsEditor, setShowColumnsEditor] = useState(false);
 
@@ -79,6 +80,70 @@ const Leads = () => {
     }
   };
 
+  const closeAtendimento = async (lead: Lead) => {
+    const summary = window.prompt(
+      'Descreva brevemente o resultado do atendimento (será salvo no histórico do cliente):',
+      'Atendimento concluído.',
+    );
+    if (summary === null) return; // cancelado
+    setClosing(true);
+    try {
+      // 1) Garantir cliente vinculado (cria mínimo se não existir)
+      let clientId = lead.client_id;
+      if (!clientId) {
+        const { data: existing } = await db.from('clients')
+          .select('id').eq('lead_id', lead.id).maybeSingle();
+        clientId = (existing as { id: string } | null)?.id ?? null;
+      }
+      if (!clientId) {
+        const { data: created, error: cErr } = await db.from('clients').insert({
+          person_type: 'pf',
+          full_name: lead.name,
+          emails: lead.email ? [{ label: 'principal', value: lead.email }] : [],
+          phones: lead.phone ? [{ label: 'celular', value: lead.phone }] : [],
+          notes: lead.message || null,
+          lead_id: lead.id,
+          created_by: user?.id,
+        }).select('id').single();
+        if (cErr) { toast({ title: 'Erro ao criar cliente', description: cErr.message, variant: 'destructive' }); setClosing(false); return; }
+        clientId = (created as { id: string }).id;
+        await updateLead(lead.id, { client_id: clientId } as Partial<Lead>);
+      }
+
+      // 2) Insere histórico no cliente
+      const { error: hErr } = await db.from('client_history').insert({
+        client_id: clientId,
+        lead_id: lead.id,
+        action: 'atendimento_encerrado',
+        summary,
+        attorney_ids: lead.responsible_ids ?? [],
+        practice_area_id: lead.practice_area_id,
+        performed_by: user?.id,
+      });
+      if (hErr) { toast({ title: 'Erro ao salvar histórico', description: hErr.message, variant: 'destructive' }); setClosing(false); return; }
+
+      // 3) Marca lead como fechado
+      await updateLead(lead.id, { status: 'closed' } as Partial<Lead>);
+      await db.from('lead_history').insert({
+        lead_id: lead.id,
+        action: 'closed',
+        description: `Atendimento encerrado: ${summary}`,
+        performed_by: user?.id,
+      });
+
+      // 4) Encerra conversa de WhatsApp vinculada (se houver)
+      try {
+        await supabase.from('whatsapp_conversations')
+          .update({ status: 'closed' })
+          .eq('lead_id', lead.id);
+      } catch (e) { console.warn('close conversation failed', e); }
+
+      toast({ title: 'Atendimento encerrado', description: 'Histórico salvo no cliente.' });
+      setSelectedLead(null);
+    } finally {
+      setClosing(false);
+    }
+  };
   const [team, setTeam] = useState<TeamMemberLite[]>([]);
   const [perms, setPerms] = useState<StagePerm[]>([]);
   const [myMemberId, setMyMemberId] = useState<string | null>(null);
@@ -342,6 +407,26 @@ const Leads = () => {
                     </Button>
                     <p className="text-[11px] text-muted-foreground text-center">Cria cliente e abre o contrato pré-preenchido.</p>
                   </>
+                )}
+
+                {selectedLead.kanban_status === closedKey && selectedLead.status !== 'closed' && (
+                  <>
+                    <Button
+                      onClick={() => closeAtendimento(selectedLead)}
+                      disabled={closing}
+                      variant="outline"
+                      className="w-full border-green-600/40 text-green-700 hover:bg-green-600/10"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      {closing ? 'Encerrando...' : 'Encerrar atendimento'}
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground text-center">Salva no histórico do cliente que o caso foi resolvido pelos advogados responsáveis.</p>
+                  </>
+                )}
+                {selectedLead.status === 'closed' && (
+                  <p className="text-[11px] text-green-700 text-center flex items-center justify-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Atendimento encerrado
+                  </p>
                 )}
               </div>
 

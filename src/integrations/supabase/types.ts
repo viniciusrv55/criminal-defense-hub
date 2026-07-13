@@ -785,6 +785,64 @@ export type Database = {
           },
         ]
       }
+      client_history: {
+        Row: {
+          action: string
+          attorney_ids: string[]
+          client_id: string
+          created_at: string
+          id: string
+          lead_id: string | null
+          performed_by: string | null
+          practice_area_id: string | null
+          summary: string | null
+        }
+        Insert: {
+          action?: string
+          attorney_ids?: string[]
+          client_id: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          performed_by?: string | null
+          practice_area_id?: string | null
+          summary?: string | null
+        }
+        Update: {
+          action?: string
+          attorney_ids?: string[]
+          client_id?: string
+          created_at?: string
+          id?: string
+          lead_id?: string | null
+          performed_by?: string | null
+          practice_area_id?: string | null
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_history_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_history_practice_area_id_fkey"
+            columns: ["practice_area_id"]
+            isOneToOne: false
+            referencedRelation: "practice_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_portal_access: {
         Row: {
           active: boolean

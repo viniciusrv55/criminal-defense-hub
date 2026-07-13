@@ -79,6 +79,8 @@ export interface Lead {
   assigned_attorney_id: string | null;
   kanban_status: string;
   responsible_ids: string[];
+  client_id: string | null;
+  whatsapp_conversation_id: string | null;
   created_at: string;
   updated_at: string;
 }
