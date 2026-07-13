@@ -417,14 +417,20 @@ export async function runAgent(admin: Any, openaiKey: string, conversationId: st
 
 
   let agent: Agent | null = null;
+  let agentSource = 'none';
   if (opts.overrideAgentId) {
     const { data } = await admin.from('ai_agents').select('*').eq('id', opts.overrideAgentId).maybeSingle();
     agent = data;
+    agentSource = 'overrideAgentId';
   } else if (conv.current_queue_id) {
     const { data } = await admin.from('ai_agents').select('*').eq('queue_id', conv.current_queue_id).eq('active', true).maybeSingle();
     agent = data;
+    agentSource = 'queue_id';
   }
+  console.log('[DIAG] agent lookup source:', agentSource, '→', agent ? `${agent.name} (id=${agent.id}, model=${agent.model})` : 'NENHUM AGENTE');
   if (!agent) return { ok: false, error: 'Nenhum agente ativo para a fila' };
+  console.log('[DIAG] system_prompt length:', agent.system_prompt?.length ?? 0, 'chars — origem: banco (ai_agents.system_prompt). DEFAULT_PROMPT do frontend só é usado ao CRIAR novo agente.');
+  console.log('[DIAG] system_prompt (primeiros 400 chars):', (agent.system_prompt ?? '').slice(0, 400));
 
   if (!opts.dryRun) {
     if (!conv.ai_enabled || conv.ai_paused_at) return { ok: false, error: 'IA desativada/pausada na conversa' };
