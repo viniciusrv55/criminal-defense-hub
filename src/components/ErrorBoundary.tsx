@@ -1,6 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
+import { logError } from '@/lib/error-logger';
 
 interface Props { children: ReactNode }
 interface State { error: Error | null }
@@ -14,6 +15,12 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary]', error, info.componentStack);
+    logError({
+      action: 'react.errorBoundary',
+      screen: 'ErrorBoundary',
+      error,
+      payload: { componentStack: info.componentStack?.slice(0, 2000) },
+    });
   }
 
   reset = () => this.setState({ error: null });
